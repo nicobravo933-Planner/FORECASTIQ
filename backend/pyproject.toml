@@ -6,6 +6,7 @@ authors = [
     { name = "Nicolás Bravo", email = "nicobravo933@gmail.com" }
 ]
 readme = "README.md"
+dynamic = []
 requires-python = ">=3.12"
 
 dependencies = [
@@ -74,6 +75,9 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
 # ── Ruff (linting + formatting) ──────────────────────────────
 [tool.ruff]
 target-version = "py312"
@@ -112,12 +116,5 @@ python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 
-# ── UV scripts (run with: uv run <script>) ───────────────────
-[tool.uv.scripts]
-dev    = "uvicorn app.main:app --reload --port 8000"
-worker = "celery -A app.services.celery_app worker --loglevel=info"
-test   = "pytest"
-lint   = "ruff check ."
-fmt    = "ruff format ."
-types  = "mypy app"
-check  = { chain = ["lint", "types", "test"] }  # run all checks
+# ── UV scripts → usar directamente con: uv run uvicorn ... etc.
+# [tool.uv.scripts] no está soportado en esta versión de UV
