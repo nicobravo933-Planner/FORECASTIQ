@@ -25,7 +25,7 @@
 
 ### Backend
 
-- [ ] Init project with UV (`uv init forecastiq-backend`)
+- [x] Init project with UV (`uv init forecastiq-backend`)
 - [x] `pyproject.toml` with core deps (fastapi, uvicorn, pydantic-settings, ruff, mypy, pytest)
 - [x] `app/main.py` — FastAPI app factory
 - [x] `app/core/config.py` — pydantic-settings with all env vars
@@ -36,7 +36,7 @@
 
 ### Frontend
 
-- [ ] Init Next.js 14 with TypeScript (`npx create-next-app@latest`)
+- [x] Init Next.js 14 with TypeScript (`npx create-next-app@latest`)
 - [x] Install MUI v6 (`@mui/material @emotion/react @emotion/styled`)
 - [x] `lib/theme.ts` — MUI theme (Inter font, indigo primary, rem sizing)
 - [x] Root layout with ThemeProvider
@@ -50,13 +50,13 @@
 - [x] `.pre-commit-config.yaml` (ruff, mypy, prettier)
 - [x] `.github/workflows/ci.yml` (lint + test on every push)
 - [x] `.gitignore` (`.env`, `__pycache__`, `.next`, `node_modules`, `uv.lock` exceptions)
-- [ ] First commit + push to public GitHub repo
+- [x] First commit + push to public GitHub repo
 
 ### Done when
 
-- [ ] `docker compose up` works from a fresh clone
-- [ ] `GET /health` returns 200
-- [ ] Frontend renders at localhost:3000
+- [x] `docker compose up` works from a fresh clone
+- [x] `GET /health` returns 200
+- [x] Frontend renders at localhost:3000
 - [ ] GitHub Actions CI passes (green badge)
 
 ---
