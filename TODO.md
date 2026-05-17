@@ -9,7 +9,7 @@
 
 | Phase | Name                             | Status         | Goal                           |
 | ----- | -------------------------------- | -------------- | ------------------------------ |
-| **0** | Foundation                       | 🔧 In progress | Repo + env + CI green          |
+| **0** | Foundation                       | ✅ Done        | Repo + env + CI green          |
 | **1** | Data ingestion + model detection | 🔲 Not started | Upload CSV → auto-select model |
 | **2** | Forecast engine                  | 🔲 Not started | Real forecasts + charts        |
 | **3** | Calendar of events               | 🔲 Not started | Events → forecast impact       |
@@ -57,7 +57,7 @@
 - [x] `docker compose up` works from a fresh clone
 - [x] `GET /health` returns 200
 - [x] Frontend renders at localhost:3000
-- [ ] GitHub Actions CI passes (green badge)
+- [x] GitHub Actions CI passes (green badge)
 
 ---
 
@@ -293,7 +293,7 @@
 
 | Date | Session | Completed           |
 | ---- | ------- | ------------------- |
-| 2026-05-17 | 1 | Estructura completa de carpetas + archivos base Phase 0 (backend: pyproject.toml, main.py, config.py, logging.py, dependencies.py, health.py, Dockerfile, tests; frontend: package.json, tsconfig.json, layout.tsx, page.tsx, theme.ts, api.ts, types.ts, ThemeRegistry; raíz: .gitignore, .env.example, docker-compose.yml, ci.yml, deploy.yml, .pre-commit-config.yaml; scripts/) |
+| 2026-05-17 | 2 | CI verde en ambos jobs (backend + frontend). Fixes: ruff format, mypy lifespan type, ESLint config, unused import. Phase 0 cerrada. |
 
 ---
 
