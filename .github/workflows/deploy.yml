@@ -1,39 +1,22 @@
+# deploy.yml — DESHABILITADO hasta Phase 6
+#
+# Railway deploya directo desde el repo GitHub — no necesita este workflow.
+# Configuración en Phase 6:
+#   1. railway.com → New Project → Deploy from GitHub repo
+#   2. Apuntar a /backend, configurar env vars
+#   3. Vercel → Import Git Repository → apuntar a /frontend
+#   4. Reactivar este archivo si se necesita lógica extra post-deploy
+#
+# Por ahora el CI (ci.yml) es suficiente: lint + tests en cada push.
+
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:   # solo se activa manualmente, nunca automático
 
 jobs:
-  deploy-backend:
-    name: Build + Deploy Backend (Railway)
+  placeholder:
+    name: Deploy placeholder — configure in Phase 6
     runs-on: ubuntu-latest
-    needs: []   # agrega "ci" acá cuando el workflow de CI tenga nombre de job reutilizable
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: true
-          tags: ghcr.io/nicobravo933/forecastiq-backend:latest
-
-      - name: Deploy to Railway
-        # Requiere RAILWAY_TOKEN en GitHub Secrets
-        run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            "https://backboard.railway.app/graphql/v2" \
-            --fail || echo "Railway deploy trigger — configure webhook in Railway dashboard"
-
-  # Frontend se despliega automáticamente via integración GitHub de Vercel
-  # No se necesita paso aquí, Vercel escucha push a main directamente
+      - run: echo "Deploy will be configured in Phase 6 (Railway + Vercel)"
