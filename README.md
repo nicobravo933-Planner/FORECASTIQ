@@ -30,7 +30,7 @@
 > **Este proyecto está en construcción activa.** La API, la estructura de carpetas y los contratos de datos pueden cambiar sin previo aviso mientras avanzamos por las fases del roadmap.
 
 > [!NOTE]
-> **Phase 1 — Data Ingestion** en progreso 🔄 · Backend: 3 endpoints + detector MAD/FFT/MK listos · Siguiente: frontend DropZone + ColumnSelector + ModelRecommendation
+> **Phase 1 — Data Ingestion** en progreso 🔄 · Backend: 3 endpoints + detector MAD/FFT/MK listos · Deploy: Railway directo desde repo (Phase 6) · Siguiente: frontend DropZone + ColumnSelector + ModelRecommendation
 
 ---
 
