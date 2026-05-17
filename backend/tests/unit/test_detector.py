@@ -13,7 +13,6 @@ Casos cubiertos:
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from app.ml.detector import (
     DetectionResult,

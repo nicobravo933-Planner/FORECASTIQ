@@ -18,7 +18,6 @@ import pandas as pd
 import pymannkendall as mk
 from pydantic import BaseModel
 
-
 # ── Schema de resultado ────────────────────────────────────────────────────────
 
 class DetectionResult(BaseModel):
@@ -100,7 +99,7 @@ def detect_seasonality_fft(
     # FFT sobre la serie (removemos la media para no contaminar con DC component)
     values = series.values - series.mean()
     fft_vals = np.abs(np.fft.rfft(values)) ** 2  # potencia espectral
-    freqs = np.fft.rfftfreq(n)
+    # freqs no se usa directamente — los índices se calculan por período
 
     total_power = fft_vals.sum()
     if total_power == 0:
