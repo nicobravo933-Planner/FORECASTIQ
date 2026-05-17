@@ -67,16 +67,17 @@
 
 ### Backend
 
-- [ ] `POST /api/datasets/upload` — accept CSV, validate, store in Supabase Storage
-- [ ] `GET /api/datasets/{id}/preview` — return first 10 rows + column types
-- [ ] `POST /api/datasets/{id}/detect` — auto model selection
-- [ ] `app/ml/detector.py`:
-  - [ ] `detect_seasonality_fft(series)` — FFT-based seasonality detection
-  - [ ] `detect_trend_mannkendall(series)` — Mann-Kendall test
-  - [ ] `calculate_cv(series)` — coefficient of variation
-  - [ ] `detect_best_model(series, freq)` → `DetectionResult`
-- [ ] Unit tests for detector (short series, seasonal, trending, noisy)
-- [ ] `app/services/supabase.py` — Supabase client wrapper
+- [x] `POST /api/datasets/upload` — accept CSV, validate, store in Supabase Storage
+- [x] `GET /api/datasets/{id}/preview` — return first 10 rows + column types
+- [x] `POST /api/datasets/{id}/detect` — auto model selection
+- [x] `app/ml/detector.py`:
+  - [x] `detect_outliers_mad(series)` — MAD outlier detection (threshold=3.0)
+  - [x] `detect_seasonality_fft(series)` — FFT-based seasonality detection
+  - [x] `detect_trend_mannkendall(series)` — Seasonal Mann-Kendall test (pymannkendall)
+  - [x] `calculate_cv(series)` — coefficient of variation
+  - [x] `detect_best_model(series, freq)` → `DetectionResult`
+- [x] Unit tests for detector (short series, seasonal, trending, volatile, MAD, FFT, CV)
+- [x] `app/services/supabase.py` — Supabase client wrapper (upload/download/delete CSV)
 
 ### Frontend
 
@@ -294,6 +295,7 @@
 | Date | Session | Completed           |
 | ---- | ------- | ------------------- |
 | 2026-05-17 | 2 | CI verde en ambos jobs (backend + frontend). Fixes: ruff format, mypy lifespan type, ESLint config, unused import. Phase 0 cerrada. |
+| 2026-05-17 | 3 | Phase 1 backend: supabase.py, detector.py (MAD+FFT+SeasonalMK+CV), datasets.py (3 endpoints), tests/unit/test_detector.py (11 tests), Dockerfile fix (uv.lock), pymannkendall dep. |
 
 ---
 

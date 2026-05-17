@@ -4,7 +4,7 @@
   <br/><br/>
   <!-- Estado del proyecto -->
   <img src="https://img.shields.io/badge/status-en%20construcción-orange?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-0%20foundation-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/phase-1%20data%20ingestion-6366f1?style=for-the-badge"/>
   <br/><br/>
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white"/>
@@ -17,7 +17,8 @@
   <img src="https://img.shields.io/badge/Backend-Railway-0B0D0E?logo=railway&logoColor=white"/>
   <img src="https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white"/>
   <img src="https://img.shields.io/badge/LLM-OpenRouter-FF6B35"/>
-  <img src="https://img.shields.io/badge/ML-Prophet-4285F4"/>
+  <img src="https://img.shields.io/badge/ML-Holt--Winters-4285F4"/>
+  <img src="https://img.shields.io/badge/ML-SARIMA-0ea5e9"/>
   <img src="https://img.shields.io/badge/ML-LightGBM-green"/>
   <img src="https://img.shields.io/badge/HPO-Optuna-6236FF"/>
   <img src="https://img.shields.io/badge/License-MIT-6366F1"/>
@@ -29,8 +30,7 @@
 > **Este proyecto está en construcción activa.** La API, la estructura de carpetas y los contratos de datos pueden cambiar sin previo aviso mientras avanzamos por las fases del roadmap.
 
 > [!NOTE]
-> **Phase 0 — Foundation** completada ✅ · Backend FastAPI corriendo · Frontend Next.js 14 + MUI v6 corriendo · CI/CD configurado
-> Siguiente: **Phase 1** — Upload CSV + detección automática de modelo ML
+> **Phase 1 — Data Ingestion** en progreso 🔄 · Backend: 3 endpoints + detector MAD/FFT/MK listos · Siguiente: frontend DropZone + ColumnSelector + ModelRecommendation
 
 ---
 
@@ -47,7 +47,7 @@
 | Feature                      | Descripción                                                               |
 | ---------------------------- | ------------------------------------------------------------------------- |
 | 📁 **Subida CSV**            | Soltá tu CSV de ventas — no necesita formato previo                       |
-| 🤖 **Selección automática**  | Detección FFT + Mann-Kendall elige MA / Holt-Winters / Prophet / LightGBM |
+| 🤖 **Selección automática**  | Detección FFT + Seasonal Mann-Kendall elige MA / Holt-Winters / SARIMA / LightGBM |
 | 📈 **Forecast interactivo**  | Horizontes +3 / +6 / +12 meses con intervalos de confianza                |
 | 📅 **Calendario de eventos** | Agregá promociones, feriados y eventos externos — impactan el forecast    |
 | 💬 **Chat IA (streaming)**   | Preguntale a tus datos en lenguaje natural — tokens en tiempo real        |
@@ -224,14 +224,16 @@ Todos los modelos son seleccionables desde el panel de configuración del fronte
 
 forecastiq selecciona automáticamente el mejor modelo según las características de tus datos:
 
-```Plaintext
-n < 52 observaciones              →  Moving Average (ponderado)
-n ≥ 52 + estacionalidad detectada →  Holt-Winters Triple Exponencial
-n ≥ 200 + ruido bajo (CV < 0.4)   →  Prophet (con regresores de eventos)
-n ≥ 200 + ruido alto              →  LightGBM + Optuna HPO
+```plaintext
+n < 52 observaciones                        →  Moving Average (baseline robusto)
+n ≥ 52  + estacionalidad detectada (FFT)    →  Holt-Winters Triple Exponencial
+n ≥ 104 + tendencia sin estacionalidad      →  SARIMA (statsmodels, CI riguroso)
+n ≥ 104 + alta volatilidad (CV > 1.0)      →  LightGBM + lags + Optuna HPO
 ```
 
-La detección usa FFT para estacionalidad y el test de Mann-Kendall para tendencia significativa.
+El pipeline de detección usa MAD para outliers, FFT para estacionalidad y Seasonal Mann-Kendall (pymannkendall) para tendencia. Winsorización p5/p95 se aplica antes de entrenar en Phase 2.
+
+**Métricas de evaluación:** WAPE · MAE · BIAS · RMSE · MAPE
 
 ---
 
@@ -265,9 +267,8 @@ git push main
 
 Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 
-- [x] Scripts de generación de datasets
-- [ ] **Fase 0** — Fundación (repo + CI + Docker)
-- [ ] **Fase 1** — Subida CSV + detección automática de modelo
+- [x] **Fase 0** — Fundación (repo + CI + Docker)
+- [ ] **Fase 1** — Subida CSV + detección automática de modelo (en progreso)
 - [ ] **Fase 2** — Motor de forecast (4 modelos ML)
 - [ ] **Fase 3** — Calendario de eventos
 - [ ] **Fase 4** — Chat IA con streaming SSE

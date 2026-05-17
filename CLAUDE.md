@@ -526,5 +526,43 @@ Service key bypasses RLS — only use it in backend, never expose to frontend.
 
 ---
 
-_Last updated: Phase 0 — Project scaffolding_
+_Last updated: Phase 1 — Data ingestion + Model detection_
 _Stack: FastAPI + Next.js 14 + MUI v6 + Supabase + Redis + OpenRouter_
+
+---
+
+## 🧠 ML Decisions (closed — do not re-discuss)
+
+### Models in scope
+```
+moving_average   → baseline, series < 52 obs
+holt_winters     → trend + clear seasonality (workhorse)
+sarima           → replaces Prophet — statsmodels, rigorous CI
+lightgbm         → high CV or external features, Optuna HPO
+prophet          → BACKLOG only (bad reputation, C deps)
+```
+
+### Evaluation metrics (Phase 2 evaluator.py)
+```
+WAPE   → primary metric, industry standard (robust to zeros)
+MAE    → interpretable in business units
+BIAS   → detects systematic over/under-estimation (critical per Vandeputt)
+RMSE   → penalizes large errors, used for model selection
+MAPE   → included with warning when zeros present
+```
+
+### Outlier strategy
+```
+Phase 1 (detector.py): MAD detection only (threshold=3.0, modified Z-score)
+Phase 2 (before fit): Winsorization p5/p95
+Never Z-score: assumes normality, bad for seasonal demand series
+```
+
+### Detector pipeline order
+```
+1. MAD outlier detection
+2. FFT seasonality (numpy, candidate periods by freq)
+3. Seasonal Mann-Kendall trend (pymannkendall library)
+4. CV calculation
+5. Model selection rules
+```

@@ -5,7 +5,6 @@ description = "forecastiq — Automated ML forecasting API with AI chat"
 authors = [
     { name = "Nicolás Bravo", email = "nicobravo933@gmail.com" }
 ]
-readme = "README.md"
 dynamic = []
 requires-python = ">=3.12"
 

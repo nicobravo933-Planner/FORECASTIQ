@@ -711,3 +711,79 @@ print("  ├── forecasts.csv")
 print("  ├── supabase_schema.sql    ← ejecutar primero en Supabase SQL Editor")
 print("  └── upload_to_supabase.py  ← opción C para subir via Python")
 print("\n¡Dataset listo! 🚀")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 9. CSV AGREGADO MENSUAL — para subir a forecastiq Phase 1
+# ══════════════════════════════════════════════════════════════════════════
+# El usuario sube un CSV simple (fecha + valor). Generamos 3 variantes:
+#   - ventas_totales_mensual.csv       → todas las categorías agregadas
+#   - ventas_electronica_mensual.csv   → solo Electrónica (clara estacionalidad)
+#   - ventas_ropa_mensual.csv          → solo Ropa (2 picos: julio + enero)
+
+print("\n" + "=" * 60)
+print("  CSVs AGREGADOS PARA FORECASTIQ APP")
+print("=" * 60)
+
+df_sales["date"] = pd.to_datetime(df_sales["date"])
+df_sales["month"] = df_sales["date"].dt.to_period("M").dt.to_timestamp()
+
+# ── Total mensual ──
+agg_total = (
+    df_sales.groupby("month")["quantity"]
+    .sum()
+    .reset_index()
+    .rename(columns={"month": "fecha", "quantity": "ventas_unidades"})
+)
+
+# ── Outliers controlados: 2 eventos extremos sobre el total ──
+# Mar-2023: quiebre de stock (-65% del valor del mes)
+mar23_idx = agg_total[agg_total["fecha"] == "2023-03-01"].index
+if len(mar23_idx):
+    agg_total.loc[mar23_idx[0], "ventas_unidades"] = int(
+        agg_total.loc[mar23_idx[0], "ventas_unidades"] * 0.35
+    )
+
+# Sep-2024: evento extraordinario externo (+120% del valor del mes)
+sep24_idx = agg_total[agg_total["fecha"] == "2024-09-01"].index
+if len(sep24_idx):
+    agg_total.loc[sep24_idx[0], "ventas_unidades"] = int(
+        agg_total.loc[sep24_idx[0], "ventas_unidades"] * 2.20
+    )
+
+agg_total.to_csv(OUTPUT_DIR / "ventas_totales_mensual.csv", index=False, encoding="utf-8-sig")
+print(f"  ventas_totales_mensual.csv     {len(agg_total):>3} filas  (outliers: mar-2023 stock, sep-2024 spike)")
+
+# ── Electrónica mensual ──
+agg_elec = (
+    df_sales[df_sales["category"] == "Electrónica"]
+    .groupby("month")["quantity"]
+    .sum()
+    .reset_index()
+    .rename(columns={"month": "fecha", "quantity": "ventas_unidades"})
+)
+agg_elec.to_csv(OUTPUT_DIR / "ventas_electronica_mensual.csv", index=False, encoding="utf-8-sig")
+print(f"  ventas_electronica_mensual.csv {len(agg_elec):>3} filas  (pico dic, Hot Sale mayo, Black Friday)")
+
+# ── Ropa mensual ──
+agg_ropa = (
+    df_sales[df_sales["category"] == "Ropa"]
+    .groupby("month")["quantity"]
+    .sum()
+    .reset_index()
+    .rename(columns={"month": "fecha", "quantity": "ventas_unidades"})
+)
+agg_ropa.to_csv(OUTPUT_DIR / "ventas_ropa_mensual.csv", index=False, encoding="utf-8-sig")
+print(f"  ventas_ropa_mensual.csv        {len(agg_ropa):>3} filas  (pico invierno jul, verano ene)")
+
+print(f"""
+  Uso en forecastiq:
+    → Subir ventas_totales_mensual.csv
+    → Columna fecha:  fecha
+    → Columna target: ventas_unidades
+    → Frecuencia:     M (mensual)
+    → Detector debería recomendar: Holt-Winters (estacionalidad anual + tendencia)
+    → Outliers detectados por MAD: mar-2023 y sep-2024
+""")
+
+print("¡Dataset listo! 🚀")
