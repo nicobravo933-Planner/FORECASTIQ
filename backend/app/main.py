@@ -2,6 +2,7 @@
 forecastiq — FastAPI app factory.
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,7 +14,7 @@ from app.core.logging import setup_logging
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     setup_logging()
     yield
