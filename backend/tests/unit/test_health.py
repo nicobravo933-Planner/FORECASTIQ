@@ -1,6 +1,7 @@
 """
 Tests del endpoint /health.
 """
+
 from fastapi.testclient import TestClient
 
 

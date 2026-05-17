@@ -1,6 +1,7 @@
 """
 forecastiq — FastAPI app factory.
 """
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

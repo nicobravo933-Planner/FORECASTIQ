@@ -2,6 +2,7 @@
 Logging estructurado en JSON para producción.
 En desarrollo muestra formato legible.
 """
+
 import logging
 import sys
 
@@ -13,7 +14,9 @@ def setup_logging() -> None:
 
     if settings.is_production:
         # JSON estructurado — Railway/Sentry lo parsea correctamente
-        fmt = '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}'
+        fmt = (
+            '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}'
+        )
     else:
         fmt = "%(asctime)s | %(levelname)-8s | %(name)s — %(message)s"
 

@@ -1,6 +1,7 @@
 """
 GET /health — endpoint de salud para Railway y Docker healthcheck.
 """
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 

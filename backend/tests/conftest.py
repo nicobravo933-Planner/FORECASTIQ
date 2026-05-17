@@ -1,6 +1,7 @@
 """
 Fixtures compartidos para todos los tests.
 """
+
 import pytest
 from fastapi.testclient import TestClient
 

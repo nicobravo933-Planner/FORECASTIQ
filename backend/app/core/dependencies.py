@@ -2,6 +2,7 @@
 Dependencias compartidas de FastAPI (Depends()).
 Se expanden en fases posteriores con auth, DB sessions, etc.
 """
+
 from typing import Annotated
 
 from fastapi import Header

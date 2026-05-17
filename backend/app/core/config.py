@@ -2,6 +2,7 @@
 Configuración central — todas las variables de entorno en un solo lugar.
 Usa pydantic-settings: lee desde .env automáticamente.
 """
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
