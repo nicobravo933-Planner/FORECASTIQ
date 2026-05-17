@@ -11,6 +11,13 @@ export interface HealthResponse {
 }
 
 // ── Dataset ─────────────────────────────────────────────────────
+export interface UploadResponse {
+  dataset_id: string
+  filename: string
+  rows: number
+  columns: string[]
+}
+
 export interface DatasetColumn {
   name: string
   dtype: "date" | "numeric" | "string" | "unknown"
@@ -18,12 +25,29 @@ export interface DatasetColumn {
 }
 
 export interface DatasetPreview {
-  id: string
-  filename: string
-  row_count: number
+  dataset_id: string
   columns: DatasetColumn[]
-  preview_rows: Record<string, unknown>[]
+  rows: Record<string, unknown>[]
+  total_rows: number
 }
+
+export interface DetectionResult {
+  model: "moving_average" | "holt_winters" | "sarima" | "lightgbm"
+  reason: string
+  n_observations: number
+  has_trend: boolean
+  trend_direction: "increasing" | "decreasing" | "no trend"
+  trend_p_value: number
+  seasonality_period: number | null
+  has_seasonality: boolean
+  cv: number
+  outlier_count: number
+  outlier_pct: number
+  outlier_indices: number[]
+  confidence: number
+}
+
+export type DataFreq = "D" | "W" | "M" | "Q"
 
 // ── Forecast ─────────────────────────────────────────────────────
 export type ForecastStatus = "pending" | "running" | "done" | "failed"

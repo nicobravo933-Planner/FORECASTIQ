@@ -33,6 +33,16 @@ export const api = {
   get: <T>(path: string, init?: RequestInit) => request<T>(path, { method: "GET", ...init }),
   post: <T>(path: string, body: unknown, init?: RequestInit) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body), ...init }),
+  // Multipart upload — does NOT set Content-Type (browser sets boundary automatically)
+  upload: <T>(path: string, formData: FormData): Promise<T> =>
+    fetch(`${BASE_URL}${path}`, { method: "POST", body: formData })
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ detail: res.statusText }))
+          throw new ApiError(res.status, body.detail ?? "Unknown error")
+        }
+        return res.json() as Promise<T>
+      }),
 }
 
 export { ApiError }

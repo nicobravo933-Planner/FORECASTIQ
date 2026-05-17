@@ -10,7 +10,7 @@
 | Phase | Name                             | Status         | Goal                           |
 | ----- | -------------------------------- | -------------- | ------------------------------ |
 | **0** | Foundation                       | ✅ Done        | Repo + env + CI green          |
-| **1** | Data ingestion + model detection | 🔲 Not started | Upload CSV → auto-select model |
+| **1** | Data ingestion + model detection | ✅ Done        | Upload CSV → auto-select model |
 | **2** | Forecast engine                  | 🔲 Not started | Real forecasts + charts        |
 | **3** | Calendar of events               | 🔲 Not started | Events → forecast impact       |
 | **4** | AI Chat with streaming           | 🔲 Not started | SSE chat about the data        |
@@ -81,19 +81,19 @@
 
 ### Frontend
 
-- [ ] Dataset page layout (sidebar nav item active)
-- [ ] `components/upload/DropZone.tsx` — drag-and-drop CSV upload (MUI)
-- [ ] `components/upload/ColumnSelector.tsx` — date col + target col dropdowns
-- [ ] `components/upload/DataPreview.tsx` — MUI DataGrid first 10 rows
-- [ ] `components/upload/ModelRecommendation.tsx` — badge + explanation card
-- [ ] `hooks/useDataset.ts` — upload state + polling
-- [ ] Upload progress bar (MUI LinearProgress)
+- [x] Dataset page layout (sidebar nav item active)
+- [x] `components/upload/DropZone.tsx` — drag-and-drop CSV upload (MUI)
+- [x] `components/upload/ColumnSelector.tsx` — date col + target col dropdowns
+- [x] `components/upload/DataPreview.tsx` — MUI Table first 10 rows
+- [x] `components/upload/ModelRecommendation.tsx` — badge + explanation card
+- [x] `hooks/useDataset.ts` — upload state machine (idle→uploading→preview→detecting→done)
+- [x] Upload progress bar (MUI LinearProgress)
 
 ### Done when
 
-- [ ] User can upload a CSV (the synthetic dataset)
-- [ ] Sees column selector after upload
-- [ ] Sees "Recommended model: Holt-Winters — Reason: annual seasonality detected"
+- [x] User can upload a CSV (the synthetic dataset)
+- [x] Sees column selector after upload
+- [x] Sees "Recommended model: Holt-Winters — Reason: annual seasonality detected"
 
 ---
 
@@ -297,6 +297,7 @@
 | 2026-05-17 | 2 | CI verde en ambos jobs (backend + frontend). Fixes: ruff format, mypy lifespan type, ESLint config, unused import. Phase 0 cerrada. |
 | 2026-05-17 | 3 | Phase 1 backend: supabase.py, detector.py (MAD+FFT+SeasonalMK+CV), datasets.py (3 endpoints), tests/unit/test_detector.py (11 tests), Dockerfile fix (uv.lock), pymannkendall dep. |
 | 2026-05-17 | 4 | Fixes CI: ruff I001+F841+F401, pyproject readme field removido, deploy.yml deshabilitado (Railway directo desde repo). Dataset script + 3 CSVs mensuales con outliers. |
+| 2026-05-17 | 5 | Phase 1 frontend completo: dashboard layout (sidebar), DropZone, ColumnSelector, DataPreview, ModelRecommendation, useDataset hook, placeholders forecast/calendar/chat/settings. types.ts + api.ts patched. |
 
 ---
 

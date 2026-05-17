@@ -4,7 +4,7 @@
   <br/><br/>
   <!-- Estado del proyecto -->
   <img src="https://img.shields.io/badge/status-en%20construcción-orange?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-1%20data%20ingestion-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/phase-2%20forecast%20engine-6366f1?style=for-the-badge"/>
   <br/><br/>
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white"/>
@@ -30,7 +30,7 @@
 > **Este proyecto está en construcción activa.** La API, la estructura de carpetas y los contratos de datos pueden cambiar sin previo aviso mientras avanzamos por las fases del roadmap.
 
 > [!NOTE]
-> **Phase 1 — Data Ingestion** en progreso 🔄 · Backend: 3 endpoints + detector MAD/FFT/MK listos · Deploy: Railway directo desde repo (Phase 6) · Siguiente: frontend DropZone + ColumnSelector + ModelRecommendation
+> **Phase 1 — Data Ingestion** ✅ completa · Backend: 3 endpoints + detector MAD/FFT/MK · Frontend: DropZone + ColumnSelector + DataPreview + ModelRecommendation + sidebar dashboard · **Siguiente: Phase 2 — Forecast Engine**
 
 ---
 
@@ -268,8 +268,8 @@ git push main
 Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 
 - [x] **Fase 0** — Fundación (repo + CI + Docker)
-- [ ] **Fase 1** — Subida CSV + detección automática de modelo (en progreso)
-- [ ] **Fase 2** — Motor de forecast (4 modelos ML)
+- [x] **Fase 1** — Subida CSV + detección automática de modelo ✅
+- [ ] **Fase 2** — Motor de forecast (4 modelos ML) ← estamos aquí
 - [ ] **Fase 3** — Calendario de eventos
 - [ ] **Fase 4** — Chat IA con streaming SSE
 - [ ] **Fase 5** — Auth + persistencia
