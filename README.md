@@ -2,6 +2,10 @@
   <img src="logo.png" alt="forecastiq logo" width="300"/><br/>
   <em>Conectá tus ventas. Obtené forecasts con IA al instante. Charlá con tus números.</em>
   <br/><br/>
+  <!-- Estado del proyecto -->
+  <img src="https://img.shields.io/badge/status-en%20construcción-orange?style=for-the-badge&logo=githubactions&logoColor=white"/>
+  <img src="https://img.shields.io/badge/phase-0%20foundation-6366f1?style=for-the-badge"/>
+  <br/><br/>
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white"/>
   <img src="https://img.shields.io/badge/Next.js-14-000000?logo=next.js&logoColor=white"/>
@@ -18,6 +22,15 @@
   <img src="https://img.shields.io/badge/HPO-Optuna-6236FF"/>
   <img src="https://img.shields.io/badge/License-MIT-6366F1"/>
 </p>
+
+---
+
+> [!WARNING]
+> **Este proyecto está en construcción activa.** La API, la estructura de carpetas y los contratos de datos pueden cambiar sin previo aviso mientras avanzamos por las fases del roadmap.
+
+> [!NOTE]
+> **Phase 0 — Foundation** completada ✅ · Backend FastAPI corriendo · Frontend Next.js 14 + MUI v6 corriendo · CI/CD configurado
+> Siguiente: **Phase 1** — Upload CSV + detección automática de modelo ML
 
 ---
 
