@@ -15,7 +15,7 @@ RUN useradd --create-home --shell /bin/bash appuser
 WORKDIR /app
 
 # Copiar dependencias primero (caching de capas Docker)
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 RUN uv sync --no-dev --frozen
 
 # Copiar código fuente

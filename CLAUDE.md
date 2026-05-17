@@ -8,7 +8,7 @@
 
 ## 🧠 Behavior Rules for Claude
 
-```
+```Plaintext
 You are a senior full-stack engineer and ML engineer working on forecastiq —
 a public SaaS that lets anyone connect their sales data, get automatic
 time-series forecasts, and chat with their data using AI.
@@ -19,6 +19,7 @@ unless explicitly asked. You make surgical edits and report what changed and why
 ```
 
 **Non-negotiable rules:**
+
 - Never rewrite a file > 30 lines without explicit permission — patch only what changed
 - Always read the relevant file before editing it
 - Always check `TODO.md` for current phase before starting work
@@ -30,7 +31,7 @@ unless explicitly asked. You make surgical edits and report what changed and why
 
 ## 📁 Project Structure
 
-```
+```Plaintext
 forecastiq/
 ├── backend/                        # Python — FastAPI + ML
 │   ├── pyproject.toml              # UV managed — never use pip directly
@@ -135,7 +136,8 @@ sx={{ fontSize: '16px', padding: '24px', borderRadius: '8px' }}
 **Why rem:** respects user browser font settings, scales correctly across devices, consistent with MUI's own spacing system.
 
 **Rem reference:**
-```
+
+```Plaintext
 0.25rem =  4px    (tight spacing)
 0.5rem  =  8px    (small gap)
 0.75rem = 12px    (compact)
@@ -163,20 +165,20 @@ sx={{ color: '#6366f1', bgcolor: '#ffffff' }}
 // All colors are defined once here — never anywhere else
 export const theme = createTheme({
   palette: {
-    primary:   { main: '#6366f1' },   // indigo
-    secondary: { main: '#06b6d4' },   // cyan
+    primary: { main: "#6366f1" }, // indigo
+    secondary: { main: "#06b6d4" }, // cyan
     // ...
   },
   typography: {
     fontFamily: '"Inter", "Roboto", sans-serif',
     // all sizes in rem
-    h1: { fontSize: '2.25rem', fontWeight: 700 },
-    h2: { fontSize: '1.875rem', fontWeight: 600 },
-    body1: { fontSize: '1rem' },
-    caption: { fontSize: '0.75rem' },
+    h1: { fontSize: "2.25rem", fontWeight: 700 },
+    h2: { fontSize: "1.875rem", fontWeight: 600 },
+    body1: { fontSize: "1rem" },
+    caption: { fontSize: "0.75rem" },
   },
-  shape: { borderRadius: 8 },  // MUI uses px internally — override in sx with rem
-})
+  shape: { borderRadius: 8 }, // MUI uses px internally — override in sx with rem
+});
 ```
 
 ### Component conventions
@@ -206,7 +208,7 @@ export function ForecastChart({
 
 ### File naming
 
-```
+```Plaintext
 components/forecast/ForecastChart.tsx    ← PascalCase for components
 hooks/useForecast.ts                     ← camelCase with "use" prefix
 lib/api.ts                               ← camelCase for utilities
@@ -288,6 +290,7 @@ async def ask_llm(messages, session_context, on_token=None):
 ```
 
 **Free models available on OpenRouter (selectable from frontend):**
+
 ```python
 FREE_MODELS = [
     {"id": "deepseek/deepseek-r1-0528:free",      "label": "DeepSeek R1"},
@@ -385,7 +388,7 @@ def test_seasonal_series_uses_holt_winters():
 
 ## 🔐 Security Rules
 
-```
+```Plaintext
 NEVER commit to the repo:
   ✗ .env files
   ✗ API keys (OpenRouter, Supabase, etc.)
@@ -425,30 +428,31 @@ ALWAYS:
 
 ## 📦 Key Dependencies
 
-| Package | Purpose | Notes |
-|---------|---------|-------|
-| `fastapi` | API framework | use `async def` everywhere |
-| `uvicorn` | ASGI server | with `--reload` in dev only |
-| `pydantic-settings` | Config management | all env vars here |
-| `sqlalchemy[asyncio]` | ORM | async sessions |
-| `supabase` | Supabase Python client | storage + DB |
-| `redis` | Upstash Redis cache | forecast result caching |
-| `celery` | Background ML jobs | with Redis broker |
-| `prophet` | Time-series forecasting | install separately (C deps) |
-| `lightgbm` | Gradient boosting | with optuna for HPO |
-| `optuna` | Hyperparameter optimization | pruner: MedianPruner |
-| `pandas` | Data manipulation | |
-| `httpx` | Async HTTP | for OpenRouter calls |
-| `openai` | OpenRouter SDK compat | base_url override |
-| `pytest` + `pytest-asyncio` | Testing | |
-| `ruff` | Linting + formatting | replaces black + flake8 |
-| `mypy` | Type checking | strict mode |
+| Package                     | Purpose                     | Notes                       |
+| --------------------------- | --------------------------- | --------------------------- |
+| `fastapi`                   | API framework               | use `async def` everywhere  |
+| `uvicorn`                   | ASGI server                 | with `--reload` in dev only |
+| `pydantic-settings`         | Config management           | all env vars here           |
+| `sqlalchemy[asyncio]`       | ORM                         | async sessions              |
+| `supabase`                  | Supabase Python client      | storage + DB                |
+| `redis`                     | Upstash Redis cache         | forecast result caching     |
+| `celery`                    | Background ML jobs          | with Redis broker           |
+| `prophet`                   | Time-series forecasting     | install separately (C deps) |
+| `lightgbm`                  | Gradient boosting           | with optuna for HPO         |
+| `optuna`                    | Hyperparameter optimization | pruner: MedianPruner        |
+| `pandas`                    | Data manipulation           |                             |
+| `httpx`                     | Async HTTP                  | for OpenRouter calls        |
+| `openai`                    | OpenRouter SDK compat       | base_url override           |
+| `pytest` + `pytest-asyncio` | Testing                     |                             |
+| `ruff`                      | Linting + formatting        | replaces black + flake8     |
+| `mypy`                      | Type checking               | strict mode                 |
 
 ---
 
 ## ⚠️ Known Pitfalls
 
 ### SSE Streaming (FastAPI)
+
 ```python
 # ✅ CORRECT — always set these headers
 return StreamingResponse(
@@ -463,6 +467,7 @@ return StreamingResponse(
 ```
 
 ### Celery + async
+
 ```python
 # Celery tasks are sync — use asyncio.run() to call async code inside them
 @celery_app.task
@@ -473,6 +478,7 @@ def run_forecast_task(dataset_id: str, config: dict):
 ```
 
 ### Prophet installation
+
 ```bash
 # Prophet requires C compiler — install separately BEFORE other deps
 uv add prophet --no-build-isolation
@@ -480,13 +486,15 @@ uv add prophet --no-build-isolation
 ```
 
 ### Supabase RLS
-```
+
+```Plaintext
 Every table has Row Level Security enabled.
 Always test queries with the anon key (not service key) to catch RLS issues.
 Service key bypasses RLS — only use it in backend, never expose to frontend.
 ```
 
 ### Next.js App Router — Server vs Client components
+
 ```typescript
 // Default: Server Component (no 'use client')
 //   ✓ data fetching, static content, layouts
@@ -496,14 +504,14 @@ Service key bypasses RLS — only use it in backend, never expose to frontend.
 //   ✓ interactive charts (Recharts)
 //   ✓ SSE streaming (useChat hook)
 //   ✓ forms with state
-'use client'
+"use client";
 ```
 
 ---
 
 ## 📋 Workflow for New Features
 
-```
+```Plaintext
 1. Check TODO.md → confirm feature is in current phase
 2. Read relevant existing files (don't assume structure)
 3. Write/update types first (TypeScript interfaces, Pydantic models)
@@ -518,5 +526,5 @@ Service key bypasses RLS — only use it in backend, never expose to frontend.
 
 ---
 
-*Last updated: Phase 0 — Project scaffolding*
-*Stack: FastAPI + Next.js 14 + MUI v6 + Supabase + Redis + OpenRouter*
+_Last updated: Phase 0 — Project scaffolding_
+_Stack: FastAPI + Next.js 14 + MUI v6 + Supabase + Redis + OpenRouter_
