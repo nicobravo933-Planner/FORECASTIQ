@@ -1,0 +1,102 @@
+# ============================================================
+# forecastiq — .gitignore
+# ============================================================
+
+# ── Environment — NEVER commit these ────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# UV virtualenv
+.venv/
+venv/
+env/
+
+# UV cache (local only, uv.lock IS committed)
+.uv/
+
+# ── Node / Next.js ───────────────────────────────────────────
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Docker ───────────────────────────────────────────────────
+# (docker-compose.yml IS committed — only ignore override files)
+docker-compose.override.yml
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── IDEs ─────────────────────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Keep VSCode recommended extensions
+!.vscode/extensions.json
+
+# ── Data / uploads ───────────────────────────────────────────
+# Raw user uploads — never in repo
+backend/uploads/
+backend/_tmp/
+*.parquet
+*.feather
+
+# Generated dataset CSVs — regenerate with the script
+data/forecastiq/sales.csv
+data/forecastiq/products.csv
+data/forecastiq/calendar_events.csv
+data/forecastiq/forecasts.csv
+
+# Keep the generator script and schema
+!scripts/generate_forecastiq_dataset.py
+!data/forecastiq/supabase_schema.sql
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+celery_*.log
+
+# ── Sentry ───────────────────────────────────────────────────
+.sentryclirc
+
+# ── Misc ─────────────────────────────────────────────────────
+*.bak
+*.tmp
+.cache/
+tmp/
+temp/

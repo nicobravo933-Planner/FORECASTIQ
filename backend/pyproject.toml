@@ -1,0 +1,123 @@
+[project]
+name = "forecastiq-backend"
+version = "0.1.0"
+description = "forecastiq — Automated ML forecasting API with AI chat"
+authors = [
+    { name = "Nicolás Bravo", email = "nicobravo933@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    # ── API ──────────────────────────────────────────────────
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",        # file uploads
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+
+    # ── Database / Storage ───────────────────────────────────
+    "supabase>=2.7.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "asyncpg>=0.29.0",                # async PostgreSQL driver
+    "alembic>=1.13.0",                # DB migrations
+
+    # ── Cache / Queue ────────────────────────────────────────
+    "redis>=5.0.0",
+    "celery[redis]>=5.4.0",
+
+    # ── ML — core ────────────────────────────────────────────
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "scikit-learn>=1.5.0",
+    "statsmodels>=0.14.0",            # Holt-Winters
+    "lightgbm>=4.4.0",
+    "optuna>=3.6.0",                  # hyperparameter optimization
+    "duckdb>=1.0.0",                  # in-process SQL for LLM tools
+
+    # ── ML — Prophet (install separately if C compiler issues) ──
+    # "prophet>=1.1.5",               # uncomment after: uv add prophet --no-build-isolation
+
+    # ── LLM / HTTP ───────────────────────────────────────────
+    "openai>=1.40.0",                 # OpenRouter is OpenAI-compatible
+    "httpx>=0.27.0",
+
+    # ── Auth ─────────────────────────────────────────────────
+    "python-jose[cryptography]>=3.3.0",  # JWT validation
+    "passlib[bcrypt]>=1.7.4",
+
+    # ── Utils ────────────────────────────────────────────────
+    "python-dotenv>=1.0.0",
+    "orjson>=3.10.0",                 # faster JSON serialization
+    "tenacity>=8.5.0",                # retry logic for LLM calls
+    "sentry-sdk[fastapi]>=2.13.0",    # error monitoring
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "httpx>=0.27.0",                  # AsyncClient for FastAPI testing
+
+    # Linting & formatting
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+
+    # Type stubs
+    "types-redis>=4.6.0",
+    "pandas-stubs>=2.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ── Ruff (linting + formatting) ──────────────────────────────
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "N",    # pep8-naming
+]
+ignore = [
+    "E501",  # line too long — ruff format handles this
+    "B008",  # do not perform function calls in default args (FastAPI Depends pattern)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# ── Mypy (type checking) ─────────────────────────────────────
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+# ── Pytest ───────────────────────────────────────────────────
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+# ── UV scripts (run with: uv run <script>) ───────────────────
+[tool.uv.scripts]
+dev    = "uvicorn app.main:app --reload --port 8000"
+worker = "celery -A app.services.celery_app worker --loglevel=info"
+test   = "pytest"
+lint   = "ruff check ."
+fmt    = "ruff format ."
+types  = "mypy app"
+check  = { chain = ["lint", "types", "test"] }  # run all checks
