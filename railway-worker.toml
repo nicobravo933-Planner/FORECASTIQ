@@ -1,0 +1,11 @@
+# railway-worker.toml — configuración del servicio Celery worker
+# Seleccionarlo en Railway: forecastiq-worker → Settings → Config File Path → railway-worker.toml
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+startCommand = "uv run celery -A app.services.celery_app worker --loglevel=info --concurrency=2"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
