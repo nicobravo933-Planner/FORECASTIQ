@@ -15,223 +15,7 @@
 | **3** | Calendar of events               | ✅ Done        | Events → forecast impact       |
 | **4** | AI Chat with streaming           | ✅ Done        | SSE chat about the data        |
 | **5** | Auth + persistence               | ✅ Done        | OAuth2 + per-user history      |
-| **6** | Deploy + observability           | 🔲 Not started | Full prod CI/CD                |
-
----
-
-## Phase 0 — Foundation
-
-> Goal: `docker compose up` → backend :8000, frontend :3000, CI green on GitHub
-
-### Backend
-
-- [x] Init project with UV (`uv init forecastiq-backend`)
-- [x] `pyproject.toml` with core deps (fastapi, uvicorn, pydantic-settings, ruff, mypy, pytest)
-- [x] `app/main.py` — FastAPI app factory
-- [x] `app/core/config.py` — pydantic-settings with all env vars
-- [x] `app/core/logging.py` — structured JSON logging
-- [x] `GET /health` endpoint → `{"status": "ok", "version": "0.1.0"}`
-- [x] `Dockerfile` (python:3.12-slim, UV, non-root user)
-- [x] `.dockerignore`
-
-### Frontend
-
-- [x] Init Next.js 14 with TypeScript (`npx create-next-app@latest`)
-- [x] Install MUI v6 (`@mui/material @emotion/react @emotion/styled`)
-- [x] `lib/theme.ts` — MUI theme (Inter font, indigo primary, rem sizing)
-- [x] Root layout with ThemeProvider
-- [x] Landing page placeholder (logo + "coming soon" centered)
-- [x] `lib/api.ts` — typed fetch wrapper pointing to backend
-
-### Infrastructure
-
-- [x] `docker-compose.yml` (backend + redis)
-- [x] `.env.example` with all required vars and descriptions
-- [x] `.pre-commit-config.yaml` (ruff, mypy, prettier)
-- [x] `.github/workflows/ci.yml` (lint + test on every push)
-- [x] `.gitignore` (`.env`, `__pycache__`, `.next`, `node_modules`, `uv.lock` exceptions)
-- [x] First commit + push to public GitHub repo
-
-### Done when
-
-- [x] `docker compose up` works from a fresh clone
-- [x] `GET /health` returns 200
-- [x] Frontend renders at localhost:3000
-- [x] GitHub Actions CI passes (green badge)
-
----
-
-## Phase 1 — Data Ingestion + Model Detection
-
-> Goal: user uploads CSV → column selector → model recommendation with explanation
-
-### Backend
-
-- [x] `POST /api/datasets/upload` — accept CSV, validate, store in Supabase Storage
-- [x] `GET /api/datasets/{id}/preview` — return first 10 rows + column types
-- [x] `POST /api/datasets/{id}/detect` — auto model selection
-- [x] `app/ml/detector.py`:
-  - [x] `detect_outliers_mad(series)` — MAD outlier detection (threshold=3.0)
-  - [x] `detect_seasonality_fft(series)` — FFT-based seasonality detection
-  - [x] `detect_trend_mannkendall(series)` — Seasonal Mann-Kendall test (pymannkendall)
-  - [x] `calculate_cv(series)` — coefficient of variation
-  - [x] `detect_best_model(series, freq)` → `DetectionResult`
-- [x] Unit tests for detector (short series, seasonal, trending, volatile, MAD, FFT, CV)
-- [x] `app/services/supabase.py` — Supabase client wrapper (upload/download/delete CSV)
-
-### Frontend
-
-- [x] Dataset page layout (sidebar nav item active)
-- [x] `components/upload/DropZone.tsx` — drag-and-drop CSV upload (MUI)
-- [x] `components/upload/ColumnSelector.tsx` — date col + target col dropdowns
-- [x] `components/upload/DataPreview.tsx` — MUI Table first 10 rows
-- [x] `components/upload/ModelRecommendation.tsx` — badge + explanation card
-- [x] `hooks/useDataset.ts` — upload state machine (idle→uploading→preview→detecting→done)
-- [x] Upload progress bar (MUI LinearProgress)
-
-### Done when
-
-- [x] User can upload a CSV (the synthetic dataset)
-- [x] Sees column selector after upload
-- [x] Sees "Recommended model: Holt-Winters — Reason: annual seasonality detected"
-
----
-
-## Phase 2 — Forecast Engine
-
-> Goal: forecast runs in background, user sees chart + metrics
-
-### Backend
-
-- [x] `app/services/celery_app.py` — Celery with Upstash Redis broker
-- [x] `POST /api/forecast/run` → returns `{job_id, status: "pending"}`
-- [x] `GET /api/forecast/{job_id}/status` → `{status, progress_pct}`
-- [x] `GET /api/forecast/{job_id}/result` → full forecast data
-- [x] `migrations/001_forecast_jobs.sql` — tabla Supabase con RLS
-- [x] `app/ml/models/base.py` — abstract `ForecastModel`
-- [x] `app/ml/models/moving_average.py` — weighted moving average + CI bootstrap
-- [x] `app/ml/models/holt_winters.py` — triple exponential smoothing (statsmodels)
-- [x] `app/ml/models/sarima.py` — auto-SARIMA (pmdarima) + CI analítico
-- [x] `app/ml/models/lightgbm_model.py` — LightGBM + Optuna HPO + CI quantile
-- [x] `app/ml/evaluator.py` — WAPE, MAE, BIAS, RMSE, MAPE
-- [ ] Redis caching for forecast results (Upstash)
-- [ ] Unit tests for each model (synthetic fixtures)
-
-### Frontend
-
-- [x] Forecast page layout
-- [x] `components/forecast/HorizonSelector.tsx` — +3m / +6m / +12m / custom toggle
-- [x] `components/forecast/ForecastChart.tsx` — Recharts histórico + proyección + CI
-- [x] `components/forecast/MetricsCard.tsx` — WAPE / MAE / BIAS / RMSE chips
-- [x] `hooks/useForecast.ts` — job polling con backoff
-- [x] `lib/types.ts` — tipos actualizados (ForecastResult, HistoricalPoint, ForecastMetrics)
-
-### Done when
-
-- [x] User selects dataset + horizon → forecast job runs in background
-- [x] Progress bar shows live progress (eager mode: instant)
-- [x] Chart renders historical + projected + confidence interval
-- [x] Metrics visible (WAPE, MAE, BIAS, RMSE)
-
----
-
-## Phase 3 — Calendar of Events
-
-> Goal: user adds events/promotions → forecast recalculates showing impact
-
-### Backend
-
-- [x] `GET /api/events` — list user events + global events
-- [x] `POST /api/events` — create event (validated date range)
-- [x] `DELETE /api/events/{id}` — delete own event
-- [x] `GET /api/forecast/{id}/compare` — with vs without events comparison
-- [x] AR public holidays auto-loaded via `holidays` library
-- [x] RLS: global events (user_id=null) visible to all, own events private
-
-### Frontend
-
-- [x] Calendar page layout
-- [x] `components/calendar/EventCalendar.tsx` — month grid (pure MUI)
-- [x] `components/calendar/EventForm.tsx` — add event drawer (name, type, dates, impact %)
-- [x] `components/calendar/EventChip.tsx` — color-coded by type (holiday/promo/seasonal)
-- [x] Toggle: forecast with events ON/OFF comparison
-
-### Done when
-
-- [x] User adds "Black Friday +20%" → forecast recalculates showing spike
-- [x] Side-by-side comparison: baseline vs with-events
-- [x] AR public holidays visible by default
-
----
-
-## Phase 4 — AI Chat with Streaming SSE
-
-> Goal: user chats about their data, tokens stream in real-time
-
-### Backend
-
-- [x] `POST /api/chat/stream` — SSE endpoint with StreamingResponse
-- [x] OpenRouter multi-model router (same pattern as Priorizador project)
-- [x] LLM tools:
-  - [x] `query_dataset(sql)` — DuckDB over user's dataset
-  - [x] `get_forecast_summary()` — current forecast metrics
-  - [x] `get_events()` — active calendar events
-  - [x] `suggest_model_change(reason)` — propose switching ML model
-- [x] System prompt: dataset schema + current forecast context + session KPIs
-- [x] Follow-up suggestion extraction from LLM response
-- [x] Rate limiting per user (Redis token bucket)
-
-### Frontend
-
-- [x] Chat page layout (top bar + chat area + input)
-- [x] `components/chat/ModelSelector.tsx` — free OpenRouter models dropdown (MUI Select)
-- [x] `components/chat/ChatBox.tsx` — message list with auto-scroll
-- [x] `components/chat/MessageBubble.tsx` — user/assistant styling, Markdown rendering
-- [x] `components/chat/StreamingCursor.tsx` — blinking cursor while streaming
-- [x] `components/chat/QuickQuestions.tsx` — suggested questions chips
-- [x] `hooks/useChat.ts` — SSE reader, token accumulation, error recovery
-- [x] Inline charts from LLM (render Recharts from JSON spec)
-- [x] Copy message button
-
-### Done when
-
-- [x] User types question → tokens stream letter by letter
-- [x] Model selector works (OWL Alpha / Nemotron / Laguna / GPT OSS / GLM / DeepSeek / MiniMax)
-- [x] LLM can query the dataset and answer data questions
-- [x] Follow-up suggestions appear after each response
-
----
-
-## Phase 5 — Auth + Persistence
-
-> Goal: Google/GitHub login, forecast history saved per user
-
-### Backend
-
-- [x] `app/core/dependencies.py` — `CurrentUser`, `get_current_user`, `get_optional_user`, `AuthUser`, `OptionalUser`
-- [x] Better Auth integration with Next.js
-- [x] Supabase RLS policies verified for all tables
-- [x] `GET /api/me` — perfil del usuario autenticado
-- [x] `GET /api/me/history` — paginated forecast history
-- [x] `get_forecast_history(user_id)` in supabase.py
-- [x] `user_id` propagated to all forecasts, events, datasets
-- [x] `migrations/003_add_user_id.sql` — tabla datasets + RLS por usuario + reemplaza policy pública de forecast_jobs
-- [x] Session middleware in FastAPI (verify JWT from Better Auth)
-
-### Frontend
-
-- [x] Login page (Google + GitHub OAuth buttons — MUI)
-- [x] Better Auth client setup
-- [x] Protected routes (redirect to login if unauthenticated)
-- [x] Settings page: API keys (OpenRouter BYOK), preferred model
-- [x] History section in sidebar: past forecasts with quick-load
-- [x] User avatar + menu in topbar
-
-### Done when
-
-- [x] Login with Google works end-to-end
-- [x] Each user sees only their own forecasts and events
-- [x] Returning user sees their forecast history
+| **6** | Deploy + observability           | ✅ Done        | Full prod CI/CD                |
 
 ---
 
@@ -241,36 +25,35 @@
 
 ### Infrastructure
 
-- [ ] `.github/workflows/deploy.yml` — build + push Docker image to ghcr.io
-- [ ] Railway deployment configured (backend + Celery worker)
-- [ ] Vercel deployment configured (frontend — auto via GitHub integration)
-- [ ] Upstash Redis connected in production
-- [ ] Supabase production project configured
-- [ ] Environment variables set in Railway + Vercel dashboards
+- [x] `.github/workflows/deploy.yml` — build + push Docker image a ghcr.io + Railway deploy
+- [x] Railway deployment configurado (forecastiq-api + forecastiq-worker + Redis)
+- [x] Vercel deployment configurado (frontend — auto via GitHub integration)
+- [x] Railway Redis conectado en producción (private networking)
+- [x] Variables de entorno seteadas en Railway + Vercel
+- [x] `railway.toml` — config as code (Dockerfile path + healthcheck)
+- [x] `frontend/vercel.json` — output directory Next.js
+- [x] Google OAuth callback URL actualizada para producción
 
 ### Observability
 
-- [ ] Sentry DSN configured (backend + frontend)
-- [ ] Structured logging in production (JSON format → Railway logs)
-- [ ] Health check endpoint monitored (Railway auto-restart on failure)
-- [ ] OpenTelemetry basic traces (forecast job duration, LLM latency)
+- [ ] Sentry DSN configurado (backend + frontend)
+- [ ] Structured logging en producción (JSON format → Railway logs)
+- [ ] Health check endpoint monitoreado (Railway auto-restart on failure)
+- [ ] OpenTelemetry básico (forecast job duration, LLM latency)
 
 ### Documentation
 
-- [ ] README.md updated with:
-  - [ ] Live demo URL
-  - [ ] Architecture diagram
-  - [ ] Local development guide
-  - [ ] Screenshots / GIF demo
-- [ ] `CONTRIBUTING.md` for open source contributors
-- [ ] API docs auto-generated (FastAPI `/docs` — public)
+- [x] README.md actualizado con live demo URL + URLs de producción + badge "live"
+- [ ] `CONTRIBUTING.md` para open source contributors
+- [ ] API docs públicas (FastAPI `/docs` — ya disponible en prod)
 
 ### Done when
 
-- [ ] `git push main` → CI passes → Railway + Vercel deploy automatically
-- [ ] Live URL accessible from any device
-- [ ] Sentry catches errors in production
-- [ ] README has green CI badge + live demo link
+- [x] `git push main` → CI pasa → Railway + Vercel despliegan automáticamente
+- [x] Live URL accesible desde cualquier dispositivo
+- [x] Login con Google funciona en producción
+- [ ] Sentry captura errores en producción
+- [ ] README tiene badge CI verde + live demo link
 
 ---
 
@@ -343,6 +126,7 @@
 | 2026-05-17 | 13      | Fix mypy: bool() en cache_set y cache_delete (redis_cache.py), isinstance(row, dict) en get_forecast_history (supabase.py). Backend Fase 5: dependencies.py (CurrentUser, get_current_user, get_optional_user, AuthUser, OptionalUser), supabase.py +get_forecast_history, api/me.py (GET /api/me + GET /api/me/history), main.py +me_router. mypy 34 archivos ✅                                                                                                         |
 | 2026-05-17 | 14      | Migration 003_add_user_id.sql: tabla datasets (metadata CSVs + RLS por usuario), reemplazo policy pública de forecast_jobs por RLS user_id (con fallback user_id IS NULL para modo demo).                                                                                                                                                                                                                                                                                 |
 | 2026-05-17 | 17      | Fase 5 cerrada. Settings page (modelo preferido + BYOK localStorage). api.ts propaga Bearer token al backend. dependencies.py reescrito: valida sesiones via Better Auth /api/auth/get-session (httpx). config.py +better_auth_url. .env.example backend actualizado. README badge Fase 5 done.                                                                                                                                                                           |
+| 2026-05-18 | 18      | Fase 6 infraestructura completa: deploy.yml (CI→Docker→ghcr.io→Railway), railway.toml (config-as-code + healthcheck), Dockerfile.worker (Celery), frontend/vercel.json. Railway: 2 servicios + Redis privado. Vercel: deploy exitoso + Google OAuth callback URL prod. Login con Google funcionando en producción. README actualizado con live demo + URLs prod. |
 
 ---
 

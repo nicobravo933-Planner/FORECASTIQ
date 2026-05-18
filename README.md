@@ -3,8 +3,10 @@
   <em>Conectá tus ventas. Obtené forecasts con IA al instante. Charlá con tus números.</em>
   <br/><br/>
   <!-- Estado del proyecto -->
-  <img src="https://img.shields.io/badge/status-en%20construcción-orange?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-5%20auth%20%26%20persistence-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/status-live%20en%20producción-22c55e?style=for-the-badge&logo=githubactions&logoColor=white"/>
+  <img src="https://img.shields.io/badge/phase-6%20deploy%20%26%20observability-6366f1?style=for-the-badge"/>
+  <br/><br/>
+  <a href="https://forecastiq.vercel.app"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-forecastiq.vercel.app-6366f1?style=for-the-badge"/></a>
   <br/><br/>
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white"/>
@@ -12,7 +14,7 @@
   <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white"/>
   <img src="https://img.shields.io/badge/MUI-v6-007FFF?logo=mui&logoColor=white"/>
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Redis-Upstash-DC382D?logo=redis&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Redis-Railway-DC382D?logo=redis&logoColor=white"/>
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white"/>
   <img src="https://img.shields.io/badge/Backend-Railway-0B0D0E?logo=railway&logoColor=white"/>
   <img src="https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white"/>
@@ -26,9 +28,6 @@
 
 ---
 
-> [!WARNING]
-> **Este proyecto está en construcción activa.** La API, la estructura de carpetas y los contratos de datos pueden cambiar sin previo aviso mientras avanzamos por las fases del roadmap.
-
 > [!NOTE]
 > **Phase 1 — Data Ingestion** ✅ completa · Backend: 3 endpoints + detector MAD/FFT/MK · Frontend: DropZone + ColumnSelector + DataPreview + ModelRecommendation
 >
@@ -39,6 +38,8 @@
 > **Phase 4 — AI Chat con streaming SSE** ✅ completa · SSE real-time + DuckDB tools + 7 modelos OpenRouter free + inline charts + rate limiting Redis
 >
 > **Phase 5 — Auth + Persistencia** ✅ completa · OAuth2 Google/GitHub (Better Auth) + historial por usuario + RLS Supabase + Settings BYOK
+>
+> **Phase 6 — Deploy + Observability** ✅ completa · Railway (API + Worker) + Vercel (frontend) + CI/CD GitHub Actions + Redis Railway
 
 ---
 
@@ -87,7 +88,7 @@
 └──────┬──────────────────────────────────────┬────────────────┘
        │                                      │
 ┌──────▼──────┐                    ┌──────────▼─────────────┐
-│  Supabase   │                    │    Upstash Redis        │
+│  Supabase   │                    │    Railway Redis        │
 │ PostgreSQL  │                    │  Celery broker + cache  │
 │   Storage   │                    │  (resultados forecast)  │
 │ Auth + RLS  │                    └────────────────────────┘
@@ -128,6 +129,7 @@ forecastiq/
 ├── .github/workflows/
 │   ├── ci.yml                  # lint + test en cada push
 │   └── deploy.yml              # deploy al mergear a main
+├── railway.toml                # configuración Railway (build + healthcheck)
 ├── docker-compose.yml          # desarrollo local: backend + redis
 ├── .env.example
 ├── CLAUDE.md                   # Guía para desarrolladores IA
@@ -198,21 +200,19 @@ SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_KEY=eyJ...
 DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:5432/postgres
 
-# Redis (Upstash)
-UPSTASH_REDIS_URL=rediss://...
-UPSTASH_REDIS_TOKEN=...
-
-# Celery
+# Redis (Railway en prod, localhost en dev)
+UPSTASH_REDIS_URL=redis://...
 CELERY_TASK_ALWAYS_EAGER=True   # False en producción
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/0
 
 # LLM
 OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_MODEL=deepseek/deepseek-v4-flash:free
+OPENROUTER_MODEL=deepseek/deepseek-r1-0528:free
 
 # Auth
-JWT_SECRET_KEY=  # openssl rand -hex 32
+JWT_SECRET_KEY=  # python -c "import secrets; print(secrets.token_hex(32))"
+BETTER_AUTH_URL=https://forecastiq.vercel.app
 ```
 
 **`frontend/.env.local`** (Vercel / local):
@@ -221,6 +221,8 @@ JWT_SECRET_KEY=  # openssl rand -hex 32
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+BETTER_AUTH_SECRET=  # node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+BETTER_AUTH_URL=https://forecastiq.vercel.app
 ```
 
 > Ver plantillas completas en `backend/.env.example` y `frontend/.env.example`.
@@ -280,9 +282,15 @@ El deploy está completamente automatizado vía GitHub Actions:
 git push main
   → CI: ruff + mypy + pytest (debe pasar)
   → Build imagen Docker → push a ghcr.io
-  → Railway: deploy automático del backend
+  → Railway: deploy automático del backend (API + Worker)
   → Vercel: deploy automático del frontend (vía integración GitHub)
 ```
+
+**URLs de producción:**
+- Frontend: https://forecastiq.vercel.app
+- Backend API: https://forecastiq-api-production.up.railway.app
+- Health check: https://forecastiq-api-production.up.railway.app/health
+- API docs: https://forecastiq-api-production.up.railway.app/docs
 
 ---
 
@@ -296,7 +304,7 @@ Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 - [x] **Fase 3** — Calendario de eventos ✅
 - [x] **Fase 4** — Chat IA con streaming SSE ✅
 - [x] **Fase 5** — Auth + persistencia (Google/GitHub OAuth, historial por usuario) ✅
-- [ ] **Fase 6** — Deploy completo a producción ← próxima fase
+- [x] **Fase 6** — Deploy completo a producción (Railway + Vercel + CI/CD) ✅
 
 ---
 
