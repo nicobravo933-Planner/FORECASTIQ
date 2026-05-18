@@ -1,5 +1,7 @@
 """Supabase client wrapper — Storage + DB."""
 
+from __future__ import annotations
+
 import uuid
 from typing import Any
 
@@ -79,3 +81,26 @@ def get_forecast_result(job_id: str) -> dict[str, Any] | None:
     if not data or not isinstance(data, dict):
         return None
     return dict(data)
+
+
+def get_forecast_history(
+    user_id: str, page: int = 1, page_size: int = 20
+) -> list[dict[str, Any]]:
+    """
+    Retorna el historial paginado de forecasts de un usuario.
+    Ordena por created_at DESC (más reciente primero).
+    """
+    client = get_supabase()
+    offset = (page - 1) * page_size
+    response = (
+        client.table("forecast_jobs")
+        .select("job_id, status, dataset_id, model_used, freq, horizon, metrics, created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .range(offset, offset + page_size - 1)
+        .execute()
+    )
+    data = response.data
+    if not data or not isinstance(data, list):
+        return []
+    return [dict(row) for row in data if isinstance(row, dict)]

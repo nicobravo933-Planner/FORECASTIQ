@@ -126,7 +126,7 @@ def cache_set(key: str, value: str, ttl_secs: int = 3600) -> bool:
     if not settings.upstash_redis_url:
         return False
     result = _redis_command("SET", key, value, "EX", str(ttl_secs))
-    return result == "OK"
+    return bool(result == "OK")
 
 
 def cache_get(key: str) -> str | None:
@@ -142,4 +142,4 @@ def cache_delete(key: str) -> bool:
     if not settings.upstash_redis_url:
         return False
     result = _redis_command("DEL", key)
-    return result is not None and int(result) > 0
+    return bool(result is not None and int(result) > 0)

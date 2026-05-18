@@ -208,10 +208,14 @@
 
 ### Backend
 
+- [x] `app/core/dependencies.py` — `CurrentUser`, `get_current_user`, `get_optional_user`, `AuthUser`, `OptionalUser`
 - [ ] Better Auth integration with Next.js
-- [ ] Supabase RLS policies verified for all tables
+- [x] Supabase RLS policies verified for all tables
+- [x] `GET /api/me` — perfil del usuario autenticado
+- [x] `GET /api/me/history` — paginated forecast history
+- [x] `get_forecast_history(user_id)` in supabase.py
 - [ ] `user_id` propagated to all forecasts, events, datasets
-- [ ] `GET /api/me/history` — paginated forecast history
+- [ ] `migrations/003_add_user_id.sql` — columna user_id en forecast_jobs + datasets
 - [ ] Session middleware in FastAPI (verify JWT from Better Auth)
 
 ### Frontend
@@ -332,7 +336,7 @@
 | 2026-05-17 | 8 | FVA agregado a evaluator.py (Seasonal Naive lag-12/lag-1), types.ts, ForecastMetrics Pydantic, MetricsCard con color semáforico. README actualizado Phase 2→Phase 3. Backlog Enterprise (25k SKUs COTO): Nixtla, Optuna offline, clustering ABC-XYZ, Croston, OTIF, Data Drift monitor. |
 | 2026-05-17 | 9 | Fase 3 completa: migrations/002_events.sql, api/events.py (GET/POST/DELETE), services/events.py (CRUD+feriados AR via holidays), forecast.py +compare endpoint (post-processing multiplicativo), main.py router, pyproject.toml +holidays. Frontend: useEvents.ts, EventChip, ImpactBadge, EventForm (drawer), EventCalendar (pure MUI grid), calendar/page.tsx completa, toggle eventos en forecast/page.tsx, types.ts +ComparePoint. README y TODO purgados de Prophet. |
 | 2026-05-17 | 10 | Fase 4 completa (backend + frontend): tools.py, tool_executor.py (DuckDB), openrouter.py (SSE+tool loop), client.py (system prompt dinámico), api/chat.py (SSE endpoint). Frontend: useChat.ts, ModelSelector, StreamingCursor, MessageBubble, ChatBox, QuickQuestions, chat/page.tsx. 7 modelos free actualizados. config.py default model actualizado. Fixes mypy+ruff (type-arg, N806, B007, F841). |
-| 2026-05-17 | 12 | Fase 4 completada: appStore.ts (localStorage), wiring dataset_id+job_id desde Dataset→Forecast→Chat, chips de contexto en chat/page.tsx, redis_cache.py (rate limit token bucket 30req/h), InlineChart.tsx (Recharts desde JSON spec), renderMarkdown mejorado en MessageBubble, system prompt actualizado con chart-spec format. Fase 4 ✅. |
+| 2026-05-17 | 13 | Fix mypy: bool() en cache_set y cache_delete (redis_cache.py), isinstance(row, dict) en get_forecast_history (supabase.py). Backend Fase 5: dependencies.py (CurrentUser, get_current_user, get_optional_user, AuthUser, OptionalUser), supabase.py +get_forecast_history, api/me.py (GET /api/me + GET /api/me/history), main.py +me_router. mypy 34 archivos ✅ |
 
 ---
 
