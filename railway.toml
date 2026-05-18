@@ -1,5 +1,5 @@
-# railway.toml — configuración del servicio API
-# Railway lee este archivo automáticamente desde la raíz del repo
+# railway.toml — configuración del servicio API (forecastiq-api)
+# El worker (forecastiq-worker) usa el Start Command configurado en Railway dashboard
 # Docs: https://docs.railway.com/reference/config-as-code
 
 [build]
