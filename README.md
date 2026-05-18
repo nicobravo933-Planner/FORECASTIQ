@@ -4,26 +4,45 @@
   <br/><br/>
   <!-- Estado del proyecto -->
   <img src="https://img.shields.io/badge/status-live%20en%20producción-22c55e?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-6%20deploy%20%26%20observability-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/phase-7%20observability-6366f1?style=for-the-badge"/>
   <br/><br/>
   <a href="https://forecastiq.vercel.app"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-forecastiq.vercel.app-6366f1?style=for-the-badge"/></a>
   <br/><br/>
+  <!-- Core stack -->
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white"/>
   <img src="https://img.shields.io/badge/Next.js-14-000000?logo=next.js&logoColor=white"/>
   <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white"/>
   <img src="https://img.shields.io/badge/MUI-v6-007FFF?logo=mui&logoColor=white"/>
+  <br/>
+  <!-- Infrastructure -->
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white"/>
   <img src="https://img.shields.io/badge/Redis-Railway-DC382D?logo=redis&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Celery-worker-37814A?logo=celery&logoColor=white"/>
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white"/>
   <img src="https://img.shields.io/badge/Backend-Railway-0B0D0E?logo=railway&logoColor=white"/>
   <img src="https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white"/>
+  <br/>
+  <!-- ML / AI -->
   <img src="https://img.shields.io/badge/LLM-OpenRouter-FF6B35"/>
   <img src="https://img.shields.io/badge/ML-Holt--Winters-4285F4"/>
   <img src="https://img.shields.io/badge/ML-SARIMA-0ea5e9"/>
   <img src="https://img.shields.io/badge/ML-LightGBM-green"/>
   <img src="https://img.shields.io/badge/HPO-Optuna-6236FF"/>
+  <img src="https://img.shields.io/badge/data-27M%20filas%20sintéticas-f59e0b"/>
+  <br/>
+  <!-- Roadmap futuro -->
+  <img src="https://img.shields.io/badge/próximo-OpenTelemetry%20%2B%20Grafana-F46800?logo=grafana&logoColor=white"/>
+  <img src="https://img.shields.io/badge/roadmap-MLflow%20%2B%20Evidently-0194E2?logo=mlflow&logoColor=white"/>
+  <img src="https://img.shields.io/badge/roadmap-PySpark%20%2B%20Nixtla-E25A1C?logo=apachespark&logoColor=white"/>
+  <img src="https://img.shields.io/badge/roadmap-Airflow%20DAGs-017CEE?logo=apacheairflow&logoColor=white"/>
+  <img src="https://img.shields.io/badge/roadmap-BigQuery%20%2B%20dbt-4285F4?logo=googlebigquery&logoColor=white"/>
+  <img src="https://img.shields.io/badge/roadmap-Terraform%20%2B%20K8s-7B42BC?logo=terraform&logoColor=white"/>
+  <br/><br/>
   <img src="https://img.shields.io/badge/License-MIT-6366F1"/>
+  <img src="https://img.shields.io/badge/UV-package%20manager-DE5FE9?logo=astral&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Ruff-linter-D7FF64?logo=ruff&logoColor=black"/>
+  <img src="https://img.shields.io/badge/mypy-strict-2A6DB2"/>
 </p>
 
 ---
@@ -39,7 +58,11 @@
 >
 > **Phase 5 — Auth + Persistencia** ✅ completa · OAuth2 Google/GitHub (Better Auth) + historial por usuario + RLS Supabase + Settings BYOK
 >
-> **Phase 6 — Deploy + Observability** ✅ completa · Railway (API + Worker) + Vercel (frontend) + CI/CD GitHub Actions + Redis Railway
+> **Phase 6 — Deploy + CI/CD** ✅ completa · Railway (API + Worker) + Vercel (frontend) + CI/CD GitHub Actions + Redis Railway
+>
+> **Phase 7 — Observability** 🔄 en progreso · OpenTelemetry + Grafana LGTM (Loki/Tempo/Mimir) + Sentry error tracking
+>
+> **Phase 8–14 — Enterprise Roadmap** ⏳ pendiente · MLflow · Evidently AI · Nixtla · Polars · PySpark · Airflow · BigQuery/dbt · Terraform + K8s
 
 ---
 
@@ -298,13 +321,31 @@ git push main
 
 Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 
-- [x] **Fase 0** — Fundación (repo + CI + Docker) ✅
-- [x] **Fase 1** — Subida CSV + detección automática de modelo ✅
-- [x] **Fase 2** — Motor de forecast (4 modelos ML) ✅
-- [x] **Fase 3** — Calendario de eventos ✅
-- [x] **Fase 4** — Chat IA con streaming SSE ✅
-- [x] **Fase 5** — Auth + persistencia (Google/GitHub OAuth, historial por usuario) ✅
-- [x] **Fase 6** — Deploy completo a producción (Railway + Vercel + CI/CD) ✅
+### ✅ Completado
+
+- [x] **Fase 0** — Fundación (repo + CI + Docker)
+- [x] **Fase 1** — Subida CSV + detección automática de modelo
+- [x] **Fase 2** — Motor de forecast (4 modelos ML)
+- [x] **Fase 3** — Calendario de eventos
+- [x] **Fase 4** — Chat IA con streaming SSE
+- [x] **Fase 5** — Auth + persistencia (Google/GitHub OAuth, historial por usuario)
+- [x] **Fase 6** — Deploy completo a producción (Railway + Vercel + CI/CD)
+
+### 🔄 En progreso
+
+- [ ] **Fase 7** — Observability · OpenTelemetry → Grafana Cloud (Loki + Tempo + Mimir) + Sentry
+
+### ⏳ Roadmap Enterprise (Fases 8–14)
+
+| Fase | Objetivo | Stack |
+|------|----------|-------|
+| **8** | MLOps | MLflow experiment tracking + Evidently AI drift detection |
+| **9** | Scale Engine | Nixtla StatsForecast vectorizado + Polars + Celery Beat batch |
+| **10** | Dataset sintético | 25k SKUs × 3 años diario → 27M filas Parquet (✅ script listo) |
+| **11** | PySpark local | Docker Spark cluster · feature engineering distribuido |
+| **12** | Airflow | DAGs batch: forecast → drift check → MLflow cleanup |
+| **13** | Data Warehouse | BigQuery free tier + dbt models + SQL analítico |
+| **14** | Infra as Code | Terraform + Kubernetes manifests + Helm chart |
 
 ---
 

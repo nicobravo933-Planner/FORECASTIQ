@@ -528,8 +528,147 @@ Service key bypasses RLS — only use it in backend, never expose to frontend.
 
 ---
 
-_Last updated: Phase 1 — Data ingestion + Model detection_
-_Stack: FastAPI + Next.js 14 + MUI v6 + Supabase + Redis + OpenRouter_
+_Last updated: Phase 7 roadmap documented — enterprise stack defined_
+_Stack: FastAPI + Next.js 14 + MUI v6 + Supabase + Redis + OpenRouter + OpenTelemetry + Grafana LGTM + MLflow + Nixtla + PySpark + Airflow_
+
+---
+
+---
+
+## 🏗️ Enterprise Stack Roadmap
+
+> Estas decisiones de arquitectura están cerradas para las fases 7-14.
+> No re-discutir — implementar según el orden de fases en TODO.md.
+
+### Observability Stack (Fase 7)
+
+```
+FastAPI / Celery
+    │
+    ├── structlog          → logs JSON estructurados (campos: request_id, user_id, duration_ms)
+    ├── prometheus-fastapi-instrumentator  → /metrics endpoint (Prometheus scrape)
+    └── OpenTelemetry SDK  → traces distribuidos (estándar CNCF)
+            │
+            ▼
+       OTLP Collector
+            │
+     ┌──────┴──────────────────┐
+     ▼                         ▼
+  Grafana Cloud (free)       Sentry (free tier)
+  ├── Loki   (logs)          ├── Error tracking
+  ├── Tempo  (traces)        ├── Performance monitoring
+  ├── Mimir  (metrics)       └── Alertas por email
+  └── Dashboards
+```
+
+**Regla:** OpenTelemetry es el estándar — instrumentar una vez, exportar a cualquier backend.
+Nunca usar logging de Python puro en producción — siempre structlog con campos estructurados.
+
+### MLOps Stack (Fase 8)
+
+```
+Forecast run
+    │
+    ├── mlflow.start_run()     → registra params + métricas en MLflow Tracking Server
+    ├── mlflow.log_model()     → sube artefacto al Model Registry
+    └── evidently.Report()     → genera reporte de data drift (HTML + JSON)
+
+MLflow Tracking Server: Railway service (prod) / localhost:5000 (dev)
+Model Registry: SQLite local (dev) / PostgreSQL Supabase (prod)
+Drift reports: guardados en Supabase Storage como HTML
+```
+
+**Regla:** Todo experimento ML debe loguearse en MLflow. Sin tracking = no reproducible.
+
+### Scale Engine (Fase 9)
+
+```python
+# Formato panel estándar Nixtla — una sola llamada para todos los SKUs
+df = pl.read_parquet("ventas_25k_skus.parquet")  # Polars, no pandas
+
+# StatsForecast vectorizado — usa Numba + C internamente
+from statsforecast import StatsForecast
+from statsforecast.models import AutoETS, AutoARIMA
+
+sf = StatsForecast(models=[AutoETS(), AutoARIMA()], freq="D", n_jobs=-1)
+forecast_df = sf.forecast(df=df, h=30)  # 25k SKUs en paralelo
+```
+
+**Regla:** Para >100 series, usar siempre Nixtla (StatsForecast/MLForecast), nunca statsmodels.
+Polars reemplaza pandas en todo el pipeline de ingesta y pre-procesamiento (Fase 9+).
+
+### Dataset Sintético (Fase 10)
+
+```
+scripts/generate_massive_dataset.py
+    │
+    Output: data/ventas_25k_skus.parquet
+    │       ~180 MB (Snappy), ~27M filas
+    │       columnas: sku_id, categoria, canal, fecha, ventas, precio, stock, cluster_abc, cluster_xyz
+    │
+    Patrones por categoría:
+    ├── Electrónica:   tendencia creciente + estacionalidad Navidad fuerte
+    ├── Alimentos:     estacionalidad semanal + ruido bajo
+    ├── Indumentaria:  estacionalidad primavera/otoño + moda fugaz
+    ├── Hogar:         demanda intermitente (muchos ceros)
+    └── Deportes:      picos Año Nuevo + World Cup effect
+```
+
+### PySpark (Fase 11)
+
+```
+docker-compose.spark.yml
+    ├── spark-master   (bitnami/spark:3.5)
+    ├── spark-worker-1
+    └── spark-worker-2
+
+Cuándo usar Spark vs Polars:
+    Polars  → hasta ~100M filas en una sola máquina, latencia baja
+    Spark   → >100M filas O necesitás distribución real O el job debe escalar horizontalmente
+    Regla práctica: si corre en <30s con Polars, no lo migres a Spark
+```
+
+### Airflow (Fase 12)
+
+```
+DAGs en forecastiq:
+    forecast_batch_daily   → 02:00 AR → ingesta S3/Supabase → Nixtla → guardar
+    drift_check_weekly     → lunes 06:00 → Evidently report → alerta si drift > umbral
+    mlflow_cleanup_monthly → 1ro de mes → archiva runs > 90 días
+
+Ejecutor: CeleryExecutor (usa el mismo Redis de la app)
+Conexiones: supabase_pg (PostgresHook), supabase_storage (S3Hook compatible)
+```
+
+### Data Warehouse (Fase 13)
+
+```
+Arquitectura Lakehouse:
+    Raw layer:    Supabase Storage (Parquet) — source of truth
+    Serving layer: BigQuery — análisis y dashboards
+    Transform:    dbt — modelos SQL versionados
+
+BigQuery free tier: 10 GB storage + 1 TB queries/mes — suficiente para portfolio
+Snowflake trial: 30 días con $400 de crédito — para comparar
+Databricks Community: Spark + MLflow + Delta Lake — para practicar lakehouse completo
+```
+
+### Infra as Code (Fase 14)
+
+```
+infra/
+├── terraform/
+│   ├── railway.tf      (Railway services + variables)
+│   ├── supabase.tf     (proyecto + storage buckets)
+│   └── vercel.tf       (proyecto + env vars)
+└── k8s/
+    ├── api/            (Deployment + Service + HPA)
+    ├── worker/         (Deployment Celery)
+    ├── ingress.yaml    (nginx-ingress)
+    └── helm/           (Helm chart completo)
+
+Escalado: Railway (hoy) → K8s en GKE/EKS cuando MRR > $1k
+```
 
 ---
 
