@@ -58,7 +58,7 @@ def detect_outliers_mad(series: pd.Series, threshold: float = 3.0) -> pd.Series:
     threshold=3.0 es el estándar de industria (equivale a ~3 sigma en distribución normal).
     """
     median = series.median()
-    mad = (series - median).abs().median()
+    mad = (series - float(median)).abs().median()
 
     # MAD == 0 implica que >50% de los valores son iguales (serie muy constante)
     if mad == 0:

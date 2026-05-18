@@ -56,9 +56,9 @@ class MovingAverageModel(ForecastModel):
         # Guarda valores ajustados y residuos (solo donde hay fitted)
         self._fitted_values = fitted
         valid = fitted.dropna()
-        self._residuals = (series.loc[valid.index] - valid).values
+        self._residuals = (series.loc[valid.index] - valid).to_numpy()
         self._last_wma = float(valid.iloc[-1])
-        self._freq = normalize_freq(pd.infer_freq(series.index) or "MS")
+        self._freq = normalize_freq(pd.infer_freq(pd.DatetimeIndex(series.index)) or "MS")
 
     def predict(self, horizon: int) -> pd.DataFrame:
         if self._series is None or self._residuals is None:
@@ -93,7 +93,7 @@ class MovingAverageModel(ForecastModel):
             }
         )
 
-    def evaluate(self, test: pd.Series) -> dict[str, float]:
+    def evaluate(self, test: pd.Series) -> dict[str, float | None]:
         if self._series is None:
             raise RuntimeError("Llamar fit() antes de evaluate().")
 

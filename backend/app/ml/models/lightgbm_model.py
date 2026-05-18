@@ -45,9 +45,10 @@ def _make_features(series: pd.Series, max_lag: int = 13) -> pd.DataFrame:
             df[f"roll_std_{window}"] = df["y"].shift(1).rolling(window).std()
 
     # Features de calendario
-    df["month"] = series.index.month
-    df["quarter"] = series.index.quarter
-    df["day_of_year"] = series.index.day_of_year
+    dt_index = pd.DatetimeIndex(series.index)
+    df["month"] = dt_index.month
+    df["quarter"] = dt_index.quarter
+    df["day_of_year"] = dt_index.day_of_year
 
     return df.dropna()
 
@@ -78,13 +79,13 @@ class LightGBMModel(ForecastModel):
         self._model_upper: lgb.Booster | None = None
         self._series: pd.Series | None = None
         self._freq: str | None = None
-        self._best_params: dict = {}
+        self._best_params: dict[str, object] = {}
 
     # ── Entrenamiento ─────────────────────────────────────────────────────────
 
     def fit(self, series: pd.Series) -> None:
         self._series = series.copy()
-        self._freq = normalize_freq(pd.infer_freq(series.index) or "MS")
+        self._freq = normalize_freq(pd.infer_freq(pd.DatetimeIndex(series.index)) or "MS")
 
         df = _make_features(series, self.max_lag)
         x = df.drop(columns=["y"]).values
@@ -109,7 +110,7 @@ class LightGBMModel(ForecastModel):
             x, y, {**q_params, "alpha": upper_q}, objective="quantile"
         )
 
-    def _optimize(self, x: np.ndarray, y: np.ndarray) -> dict:
+    def _optimize(self, x: np.ndarray, y: np.ndarray) -> dict[str, object]:
         """Optuna: busca hiperparámetros minimizando RMSE en validación temporal."""
 
         def objective(trial: optuna.Trial) -> float:
@@ -146,9 +147,11 @@ class LightGBMModel(ForecastModel):
             sampler=optuna.samplers.TPESampler(seed=42),
         )
         study.optimize(objective, n_trials=self.n_trials, timeout=self.optuna_timeout)
-        return study.best_params
+        return study.best_params  # type: ignore[return-value]
 
-    def _train_lgb(self, x: np.ndarray, y: np.ndarray, params: dict, objective: str) -> lgb.Booster:
+    def _train_lgb(
+        self, x: np.ndarray, y: np.ndarray, params: dict[str, object], objective: str
+    ) -> lgb.Booster:
         final_params = {**params, "objective": objective, "verbose": -1}
         return lgb.train(
             final_params,
@@ -198,7 +201,7 @@ class LightGBMModel(ForecastModel):
             }
         )
 
-    def evaluate(self, test: pd.Series) -> dict[str, float]:
+    def evaluate(self, test: pd.Series) -> dict[str, float | None]:
         if self._model_mean is None:
             raise RuntimeError("Llamar fit() antes de evaluate().")
 

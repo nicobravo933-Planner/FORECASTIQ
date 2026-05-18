@@ -8,6 +8,8 @@ Endpoints de forecast — Phase 2.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -121,7 +123,8 @@ async def run_forecast(body: ForecastRunRequest) -> ForecastRunResponse:
         horizon=body.horizon,
         model_override=body.model_override,
     )
-    return ForecastRunResponse(job_id=task.id, status="done" if _eager_mode() else "pending")
+    job_id: str = str(task.id)
+    return ForecastRunResponse(job_id=job_id, status="done" if _eager_mode() else "pending")
 
 
 @router.get("/{job_id}/status", response_model=ForecastStatusResponse)
@@ -215,7 +218,7 @@ async def get_forecast_compare(job_id: str, year: int | None = None) -> Forecast
     if not data:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' no encontrado.")
 
-    predictions_raw: list[dict] = data.get("predictions") or []
+    predictions_raw: list[dict[str, Any]] = data.get("predictions") or []
 
     # Cargar eventos (propios + globales + feriados AR)
     user_id: str | None = None  # Phase 5: inyectar desde JWT

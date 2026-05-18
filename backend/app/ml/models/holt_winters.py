@@ -44,7 +44,7 @@ class HoltWintersModel(ForecastModel):
 
     def fit(self, series: pd.Series) -> None:
         self._series = series.copy()
-        freq = normalize_freq(pd.infer_freq(series.index) or "MS")
+        freq = normalize_freq(pd.infer_freq(pd.DatetimeIndex(series.index)) or "MS")
         self._freq = freq
         self._seasonal_periods = get_seasonal_periods(freq)
 
@@ -94,7 +94,7 @@ class HoltWintersModel(ForecastModel):
             }
         )
 
-    def evaluate(self, test: pd.Series) -> dict[str, float]:
+    def evaluate(self, test: pd.Series) -> dict[str, float | None]:
         if self._model_fit is None:
             raise RuntimeError("Llamar fit() antes de evaluate().")
 

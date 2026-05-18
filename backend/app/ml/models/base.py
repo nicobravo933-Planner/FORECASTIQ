@@ -49,11 +49,12 @@ class ForecastModel(ABC):
         ...
 
     @abstractmethod
-    def evaluate(self, test: pd.Series) -> dict[str, float]:
+    def evaluate(self, test: pd.Series) -> dict[str, float | None]:
         """
         Evalúa el modelo contra una serie de test (hold-out).
 
         Returns:
-            Dict con claves: "wape", "mae", "bias", "rmse", "mape"
+            Dict con claves: "wape", "mae", "bias", "rmse", "mape", "fva"
+            mape puede ser None si la serie tiene ceros.
         """
         ...

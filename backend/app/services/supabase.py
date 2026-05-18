@@ -1,6 +1,7 @@
 """Supabase client wrapper — Storage + DB."""
 
 import uuid
+from typing import Any
 
 from supabase import Client, create_client
 
@@ -43,7 +44,7 @@ def delete_csv(dataset_id: str) -> None:
     client.storage.from_(BUCKET).remove([f"{dataset_id}.csv"])
 
 
-def save_forecast_result(job_id: str, result: dict) -> None:
+def save_forecast_result(job_id: str, result: dict[str, Any]) -> None:
     """
     Persiste el resultado del forecast en la tabla `forecast_jobs` de Supabase.
     Hace upsert por job_id para que sea idempotente (reintento seguro).
@@ -67,11 +68,14 @@ def save_forecast_result(job_id: str, result: dict) -> None:
     ).execute()
 
 
-def get_forecast_result(job_id: str) -> dict | None:
+def get_forecast_result(job_id: str) -> dict[str, Any] | None:
     """
     Recupera el resultado de un forecast desde Supabase.
     Retorna None si no existe.
     """
     client = get_supabase()
     response = client.table("forecast_jobs").select("*").eq("job_id", job_id).single().execute()
-    return response.data if response.data else None
+    data = response.data
+    if not data or not isinstance(data, dict):
+        return None
+    return dict(data)

@@ -36,7 +36,7 @@ class SarimaModel(ForecastModel):
 
     def fit(self, series: pd.Series) -> None:
         self._series = series.copy()
-        freq = normalize_freq(pd.infer_freq(series.index) or "MS")
+        freq = normalize_freq(pd.infer_freq(pd.DatetimeIndex(series.index)) or "MS")
         self._freq = freq
         m = get_seasonal_periods(freq)
 

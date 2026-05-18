@@ -9,6 +9,7 @@ Endpoints de eventos del calendario — Phase 3.
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -87,7 +88,7 @@ async def list_user_events(
     if include_holidays:
         target_year = year or date.today().year
         for h in get_ar_holidays(target_year):
-            events.append(h)
+            events.append(_row_to_response(h))
 
     return EventListResponse(events=events, total=len(events))
 
@@ -130,7 +131,7 @@ async def delete_user_event(event_id: str) -> None:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _row_to_response(row: dict) -> EventResponse:
+def _row_to_response(row: dict[str, Any]) -> EventResponse:
     return EventResponse(
         id=str(row["id"]),
         name=row["name"],

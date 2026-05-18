@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import uuid
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
 from celery import Celery
@@ -44,8 +45,8 @@ celery_app.conf.update(
 
 
 @celery_app.task(bind=True, name="forecast.run")  # type: ignore[misc]
-def run_forecast_task(
-    self,  # type: ignore[misc]
+def run_forecast_task(  # type: ignore[misc]
+    self: Any,
     dataset_id: str,
     date_column: str,
     target_column: str,
@@ -128,7 +129,7 @@ def run_forecast_task(
 
         # 6. Métricas sobre test
         _update(75, "Calculando métricas")
-        metrics: dict = model.evaluate(test) if len(test) > 0 else {}
+        metrics: dict[str, Any] = model.evaluate(test) if len(test) > 0 else {}
 
         # Re-entrena con toda la serie para la predicción final
         model.fit(series)
@@ -158,7 +159,7 @@ def run_forecast_task(
 
         # 8. Guarda en Supabase
         _update(95, "Guardando resultado")
-        result = {
+        result: dict[str, Any] = {
             "job_id": job_id,
             "status": "done",
             "dataset_id": dataset_id,
