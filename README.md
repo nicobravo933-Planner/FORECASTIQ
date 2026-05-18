@@ -4,7 +4,7 @@
   <br/><br/>
   <!-- Estado del proyecto -->
   <img src="https://img.shields.io/badge/status-en%20construcción-orange?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-3%20calendar%20of%20events-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/phase-4%20AI%20chat%20streaming-6366f1?style=for-the-badge"/>
   <br/><br/>
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white"/>
@@ -36,7 +36,7 @@
 >
 > **Phase 3 — Calendar of Events** ✅ completa · Eventos CRUD + feriados AR + post-processing multiplicativo + toggle en forecast
 >
-> **Phase 4 — AI Chat** 🚧 siguiente
+> **Phase 4 — AI Chat con streaming SSE** 🔧 en progreso · SSE real-time + DuckDB tools + 7 modelos OpenRouter free
 
 ---
 
@@ -206,7 +206,7 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/0
 
 # LLM
 OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_MODEL=deepseek/deepseek-r1-0528:free
+OPENROUTER_MODEL=deepseek/deepseek-v4-flash:free
 
 # Auth
 JWT_SECRET_KEY=  # openssl rand -hex 32
@@ -225,15 +225,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 ## 🤖 Modelos LLM soportados (gratis)
 
-Todos los modelos son seleccionables desde el panel de configuración del frontend:
+Todos los modelos son seleccionables desde el chat del frontend:
 
-| Modelo           | Proveedor              | Contexto |
-| ---------------- | ---------------------- | -------- |
-| DeepSeek R1      | OpenRouter             | 164K     |
-| Llama 3.3 70B    | Meta vía OpenRouter    | 128K     |
-| Gemini 2.0 Flash | Google vía OpenRouter  | 1M       |
-| Qwen3 235B       | Alibaba vía OpenRouter | 40K      |
-| Mistral 7B       | Mistral vía OpenRouter | 32K      |
+| Modelo            | Proveedor               |
+| ----------------- | ----------------------- |
+| OWL Alpha         | OpenRouter              |
+| Nemotron 120B     | NVIDIA vía OpenRouter   |
+| Laguna M.1        | Poolside vía OpenRouter |
+| GPT OSS 120B      | OpenAI vía OpenRouter   |
+| GLM 4.5 Air       | ZhipuAI vía OpenRouter  |
+| DeepSeek V4 Flash | DeepSeek vía OpenRouter |
+| MiniMax M2.5      | MiniMax vía OpenRouter  |
 
 ---
 
@@ -287,8 +289,8 @@ Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 - [x] **Fase 0** — Fundación (repo + CI + Docker) ✅
 - [x] **Fase 1** — Subida CSV + detección automática de modelo ✅
 - [x] **Fase 2** — Motor de forecast (4 modelos ML) ✅
-- [ ] **Fase 3** — Calendario de eventos ← estamos aquí
-- [ ] **Fase 4** — Chat IA con streaming SSE
+- [x] **Fase 3** — Calendario de eventos ✅
+- [ ] **Fase 4** — Chat IA con streaming SSE ← en progreso
 - [ ] **Fase 5** — Auth + persistencia
 - [ ] **Fase 6** — Deploy completo a producción
 

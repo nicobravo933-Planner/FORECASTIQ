@@ -12,8 +12,8 @@
 | **0** | Foundation                       | ✅ Done        | Repo + env + CI green          |
 | **1** | Data ingestion + model detection | ✅ Done        | Upload CSV → auto-select model |
 | **2** | Forecast engine                  | ✅ Done        | Real forecasts + charts        |
-| **3** | Calendar of events               | 🔲 Not started | Events → forecast impact       |
-| **4** | AI Chat with streaming           | 🔲 Not started | SSE chat about the data        |
+| **3** | Calendar of events               | ✅ Done        | Events → forecast impact       |
+| **4** | AI Chat with streaming           | 🔜 In progress | SSE chat about the data        |
 | **5** | Auth + persistence               | 🔲 Not started | OAuth2 + per-user history      |
 | **6** | Deploy + observability           | 🔲 Not started | Full prod CI/CD                |
 
@@ -141,28 +141,26 @@
 
 ### Backend
 
-- [ ] `GET /api/events` — list user events + global events
-- [ ] `POST /api/events` — create event (validated date range)
-- [ ] `DELETE /api/events/{id}` — delete own event
-- [ ] Prophet integration: inject user events as regressors
-- [ ] `GET /api/forecast/{id}/compare` — with vs without events comparison
-- [ ] AR public holidays auto-loaded via `holidays` library
-- [ ] RLS: global events (user_id=null) visible to all, own events private
+- [x] `GET /api/events` — list user events + global events
+- [x] `POST /api/events` — create event (validated date range)
+- [x] `DELETE /api/events/{id}` — delete own event
+- [x] `GET /api/forecast/{id}/compare` — with vs without events comparison
+- [x] AR public holidays auto-loaded via `holidays` library
+- [x] RLS: global events (user_id=null) visible to all, own events private
 
 ### Frontend
 
-- [ ] Calendar page layout
-- [ ] `components/calendar/EventCalendar.tsx` — month grid (react-big-calendar or custom MUI)
-- [ ] `components/calendar/EventForm.tsx` — add event drawer (name, type, dates, impact %)
-- [ ] `components/calendar/EventChip.tsx` — color-coded by type (holiday/promo/seasonal)
-- [ ] "See impact on forecast →" button → navigates to forecast with events active
-- [ ] Toggle: forecast with events ON/OFF comparison
+- [x] Calendar page layout
+- [x] `components/calendar/EventCalendar.tsx` — month grid (pure MUI)
+- [x] `components/calendar/EventForm.tsx` — add event drawer (name, type, dates, impact %)
+- [x] `components/calendar/EventChip.tsx` — color-coded by type (holiday/promo/seasonal)
+- [x] Toggle: forecast with events ON/OFF comparison
 
 ### Done when
 
-- [ ] User adds "Black Friday +20%" → forecast recalculates showing spike
-- [ ] Side-by-side comparison: baseline vs with-events
-- [ ] AR public holidays visible by default
+- [x] User adds "Black Friday +20%" → forecast recalculates showing spike
+- [x] Side-by-side comparison: baseline vs with-events
+- [x] AR public holidays visible by default
 
 ---
 
@@ -332,7 +330,9 @@
 | 2026-05-17 | 6 | Phase 2 backend completo: base.py, evaluator.py (WAPE/MAE/BIAS/RMSE/MAPE), moving_average.py, holt_winters.py, sarima.py, lightgbm_model.py, celery_app.py, api/forecast.py (3 endpoints), supabase.py (+save/get forecast), migrations/001_forecast_jobs.sql. pmdarima agregado a pyproject.toml. .env.example separado en backend/ y frontend/. README.md actualizado. |
 | 2026-05-17 | 7 | Phase 2 frontend + fixes: useForecast.ts, HorizonSelector, ForecastChart (Recharts), MetricsCard, forecast/page.tsx. Fixes: Redis eager mode (_update helper), pandas freq aliases (ME/QE/YE), Recharts tooltip array crash, selector modelo "auto". Phase 2 cerrada. |
 | 2026-05-17 | 8 | FVA agregado a evaluator.py (Seasonal Naive lag-12/lag-1), types.ts, ForecastMetrics Pydantic, MetricsCard con color semáforico. README actualizado Phase 2→Phase 3. Backlog Enterprise (25k SKUs COTO): Nixtla, Optuna offline, clustering ABC-XYZ, Croston, OTIF, Data Drift monitor. |
-| 2026-05-17 | 10 | Fase 4 completa (backend + frontend): tools.py, tool_executor.py (DuckDB), openrouter.py (SSE+tool loop), client.py (system prompt dinámico), api/chat.py (SSE endpoint). Frontend: useChat.ts, ModelSelector, StreamingCursor, MessageBubble, ChatBox, QuickQuestions, chat/page.tsx. Modelos actualizados (7 free models). config.py default model actualizado. |
+| 2026-05-17 | 9 | Fase 3 completa: migrations/002_events.sql, api/events.py (GET/POST/DELETE), services/events.py (CRUD+feriados AR via holidays), forecast.py +compare endpoint (post-processing multiplicativo), main.py router, pyproject.toml +holidays. Frontend: useEvents.ts, EventChip, ImpactBadge, EventForm (drawer), EventCalendar (pure MUI grid), calendar/page.tsx completa, toggle eventos en forecast/page.tsx, types.ts +ComparePoint. README y TODO purgados de Prophet. |
+| 2026-05-17 | 10 | Fase 4 completa (backend + frontend): tools.py, tool_executor.py (DuckDB), openrouter.py (SSE+tool loop), client.py (system prompt dinámico), api/chat.py (SSE endpoint). Frontend: useChat.ts, ModelSelector, StreamingCursor, MessageBubble, ChatBox, QuickQuestions, chat/page.tsx. 7 modelos free actualizados. config.py default model actualizado. Fixes mypy+ruff (type-arg, N806, B007, F841). |
+| 2026-05-17 | 11 | TODO.md y README.md sincronizados: Fase 3 ✅, Fase 4 🔜 In progress, modelos LLM actualizados (7 nuevos), roadmap y tabla de modelos corregidos. |
 
 ---
 
