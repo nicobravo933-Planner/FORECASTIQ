@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from app.services.supabase import get_supabase
 
@@ -30,12 +30,13 @@ def list_events(user_id: str | None = None) -> list[dict[str, Any]]:
     client = get_supabase()
     # Eventos globales
     q = client.table("events").select("*").is_("user_id", "null")
-    rows: list[dict[str, Any]] = list(q.execute().data or [])
+    rows: list[dict[str, Any]] = cast(list[dict[str, Any]], q.execute().data or [])
 
     # Eventos propios del usuario (si está autenticado)
     if user_id:
-        user_rows: list[dict[str, Any]] = list(
-            client.table("events").select("*").eq("user_id", user_id).execute().data or []
+        user_rows: list[dict[str, Any]] = cast(
+            list[dict[str, Any]],
+            client.table("events").select("*").eq("user_id", user_id).execute().data or [],
         )
         rows.extend(user_rows)
 
@@ -63,7 +64,7 @@ def create_event(
         "is_global": False,
     }
     response = client.table("events").insert(payload).execute()
-    data: list[dict[str, Any]] = list(response.data or [])
+    data: list[dict[str, Any]] = cast(list[dict[str, Any]], response.data or [])
     if not data:
         raise RuntimeError("Error al crear evento en Supabase — respuesta vacía.")
     return data[0]
@@ -83,7 +84,7 @@ def delete_event(event_id: str, user_id: str | None) -> bool:
         q = q.is_("user_id", "null")
 
     response = q.execute()
-    deleted: list[dict[str, Any]] = list(response.data or [])
+    deleted: list[dict[str, Any]] = cast(list[dict[str, Any]], response.data or [])
     return len(deleted) > 0
 
 
@@ -99,7 +100,7 @@ def get_ar_holidays(year: int) -> list[dict[str, Any]]:
     if not _HOLIDAYS_AVAILABLE:
         return []
 
-    ar = holidays_lib.country_holidays("AR", years=year)  # type: ignore[attr-defined]
+    ar = holidays_lib.country_holidays("AR", years=year)
     result: list[dict[str, Any]] = []
     for h_date, h_name in sorted(ar.items()):
         result.append(

@@ -88,8 +88,8 @@ class LightGBMModel(ForecastModel):
         self._freq = normalize_freq(pd.infer_freq(pd.DatetimeIndex(series.index)) or "MS")
 
         df = _make_features(series, self.max_lag)
-        x = df.drop(columns=["y"]).values
-        y = df["y"].values
+        x: np.ndarray = df.drop(columns=["y"]).to_numpy()
+        y: np.ndarray = df["y"].to_numpy()
 
         # Optuna HPO sobre el modelo de media
         self._best_params = self._optimize(x, y)
@@ -147,7 +147,7 @@ class LightGBMModel(ForecastModel):
             sampler=optuna.samplers.TPESampler(seed=42),
         )
         study.optimize(objective, n_trials=self.n_trials, timeout=self.optuna_timeout)
-        return study.best_params  # type: ignore[return-value]
+        return study.best_params  # type: ignore[return-value]  # Optuna typed as dict[str, Any]
 
     def _train_lgb(
         self, x: np.ndarray, y: np.ndarray, params: dict[str, object], objective: str

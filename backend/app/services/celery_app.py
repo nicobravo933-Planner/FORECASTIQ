@@ -45,7 +45,7 @@ celery_app.conf.update(
 
 
 @celery_app.task(bind=True, name="forecast.run")  # type: ignore[misc]
-def run_forecast_task(  # type: ignore[misc]
+def run_forecast_task(  # type: ignore[misc, no-untyped-def]
     self: Any,
     dataset_id: str,
     date_column: str,
@@ -53,7 +53,7 @@ def run_forecast_task(  # type: ignore[misc]
     freq: str,
     horizon: int,
     model_override: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Pipeline completo de forecasting:
       1. Descarga CSV desde Supabase Storage

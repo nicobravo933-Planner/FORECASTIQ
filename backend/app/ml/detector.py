@@ -65,7 +65,7 @@ def detect_outliers_mad(series: pd.Series, threshold: float = 3.0) -> pd.Series:
         return pd.Series(False, index=series.index)
 
     # Modified Z-score: 0.6745 es el factor de consistencia para distribución normal
-    modified_z = 0.6745 * (series - median) / mad
+    modified_z = 0.6745 * (series.to_numpy() - float(median)) / float(mad)
     return modified_z.abs() > threshold
 
 

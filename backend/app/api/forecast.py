@@ -93,7 +93,7 @@ def _celery_state(job_id: str) -> str:
         # En eager mode la tarea ya terminó — consultamos Supabase directamente
         data = get_forecast_result(job_id)
         if data:
-            return data.get("status", "done")
+            return str(data.get("status", "done"))
         return "pending"
     # Producción: consulta Redis vía Celery
     task = run_forecast_task.AsyncResult(job_id)

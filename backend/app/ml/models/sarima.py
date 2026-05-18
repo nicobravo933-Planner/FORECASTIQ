@@ -83,7 +83,7 @@ class SarimaModel(ForecastModel):
             }
         )
 
-    def evaluate(self, test: pd.Series) -> dict[str, float]:
+    def evaluate(self, test: pd.Series) -> dict[str, float | None]:
         if self._model_fit is None:
             raise RuntimeError("Llamar fit() antes de evaluate().")
 
