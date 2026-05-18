@@ -44,8 +44,8 @@ celery_app.conf.update(
 # -- Tarea principal ----------------------------------------------------------
 
 
-@celery_app.task(bind=True, name="forecast.run")  # type: ignore[misc]
-def run_forecast_task(  # type: ignore[misc, no-untyped-def]
+@celery_app.task(bind=True, name="forecast.run")  # type: ignore[untyped-decorator]
+def run_forecast_task(
     self: Any,
     dataset_id: str,
     date_column: str,

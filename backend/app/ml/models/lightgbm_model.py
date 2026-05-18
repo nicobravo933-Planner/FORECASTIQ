@@ -147,7 +147,7 @@ class LightGBMModel(ForecastModel):
             sampler=optuna.samplers.TPESampler(seed=42),
         )
         study.optimize(objective, n_trials=self.n_trials, timeout=self.optuna_timeout)
-        return study.best_params  # type: ignore[return-value]  # Optuna typed as dict[str, Any]
+        return study.best_params
 
     def _train_lgb(
         self, x: np.ndarray, y: np.ndarray, params: dict[str, object], objective: str

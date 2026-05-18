@@ -57,16 +57,17 @@ def detect_outliers_mad(series: pd.Series, threshold: float = 3.0) -> pd.Series:
     No asume distribución normal — robusto para series de ventas con estacionalidad.
     threshold=3.0 es el estándar de industria (equivale a ~3 sigma en distribución normal).
     """
-    median = series.median()
-    mad = (series - float(median)).abs().median()
+    arr = series.to_numpy(dtype=float)
+    median = float(np.median(arr))
+    mad = float(np.median(np.abs(arr - median)))
 
     # MAD == 0 implica que >50% de los valores son iguales (serie muy constante)
     if mad == 0:
         return pd.Series(False, index=series.index)
 
     # Modified Z-score: 0.6745 es el factor de consistencia para distribución normal
-    modified_z = 0.6745 * (series.to_numpy() - float(median)) / float(mad)
-    return modified_z.abs() > threshold
+    modified_z = 0.6745 * (arr - median) / mad
+    return pd.Series(np.abs(modified_z) > threshold, index=series.index)
 
 
 # ── 2. Detección de estacionalidad (FFT) ──────────────────────────────────────
@@ -100,7 +101,7 @@ def detect_seasonality_fft(
         return None
 
     # FFT sobre la serie (removemos la media para no contaminar con DC component)
-    values = series.values - series.mean()
+    values = series.to_numpy(dtype=float) - float(series.mean())
     fft_vals = np.abs(np.fft.rfft(values)) ** 2  # potencia espectral
     # freqs no se usa directamente — los índices se calculan por período
 
