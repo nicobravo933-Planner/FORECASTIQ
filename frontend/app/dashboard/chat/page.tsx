@@ -6,9 +6,10 @@
  * Layout: top bar (title + model selector) | chat area | input bar + suggestions
  */
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Alert from "@mui/material/Alert"
 import Box from "@mui/material/Box"
+import Chip from "@mui/material/Chip"
 import Divider from "@mui/material/Divider"
 import IconButton from "@mui/material/IconButton"
 import Stack from "@mui/material/Stack"
@@ -17,23 +18,32 @@ import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
 import SendIcon from "@mui/icons-material/Send"
+import StorageIcon from "@mui/icons-material/Storage"
+import TimelineIcon from "@mui/icons-material/Timeline"
 import { ChatBox } from "@/components/chat/ChatBox"
 import { ModelSelector } from "@/components/chat/ModelSelector"
 import { QuickQuestions } from "@/components/chat/QuickQuestions"
 import { useChat } from "@/hooks/useChat"
+import { appStore } from "@/lib/appStore"
 import { FREE_MODELS, type LlmModelId } from "@/lib/types"
-
-// TODO Phase 5: inject from user session / forecast context
-const DEMO_DATASET_ID: string | null = null
-const DEMO_JOB_ID: string | null = null
 
 export default function ChatPage() {
   const [model, setModel] = useState<LlmModelId>(FREE_MODELS[5].id) // DeepSeek V4 Flash default
   const [input, setInput] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Read active dataset + job from appStore (set by Dataset + Forecast pages)
+  const [datasetId, setDatasetId] = useState<string | null>(null)
+  const [jobId, setJobId]         = useState<string | null>(null)
+
+  useEffect(() => {
+    const ctx = appStore.getChatContext()
+    setDatasetId(ctx.datasetId)
+    setJobId(ctx.jobId)
+  }, [])
+
   const { messages, suggestions, isStreaming, activeToolCall, error, sendMessage, clearMessages } =
-    useChat({ datasetId: DEMO_DATASET_ID, jobId: DEMO_JOB_ID })
+    useChat({ datasetId, jobId })
 
   const handleSend = async (text?: string) => {
     const msg = (text ?? input).trim()
@@ -73,6 +83,25 @@ export default function ChatPage() {
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
             Ask questions about your data and forecast
           </Typography>
+          {/* Context status chips */}
+          <Stack direction="row" spacing="0.375rem" sx={{ mt: "0.375rem" }}>
+            <Chip
+              icon={<StorageIcon sx={{ fontSize: "0.875rem !important" }} />}
+              label={datasetId ? "Dataset cargado" : "Sin dataset"}
+              size="small"
+              color={datasetId ? "success" : "default"}
+              variant={datasetId ? "filled" : "outlined"}
+              sx={{ fontSize: "0.6875rem", height: "1.375rem" }}
+            />
+            <Chip
+              icon={<TimelineIcon sx={{ fontSize: "0.875rem !important" }} />}
+              label={jobId ? "Forecast activo" : "Sin forecast"}
+              size="small"
+              color={jobId ? "success" : "default"}
+              variant={jobId ? "filled" : "outlined"}
+              sx={{ fontSize: "0.6875rem", height: "1.375rem" }}
+            />
+          </Stack>
         </Stack>
 
         <Stack direction="row" alignItems="center" spacing="0.75rem">

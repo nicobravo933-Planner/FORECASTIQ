@@ -13,12 +13,13 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.services.llm.client import stream_llm_response
 from app.services.llm.tools import FREE_MODELS
+from app.services.redis_cache import CHAT_RATE_LIMIT, check_rate_limit
 from app.services.supabase import download_csv, get_forecast_result
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -126,7 +127,7 @@ async def list_models() -> list[ModelInfo]:
 
 
 @router.post("/stream")
-async def chat_stream(body: ChatStreamRequest) -> StreamingResponse:
+async def chat_stream(body: ChatStreamRequest, request: Request) -> StreamingResponse:
     """
     SSE streaming endpoint.
     Acepta un mensaje + historial y devuelve tokens en tiempo real.
@@ -141,6 +142,16 @@ async def chat_stream(body: ChatStreamRequest) -> StreamingResponse:
     """
     if not body.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    # Rate limiting: 30 req/hora por IP (Phase 5: sustituir por user_id)
+    client_ip = request.client.host if request.client else "unknown"
+    rl = check_rate_limit(client_ip)
+    if not rl.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {rl.reset_in}s ({CHAT_RATE_LIMIT} requests/hour).",
+            headers={"Retry-After": str(rl.reset_in)},
+        )
 
     # Construye el contexto de sesión para el LLM
     session_context: dict[str, Any] = {

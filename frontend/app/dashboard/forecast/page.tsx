@@ -5,7 +5,7 @@
  * Flow: configure → run → polling progress → chart + metrics
  */
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Alert from "@mui/material/Alert"
@@ -22,6 +22,7 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import PlayArrowIcon from "@mui/icons-material/PlayArrow"
 import EventIcon from "@mui/icons-material/Event"
 import { useForecast } from "@/hooks/useForecast"
+import { appStore } from "@/lib/appStore"
 import { HorizonSelector } from "@/components/forecast/HorizonSelector"
 import { ForecastChart } from "@/components/forecast/ForecastChart"
 import { MetricsCard } from "@/components/forecast/MetricsCard"
@@ -52,6 +53,16 @@ const MODEL_LABELS: Record<ModelName, string> = {
 
 export default function ForecastPage() {
   const forecast = useForecast()
+
+  // Persist job_id to appStore so Chat can access forecast context
+  const jobPersisted = useRef(false)
+  useEffect(() => {
+    if (forecast.stage === "done" && forecast.jobId && !jobPersisted.current) {
+      appStore.setActiveJobId(forecast.jobId)
+      jobPersisted.current = true
+    }
+    if (forecast.stage === "idle") jobPersisted.current = false
+  }, [forecast.stage, forecast.jobId])
 
   // Form state
   const [datasetId,    setDatasetId]    = useState("")

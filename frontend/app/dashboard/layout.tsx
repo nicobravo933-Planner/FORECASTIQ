@@ -110,7 +110,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Divider sx={{ borderColor: "divider" }} />
         <Box sx={{ px: "1.25rem", py: "1rem" }}>
           <Typography variant="caption" color="text.disabled">
-            Phase 3 — Calendar of Events
+            Phase 4 — AI Chat
           </Typography>
         </Box>
       </Drawer>

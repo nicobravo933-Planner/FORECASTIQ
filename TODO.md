@@ -13,7 +13,7 @@
 | **1** | Data ingestion + model detection | ✅ Done        | Upload CSV → auto-select model |
 | **2** | Forecast engine                  | ✅ Done        | Real forecasts + charts        |
 | **3** | Calendar of events               | ✅ Done        | Events → forecast impact       |
-| **4** | AI Chat with streaming           | 🔜 In progress | SSE chat about the data        |
+| **4** | AI Chat with streaming           | ✅ Done        | SSE chat about the data        |
 | **5** | Auth + persistence               | 🔲 Not started | OAuth2 + per-user history      |
 | **6** | Deploy + observability           | 🔲 Not started | Full prod CI/CD                |
 
@@ -179,7 +179,7 @@
   - [x] `suggest_model_change(reason)` — propose switching ML model
 - [x] System prompt: dataset schema + current forecast context + session KPIs
 - [x] Follow-up suggestion extraction from LLM response
-- [ ] Rate limiting per user (Redis token bucket)
+- [x] Rate limiting per user (Redis token bucket)
 
 ### Frontend
 
@@ -190,15 +190,15 @@
 - [x] `components/chat/StreamingCursor.tsx` — blinking cursor while streaming
 - [x] `components/chat/QuickQuestions.tsx` — suggested questions chips
 - [x] `hooks/useChat.ts` — SSE reader, token accumulation, error recovery
-- [ ] Inline charts from LLM (render Recharts from JSON spec)
+- [x] Inline charts from LLM (render Recharts from JSON spec)
 - [x] Copy message button
 
 ### Done when
 
-- [ ] User types question → tokens stream letter by letter
-- [ ] Model selector works (OWL Alpha / Nemotron / Laguna / GPT OSS / GLM / DeepSeek / MiniMax)
-- [ ] LLM can query the dataset and answer data questions
-- [ ] Follow-up suggestions appear after each response
+- [x] User types question → tokens stream letter by letter
+- [x] Model selector works (OWL Alpha / Nemotron / Laguna / GPT OSS / GLM / DeepSeek / MiniMax)
+- [x] LLM can query the dataset and answer data questions
+- [x] Follow-up suggestions appear after each response
 
 ---
 
@@ -332,7 +332,7 @@
 | 2026-05-17 | 8 | FVA agregado a evaluator.py (Seasonal Naive lag-12/lag-1), types.ts, ForecastMetrics Pydantic, MetricsCard con color semáforico. README actualizado Phase 2→Phase 3. Backlog Enterprise (25k SKUs COTO): Nixtla, Optuna offline, clustering ABC-XYZ, Croston, OTIF, Data Drift monitor. |
 | 2026-05-17 | 9 | Fase 3 completa: migrations/002_events.sql, api/events.py (GET/POST/DELETE), services/events.py (CRUD+feriados AR via holidays), forecast.py +compare endpoint (post-processing multiplicativo), main.py router, pyproject.toml +holidays. Frontend: useEvents.ts, EventChip, ImpactBadge, EventForm (drawer), EventCalendar (pure MUI grid), calendar/page.tsx completa, toggle eventos en forecast/page.tsx, types.ts +ComparePoint. README y TODO purgados de Prophet. |
 | 2026-05-17 | 10 | Fase 4 completa (backend + frontend): tools.py, tool_executor.py (DuckDB), openrouter.py (SSE+tool loop), client.py (system prompt dinámico), api/chat.py (SSE endpoint). Frontend: useChat.ts, ModelSelector, StreamingCursor, MessageBubble, ChatBox, QuickQuestions, chat/page.tsx. 7 modelos free actualizados. config.py default model actualizado. Fixes mypy+ruff (type-arg, N806, B007, F841). |
-| 2026-05-17 | 11 | TODO.md y README.md sincronizados: Fase 3 ✅, Fase 4 🔜 In progress, modelos LLM actualizados (7 nuevos), roadmap y tabla de modelos corregidos. |
+| 2026-05-17 | 12 | Fase 4 completada: appStore.ts (localStorage), wiring dataset_id+job_id desde Dataset→Forecast→Chat, chips de contexto en chat/page.tsx, redis_cache.py (rate limit token bucket 30req/h), InlineChart.tsx (Recharts desde JSON spec), renderMarkdown mejorado en MessageBubble, system prompt actualizado con chart-spec format. Fase 4 ✅. |
 
 ---
 

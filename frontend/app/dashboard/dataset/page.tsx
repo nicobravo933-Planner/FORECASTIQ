@@ -8,12 +8,14 @@
  *   4. ModelRecommendation (badge + explanation)
  */
 
+import { useEffect, useRef } from "react"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Alert from "@mui/material/Alert"
 import Button from "@mui/material/Button"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import { useDataset } from "@/hooks/useDataset"
+import { appStore } from "@/lib/appStore"
 import { DropZone } from "@/components/upload/DropZone"
 import { DataPreview } from "@/components/upload/DataPreview"
 import { ColumnSelector } from "@/components/upload/ColumnSelector"
@@ -21,6 +23,24 @@ import { ModelRecommendation } from "@/components/upload/ModelRecommendation"
 
 export default function DatasetPage() {
   const dataset = useDataset()
+
+  // Persist active dataset_id to appStore once detection is complete.
+  // Uses a ref to avoid re-running on every render.
+  const persisted = useRef(false)
+  useEffect(() => {
+    if (dataset.stage === "done" && dataset.datasetId && !persisted.current) {
+      // We don't know the chosen columns here — ColumnSelector calls detectModel.
+      // Store the dataset_id; columns are stored by ColumnSelector on submit.
+      appStore.setActiveDataset(
+        dataset.datasetId,
+        "",  // columns are stored by ColumnSelector on detectModel call
+        "",
+        "M",
+      )
+      persisted.current = true
+    }
+    if (dataset.stage === "idle") persisted.current = false
+  }, [dataset.stage, dataset.datasetId])
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "2rem" }}>

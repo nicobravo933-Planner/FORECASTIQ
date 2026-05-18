@@ -7,6 +7,7 @@
 
 import { useState } from "react"
 import Box from "@mui/material/Box"
+import { appStore } from "@/lib/appStore"
 import Typography from "@mui/material/Typography"
 import MenuItem from "@mui/material/MenuItem"
 import Select from "@mui/material/Select"
@@ -120,7 +121,18 @@ export function ColumnSelector({ preview, detecting, onDetect }: ColumnSelectorP
       <Button
         variant="contained"
         disabled={!canDetect || detecting}
-        onClick={() => onDetect(dateCol, targetCol, freq)}
+        onClick={() => {
+          // Persist selected columns + freq so Chat page can use them as context
+          if (dateCol && targetCol) {
+            appStore.setActiveDataset(
+              appStore.getActiveDatasetId() ?? "",
+              dateCol,
+              targetCol,
+              freq,
+            )
+          }
+          onDetect(dateCol, targetCol, freq)
+        }}
         startIcon={detecting ? <CircularProgress size="1rem" color="inherit" /> : null}
         sx={{ alignSelf: "flex-start" }}
       >

@@ -4,7 +4,7 @@
   <br/><br/>
   <!-- Estado del proyecto -->
   <img src="https://img.shields.io/badge/status-en%20construcción-orange?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-4%20AI%20chat%20streaming-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/phase-5%20auth%20%26%20persistence-6366f1?style=for-the-badge"/>
   <br/><br/>
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white"/>
@@ -36,7 +36,9 @@
 >
 > **Phase 3 — Calendar of Events** ✅ completa · Eventos CRUD + feriados AR + post-processing multiplicativo + toggle en forecast
 >
-> **Phase 4 — AI Chat con streaming SSE** 🔧 en progreso · SSE real-time + DuckDB tools + 7 modelos OpenRouter free
+> **Phase 4 — AI Chat con streaming SSE** ✅ completa · SSE real-time + DuckDB tools + 7 modelos OpenRouter free + inline charts + rate limiting Redis
+>
+> **Phase 5 — Auth + Persistencia** 🔧 próxima fase · OAuth2 Google/GitHub + historial de forecasts por usuario
 
 ---
 
@@ -58,7 +60,7 @@
 | 📅 **Calendario de eventos** | Agregá promociones, feriados y eventos externos — impactan el forecast    |
 | 💬 **Chat IA (streaming)**   | Preguntale a tus datos en lenguaje natural — tokens en tiempo real        |
 | 🔐 **Datos por usuario**     | Login OAuth2 — tus forecasts son privados, aislados por RLS de Supabase   |
-| 🆓 **Modelos LLM gratuitos** | Impulsado por OpenRouter free tier (DeepSeek R1, Llama 3.3, Gemini Flash) |
+| 🆓 **Modelos LLM gratuitos** | Impulsado por OpenRouter free tier (DeepSeek V4 Flash, GLM 4.5 Air, GPT OSS 120B, Nemotron 120B y más) |
 
 ---
 
@@ -290,8 +292,8 @@ Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 - [x] **Fase 1** — Subida CSV + detección automática de modelo ✅
 - [x] **Fase 2** — Motor de forecast (4 modelos ML) ✅
 - [x] **Fase 3** — Calendario de eventos ✅
-- [ ] **Fase 4** — Chat IA con streaming SSE ← en progreso
-- [ ] **Fase 5** — Auth + persistencia
+- [x] **Fase 4** — Chat IA con streaming SSE ✅
+- [ ] **Fase 5** — Auth + persistencia ← próxima fase
 - [ ] **Fase 6** — Deploy completo a producción
 
 ---

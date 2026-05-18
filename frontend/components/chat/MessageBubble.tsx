@@ -14,47 +14,89 @@ import Typography from "@mui/material/Typography"
 import ContentCopyIcon from "@mui/icons-material/ContentCopy"
 import CheckIcon from "@mui/icons-material/Check"
 import type { ChatMessage } from "@/lib/types"
+import { InlineChart, parseChartSpec } from "./InlineChart"
 import { StreamingCursor } from "./StreamingCursor"
 
 interface MessageBubbleProps {
   message: ChatMessage
 }
 
-/** Very lightweight Markdown: bold, inline code, newlines. No heavy lib needed. */
+/**
+ * Renders Markdown-like text with support for:
+ *   - **bold**, `inline code`
+ *   - ```json chart-spec blocks → InlineChart
+ *   - newlines → <br />
+ */
 function renderMarkdown(text: string): React.ReactNode {
-  // Split by newlines, render each line
-  return text.split("\n").map((line, i) => {
-    // Bold: **text**
-    const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, j) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return <strong key={j}>{part.slice(2, -2)}</strong>
+  const nodes: React.ReactNode[] = []
+  // Split on fenced code blocks first
+  const parts = text.split(/(```[\s\S]*?```)/g)
+
+  parts.forEach((part, i) => {
+    // Check for ```json chart-spec block
+    const fenceMatch = part.match(/^```(?:json\s+chart-spec|chart-spec)([\s\S]*?)```$/)
+    if (fenceMatch) {
+      const spec = parseChartSpec(fenceMatch[1])
+      if (spec) {
+        nodes.push(<InlineChart key={`chart-${i}`} spec={spec} />)
+        return
       }
-      if (part.startsWith("`") && part.endsWith("`")) {
-        return (
-          <Box
-            key={j}
-            component="code"
-            sx={{
-              bgcolor: "action.hover",
-              px: "0.25rem",
-              borderRadius: "0.25rem",
-              fontFamily: "monospace",
-              fontSize: "0.8125rem",
-            }}
-          >
-            {part.slice(1, -1)}
-          </Box>
-        )
-      }
-      return part
+      // Not a valid chart spec — render as plain code block
+      nodes.push(
+        <Box
+          key={`code-${i}`}
+          component="pre"
+          sx={{
+            bgcolor: "action.hover",
+            p: "0.5rem",
+            borderRadius: "0.375rem",
+            fontSize: "0.8125rem",
+            fontFamily: "monospace",
+            overflowX: "auto",
+            my: "0.25rem",
+          }}
+        >
+          {fenceMatch[1].trim()}
+        </Box>,
+      )
+      return
+    }
+
+    // Regular inline Markdown (bold + code + newlines)
+    part.split("\n").forEach((line, j, arr) => {
+      const inlineParts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((chunk, k) => {
+        if (chunk.startsWith("**") && chunk.endsWith("**")) {
+          return <strong key={k}>{chunk.slice(2, -2)}</strong>
+        }
+        if (chunk.startsWith("`") && chunk.endsWith("`")) {
+          return (
+            <Box
+              key={k}
+              component="code"
+              sx={{
+                bgcolor: "action.hover",
+                px: "0.25rem",
+                borderRadius: "0.25rem",
+                fontFamily: "monospace",
+                fontSize: "0.8125rem",
+              }}
+            >
+              {chunk.slice(1, -1)}
+            </Box>
+          )
+        }
+        return chunk
+      })
+      nodes.push(
+        <span key={`${i}-${j}`}>
+          {inlineParts}
+          {j < arr.length - 1 && <br />}
+        </span>,
+      )
     })
-    return (
-      <span key={i}>
-        {parts}
-        {i < text.split("\n").length - 1 && <br />}
-      </span>
-    )
   })
+
+  return <>{nodes}</>
 }
 
 export function MessageBubble({ message }: MessageBubbleProps) {
