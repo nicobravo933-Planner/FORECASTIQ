@@ -32,6 +32,26 @@ def upload_csv(content: bytes, original_filename: str) -> str:
     return dataset_id
 
 
+def register_dataset(
+    dataset_id: str,
+    filename: str,
+    rows: int,
+    columns: list[str],
+    user_id: str | None = None,
+) -> None:
+    """Registra metadata del dataset en la tabla `datasets`."""
+    client = get_supabase()
+    client.table("datasets").insert(
+        {
+            "dataset_id": dataset_id,
+            "filename": filename,
+            "rows": rows,
+            "columns": columns,
+            "user_id": user_id,
+        }
+    ).execute()
+
+
 def download_csv(dataset_id: str) -> bytes:
     """Descarga el CSV desde Storage dado un dataset_id."""
     client = get_supabase()
@@ -46,7 +66,7 @@ def delete_csv(dataset_id: str) -> None:
     client.storage.from_(BUCKET).remove([f"{dataset_id}.csv"])
 
 
-def save_forecast_result(job_id: str, result: dict[str, Any]) -> None:
+def save_forecast_result(job_id: str, result: dict[str, Any], user_id: str | None = None) -> None:
     """
     Persiste el resultado del forecast en la tabla `forecast_jobs` de Supabase.
     Hace upsert por job_id para que sea idempotente (reintento seguro).
@@ -64,6 +84,7 @@ def save_forecast_result(job_id: str, result: dict[str, Any]) -> None:
             "historical": result.get("historical"),
             "predictions": result.get("predictions"),
             "error": result.get("error"),
+            "user_id": user_id,
             "created_at": result.get("created_at"),
         },
         on_conflict="job_id",
@@ -83,9 +104,7 @@ def get_forecast_result(job_id: str) -> dict[str, Any] | None:
     return dict(data)
 
 
-def get_forecast_history(
-    user_id: str, page: int = 1, page_size: int = 20
-) -> list[dict[str, Any]]:
+def get_forecast_history(user_id: str, page: int = 1, page_size: int = 20) -> list[dict[str, Any]]:
     """
     Retorna el historial paginado de forecasts de un usuario.
     Ordena por created_at DESC (más reciente primero).

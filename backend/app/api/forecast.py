@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.dependencies import OptionalUser
 from app.services.celery_app import run_forecast_task
 from app.services.events import get_ar_holidays, list_events
 from app.services.supabase import get_forecast_result
@@ -110,7 +111,7 @@ def _celery_state(job_id: str) -> str:
 
 
 @router.post("/run", response_model=ForecastRunResponse, status_code=202)
-async def run_forecast(body: ForecastRunRequest) -> ForecastRunResponse:
+async def run_forecast(body: ForecastRunRequest, user: OptionalUser = None) -> ForecastRunResponse:
     """
     Lanza el forecast. En modo eager (dev) corre síncronamente y retorna
     job_id inmediatamente — el resultado ya está en Supabase al responder.
@@ -122,6 +123,7 @@ async def run_forecast(body: ForecastRunRequest) -> ForecastRunResponse:
         freq=body.freq,
         horizon=body.horizon,
         model_override=body.model_override,
+        user_id=str(user.user_id) if user else None,
     )
     job_id: str = str(task.id)
     return ForecastRunResponse(job_id=job_id, status="done" if _eager_mode() else "pending")

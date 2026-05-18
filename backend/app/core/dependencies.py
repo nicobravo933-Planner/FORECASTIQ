@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 
-
 # ── Schema del usuario autenticado ────────────────────────────────────────────
 
 

@@ -53,6 +53,7 @@ def run_forecast_task(
     freq: str,
     horizon: int,
     model_override: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Pipeline completo de forecasting:
@@ -172,7 +173,7 @@ def run_forecast_task(
             "created_at": datetime.utcnow().isoformat(),
         }
 
-        save_forecast_result(job_id=job_id, result=result)
+        save_forecast_result(job_id=job_id, result=result, user_id=user_id)
         return result
 
     except Exception as exc:

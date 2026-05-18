@@ -214,8 +214,8 @@
 - [x] `GET /api/me` — perfil del usuario autenticado
 - [x] `GET /api/me/history` — paginated forecast history
 - [x] `get_forecast_history(user_id)` in supabase.py
-- [ ] `user_id` propagated to all forecasts, events, datasets
-- [ ] `migrations/003_add_user_id.sql` — columna user_id en forecast_jobs + datasets
+- [x] `user_id` propagated to all forecasts, events, datasets
+- [x] `migrations/003_add_user_id.sql` — tabla datasets + RLS por usuario + reemplaza policy pública de forecast_jobs
 - [ ] Session middleware in FastAPI (verify JWT from Better Auth)
 
 ### Frontend
@@ -337,6 +337,8 @@
 | 2026-05-17 | 9 | Fase 3 completa: migrations/002_events.sql, api/events.py (GET/POST/DELETE), services/events.py (CRUD+feriados AR via holidays), forecast.py +compare endpoint (post-processing multiplicativo), main.py router, pyproject.toml +holidays. Frontend: useEvents.ts, EventChip, ImpactBadge, EventForm (drawer), EventCalendar (pure MUI grid), calendar/page.tsx completa, toggle eventos en forecast/page.tsx, types.ts +ComparePoint. README y TODO purgados de Prophet. |
 | 2026-05-17 | 10 | Fase 4 completa (backend + frontend): tools.py, tool_executor.py (DuckDB), openrouter.py (SSE+tool loop), client.py (system prompt dinámico), api/chat.py (SSE endpoint). Frontend: useChat.ts, ModelSelector, StreamingCursor, MessageBubble, ChatBox, QuickQuestions, chat/page.tsx. 7 modelos free actualizados. config.py default model actualizado. Fixes mypy+ruff (type-arg, N806, B007, F841). |
 | 2026-05-17 | 13 | Fix mypy: bool() en cache_set y cache_delete (redis_cache.py), isinstance(row, dict) en get_forecast_history (supabase.py). Backend Fase 5: dependencies.py (CurrentUser, get_current_user, get_optional_user, AuthUser, OptionalUser), supabase.py +get_forecast_history, api/me.py (GET /api/me + GET /api/me/history), main.py +me_router. mypy 34 archivos ✅ |
+| 2026-05-17 | 14 | Migration 003_add_user_id.sql: tabla datasets (metadata CSVs + RLS por usuario), reemplazo policy pública de forecast_jobs por RLS user_id (con fallback user_id IS NULL para modo demo). |
+| 2026-05-17 | 15 | user_id propagado: register_dataset() en supabase.py, upload_dataset() acepta OptionalUser, run_forecast_task() acepta user_id, save_forecast_result() acepta user_id, forecast/run acepta OptionalUser. |
 
 ---
 

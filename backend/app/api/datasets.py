@@ -14,8 +14,9 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from app.core.dependencies import OptionalUser
 from app.ml.detector import DetectionResult, detect_best_model
-from app.services.supabase import download_csv, upload_csv
+from app.services.supabase import download_csv, register_dataset, upload_csv
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
@@ -94,7 +95,7 @@ def _parse_csv(content: bytes) -> pd.DataFrame:
 
 
 @router.post("/upload", response_model=UploadResponse, status_code=201)
-async def upload_dataset(file: UploadFile) -> UploadResponse:
+async def upload_dataset(file: UploadFile, user: OptionalUser = None) -> UploadResponse:
     """
     Recibe un CSV, lo valida y lo sube a Supabase Storage.
     Retorna el dataset_id para usar en los siguientes endpoints.
@@ -117,6 +118,15 @@ async def upload_dataset(file: UploadFile) -> UploadResponse:
     df = _parse_csv(content)
 
     dataset_id = upload_csv(content, file.filename or "upload.csv")
+
+    # Registra metadata en la tabla datasets (user_id puede ser None en modo demo)
+    register_dataset(
+        dataset_id=dataset_id,
+        filename=file.filename or "upload.csv",
+        rows=len(df),
+        columns=list(df.columns),
+        user_id=str(user.user_id) if user else None,
+    )
 
     return UploadResponse(
         dataset_id=dataset_id,
