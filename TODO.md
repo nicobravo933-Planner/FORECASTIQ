@@ -172,33 +172,33 @@
 
 ### Backend
 
-- [ ] `POST /api/chat/stream` — SSE endpoint with StreamingResponse
-- [ ] OpenRouter multi-model router (same pattern as Priorizador project)
-- [ ] LLM tools:
-  - [ ] `query_dataset(sql)` — DuckDB over user's dataset
-  - [ ] `get_forecast_summary()` — current forecast metrics
-  - [ ] `get_events()` — active calendar events
-  - [ ] `suggest_model_change(reason)` — propose switching ML model
-- [ ] System prompt: dataset schema + current forecast context + session KPIs
-- [ ] Follow-up suggestion extraction from LLM response
+- [x] `POST /api/chat/stream` — SSE endpoint with StreamingResponse
+- [x] OpenRouter multi-model router (same pattern as Priorizador project)
+- [x] LLM tools:
+  - [x] `query_dataset(sql)` — DuckDB over user's dataset
+  - [x] `get_forecast_summary()` — current forecast metrics
+  - [x] `get_events()` — active calendar events
+  - [x] `suggest_model_change(reason)` — propose switching ML model
+- [x] System prompt: dataset schema + current forecast context + session KPIs
+- [x] Follow-up suggestion extraction from LLM response
 - [ ] Rate limiting per user (Redis token bucket)
 
 ### Frontend
 
-- [ ] Chat page layout (sidebar left, chat main)
-- [ ] `components/chat/ModelSelector.tsx` — free OpenRouter models dropdown (MUI Select)
-- [ ] `components/chat/ChatBox.tsx` — message list with auto-scroll
-- [ ] `components/chat/MessageBubble.tsx` — user/assistant styling, Markdown rendering
-- [ ] `components/chat/StreamingCursor.tsx` — blinking cursor while streaming
-- [ ] `components/chat/QuickQuestions.tsx` — suggested questions chips
-- [ ] `hooks/useChat.ts` — SSE reader, token accumulation, error recovery
+- [x] Chat page layout (top bar + chat area + input)
+- [x] `components/chat/ModelSelector.tsx` — free OpenRouter models dropdown (MUI Select)
+- [x] `components/chat/ChatBox.tsx` — message list with auto-scroll
+- [x] `components/chat/MessageBubble.tsx` — user/assistant styling, Markdown rendering
+- [x] `components/chat/StreamingCursor.tsx` — blinking cursor while streaming
+- [x] `components/chat/QuickQuestions.tsx` — suggested questions chips
+- [x] `hooks/useChat.ts` — SSE reader, token accumulation, error recovery
 - [ ] Inline charts from LLM (render Recharts from JSON spec)
-- [ ] Copy message button
+- [x] Copy message button
 
 ### Done when
 
 - [ ] User types question → tokens stream letter by letter
-- [ ] Model selector works (DeepSeek / Llama / Gemini / Qwen)
+- [ ] Model selector works (OWL Alpha / Nemotron / Laguna / GPT OSS / GLM / DeepSeek / MiniMax)
 - [ ] LLM can query the dataset and answer data questions
 - [ ] Follow-up suggestions appear after each response
 
@@ -332,7 +332,7 @@
 | 2026-05-17 | 6 | Phase 2 backend completo: base.py, evaluator.py (WAPE/MAE/BIAS/RMSE/MAPE), moving_average.py, holt_winters.py, sarima.py, lightgbm_model.py, celery_app.py, api/forecast.py (3 endpoints), supabase.py (+save/get forecast), migrations/001_forecast_jobs.sql. pmdarima agregado a pyproject.toml. .env.example separado en backend/ y frontend/. README.md actualizado. |
 | 2026-05-17 | 7 | Phase 2 frontend + fixes: useForecast.ts, HorizonSelector, ForecastChart (Recharts), MetricsCard, forecast/page.tsx. Fixes: Redis eager mode (_update helper), pandas freq aliases (ME/QE/YE), Recharts tooltip array crash, selector modelo "auto". Phase 2 cerrada. |
 | 2026-05-17 | 8 | FVA agregado a evaluator.py (Seasonal Naive lag-12/lag-1), types.ts, ForecastMetrics Pydantic, MetricsCard con color semáforico. README actualizado Phase 2→Phase 3. Backlog Enterprise (25k SKUs COTO): Nixtla, Optuna offline, clustering ABC-XYZ, Croston, OTIF, Data Drift monitor. |
-| 2026-05-17 | 9 | Fase 3 completa: migrations/002_events.sql, api/events.py (GET/POST/DELETE), services/events.py (CRUD+feriados AR via holidays), forecast.py +compare endpoint (post-processing multiplicativo), main.py router, pyproject.toml +holidays. Frontend: useEvents.ts, EventChip, ImpactBadge, EventForm (drawer), EventCalendar (pure MUI grid), calendar/page.tsx completa, toggle eventos en forecast/page.tsx, types.ts +ComparePoint. README y TODO purgados de Prophet. |
+| 2026-05-17 | 10 | Fase 4 completa (backend + frontend): tools.py, tool_executor.py (DuckDB), openrouter.py (SSE+tool loop), client.py (system prompt dinámico), api/chat.py (SSE endpoint). Frontend: useChat.ts, ModelSelector, StreamingCursor, MessageBubble, ChatBox, QuickQuestions, chat/page.tsx. Modelos actualizados (7 free models). config.py default model actualizado. |
 
 ---
 

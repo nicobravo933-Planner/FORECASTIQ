@@ -112,14 +112,35 @@ export interface ChatMessage {
   role: ChatRole
   content: string
   created_at: string
+  isStreaming?: boolean
+}
+
+export type SseEventType =
+  | "token"
+  | "tool_call"
+  | "tool_result"
+  | "suggestions"
+  | "done"
+  | "error"
+
+export interface SseEvent {
+  type: SseEventType
+  content?: string       // token
+  tool?: string          // tool_call / tool_result
+  input?: unknown        // tool_call
+  result?: unknown       // tool_result
+  items?: string[]       // suggestions
+  message?: string       // error
 }
 
 export type LlmModelId =
-  | "deepseek/deepseek-r1-0528:free"
-  | "meta-llama/llama-3.3-70b:free"
-  | "google/gemini-2.0-flash:free"
-  | "qwen/qwen3-235b-a22b:free"
-  | "mistralai/mistral-7b-instruct:free"
+  | "openrouter/owl-alpha"
+  | "nvidia/nemotron-3-super-120b-a12b:free"
+  | "poolside/laguna-m.1:free"
+  | "openai/gpt-oss-120b:free"
+  | "z-ai/glm-4.5-air:free"
+  | "deepseek/deepseek-v4-flash:free"
+  | "minimax/minimax-m2.5:free"
 
 export interface LlmModel {
   id: LlmModelId
@@ -127,11 +148,13 @@ export interface LlmModel {
 }
 
 export const FREE_MODELS: LlmModel[] = [
-  { id: "deepseek/deepseek-r1-0528:free", label: "DeepSeek R1" },
-  { id: "meta-llama/llama-3.3-70b:free", label: "Llama 3.3 70B" },
-  { id: "google/gemini-2.0-flash:free", label: "Gemini 2.0 Flash" },
-  { id: "qwen/qwen3-235b-a22b:free", label: "Qwen3 235B" },
-  { id: "mistralai/mistral-7b-instruct:free", label: "Mistral 7B" },
+  { id: "openrouter/owl-alpha",                   label: "OWL Alpha" },
+  { id: "nvidia/nemotron-3-super-120b-a12b:free", label: "Nemotron 120B" },
+  { id: "poolside/laguna-m.1:free",               label: "Laguna M.1" },
+  { id: "openai/gpt-oss-120b:free",               label: "GPT OSS 120B" },
+  { id: "z-ai/glm-4.5-air:free",                  label: "GLM 4.5 Air" },
+  { id: "deepseek/deepseek-v4-flash:free",        label: "DeepSeek V4 Flash" },
+  { id: "minimax/minimax-m2.5:free",              label: "MiniMax M2.5" },
 ]
 
 // ── Events ───────────────────────────────────────────────────────

@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     # ── LLM ──────────────────────────────────────────────────────
     openrouter_api_key: str = ""
-    openrouter_model: str = "deepseek/deepseek-r1-0528:free"
+    openrouter_model: str = "deepseek/deepseek-v4-flash:free"
     llm_provider: str = "openrouter"
     gemini_api_key: str = ""
     anthropic_api_key: str = ""
