@@ -48,10 +48,12 @@ class SarimaModel(ForecastModel):
             seasonal=m > 1,
             stepwise=True,
             information_criterion="aic",
-            max_p=3, max_q=3,
-            max_P=2, max_Q=2,
-            d=None,   # auto-detecta diferenciación
-            D=None,   # auto-detecta diferenciación estacional
+            max_p=3,
+            max_q=3,
+            max_P=2,
+            max_Q=2,
+            d=None,  # auto-detecta diferenciación
+            D=None,  # auto-detecta diferenciación estacional
             error_action="ignore",
             suppress_warnings=True,
             n_jobs=1,  # determinista — importante para reproducibilidad
@@ -70,23 +72,21 @@ class SarimaModel(ForecastModel):
         )
 
         last_date = self._series.index[-1]
-        future_dates = pd.date_range(
-            start=last_date, periods=horizon + 1, freq=self._freq
-        )[1:]
+        future_dates = pd.date_range(start=last_date, periods=horizon + 1, freq=self._freq)[1:]
 
-        return pd.DataFrame({
-            "date":      future_dates,
-            "predicted": predicted,
-            "lower":     conf_int[:, 0],
-            "upper":     conf_int[:, 1],
-        })
+        return pd.DataFrame(
+            {
+                "date": future_dates,
+                "predicted": predicted,
+                "lower": conf_int[:, 0],
+                "upper": conf_int[:, 1],
+            }
+        )
 
     def evaluate(self, test: pd.Series) -> dict[str, float]:
         if self._model_fit is None:
             raise RuntimeError("Llamar fit() antes de evaluate().")
 
-        predicted, _ = self._model_fit.predict(
-            n_periods=len(test), return_conf_int=True
-        )
+        predicted, _ = self._model_fit.predict(n_periods=len(test), return_conf_int=True)
         predicted_series = pd.Series(predicted, index=test.index)
         return evaluate_all(test, predicted_series)

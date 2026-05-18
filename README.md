@@ -34,7 +34,9 @@
 >
 > **Phase 2 — Forecast Engine** ✅ completa · 4 modelos ML (MA, Holt-Winters, SARIMA, LightGBM+Optuna) + Recharts chart + métricas WAPE/MAE/BIAS/RMSE
 >
-> **Phase 3 — Calendar of Events** 🚧 siguiente
+> **Phase 3 — Calendar of Events** ✅ completa · Eventos CRUD + feriados AR + post-processing multiplicativo + toggle en forecast
+>
+> **Phase 4 — AI Chat** 🚧 siguiente
 
 ---
 
@@ -77,7 +79,7 @@
 │   ┌──────────────┐  ┌────────────────┐  ┌────────────────┐  │
 │   │  Motor ML    │  │  Router LLM    │  │  Celery Worker │  │
 │   │  detector.py │  │  OpenRouter    │  │  background    │  │
-│   │  Prophet     │  │  SSE streaming │  │  jobs ML       │  │
+│   │  Holt-Winters│  │  SSE streaming │  │  jobs ML       │  │
 │   │  LightGBM    │  │  multi-model   │  │                │  │
 │   └──────────────┘  └────────────────┘  └────────────────┘  │
 └──────┬──────────────────────────────────────┬────────────────┘
@@ -105,7 +107,7 @@ forecastiq/
 │       ├── api/                # endpoints: datasets, forecast, chat
 │       ├── ml/
 │       │   ├── detector.py     # selección automática (FFT + Mann-Kendall)
-│       │   └── models/         # MA, Holt-Winters, Prophet, LightGBM
+│       │   └── models/         # MA, Holt-Winters, SARIMA, LightGBM
 │       └── services/           # Supabase, Redis, Celery, router LLM
 │
 ├── frontend/                   # TypeScript — Next.js 14 + MUI v6

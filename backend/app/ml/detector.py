@@ -20,25 +20,26 @@ from pydantic import BaseModel
 
 # ── Schema de resultado ────────────────────────────────────────────────────────
 
+
 class DetectionResult(BaseModel):
     """Resultado completo de la caracterización de la serie."""
 
     # Modelo recomendado
-    model: str          # "moving_average" | "holt_winters" | "sarima" | "lightgbm"
-    reason: str         # explicación en lenguaje natural para el usuario
+    model: str  # "moving_average" | "holt_winters" | "sarima" | "lightgbm"
+    reason: str  # explicación en lenguaje natural para el usuario
 
     # Características detectadas
     n_observations: int
     has_trend: bool
-    trend_direction: str        # "increasing" | "decreasing" | "no trend"
-    trend_p_value: float        # p-value del test Mann-Kendall
+    trend_direction: str  # "increasing" | "decreasing" | "no trend"
+    trend_p_value: float  # p-value del test Mann-Kendall
     seasonality_period: int | None  # ej. 52 (semanal/anual), 12 (mensual/anual)
     has_seasonality: bool
-    cv: float                   # coeficiente de variación (std/mean)
+    cv: float  # coeficiente de variación (std/mean)
 
     # Outliers (MAD)
     outlier_count: int
-    outlier_pct: float          # porcentaje de outliers sobre total
+    outlier_pct: float  # porcentaje de outliers sobre total
     outlier_indices: list[int]  # posiciones para resaltar en frontend
 
     # Confianza de la recomendación (0-1)
@@ -46,6 +47,7 @@ class DetectionResult(BaseModel):
 
 
 # ── 1. Detección de outliers (MAD) ────────────────────────────────────────────
+
 
 def detect_outliers_mad(series: pd.Series, threshold: float = 3.0) -> pd.Series:
     """
@@ -69,6 +71,7 @@ def detect_outliers_mad(series: pd.Series, threshold: float = 3.0) -> pd.Series:
 
 # ── 2. Detección de estacionalidad (FFT) ──────────────────────────────────────
 
+
 def detect_seasonality_fft(
     series: pd.Series,
     freq: str = "M",
@@ -85,10 +88,10 @@ def detect_seasonality_fft(
     """
     # Períodos candidatos según frecuencia de la serie
     candidate_periods: dict[str, list[int]] = {
-        "D":  [7, 30, 365],    # diaria: semanal, mensual, anual
-        "W":  [4, 13, 26, 52], # semanal: mensual, trimestral, semestral, anual
-        "M":  [3, 6, 12],      # mensual: trimestral, semestral, anual
-        "Q":  [4],             # trimestral: anual
+        "D": [7, 30, 365],  # diaria: semanal, mensual, anual
+        "W": [4, 13, 26, 52],  # semanal: mensual, trimestral, semestral, anual
+        "M": [3, 6, 12],  # mensual: trimestral, semestral, anual
+        "Q": [4],  # trimestral: anual
     }
     candidates = candidate_periods.get(freq, [12])
 
@@ -131,6 +134,7 @@ def detect_seasonality_fft(
 
 # ── 3. Tendencia (Seasonal Mann-Kendall) ──────────────────────────────────────
 
+
 def detect_trend_mannkendall(
     series: pd.Series,
     seasonality_period: int | None,
@@ -165,6 +169,7 @@ def detect_trend_mannkendall(
 
 # ── 4. Coeficiente de variación ───────────────────────────────────────────────
 
+
 def calculate_cv(series: pd.Series) -> float:
     """
     Coeficiente de variación = std / mean.
@@ -178,6 +183,7 @@ def calculate_cv(series: pd.Series) -> float:
 
 
 # ── 5. Lógica de selección de modelo ──────────────────────────────────────────
+
 
 def detect_best_model(series: pd.Series, freq: str = "M") -> DetectionResult:
     """
@@ -207,9 +213,7 @@ def detect_best_model(series: pd.Series, freq: str = "M") -> DetectionResult:
     has_seasonality = seasonality_period is not None
 
     # ── Tendencia ──
-    has_trend, trend_direction, trend_p_value = detect_trend_mannkendall(
-        series, seasonality_period
-    )
+    has_trend, trend_direction, trend_p_value = detect_trend_mannkendall(series, seasonality_period)
 
     # ── CV ──
     cv = calculate_cv(series)

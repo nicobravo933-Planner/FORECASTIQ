@@ -15,13 +15,18 @@ import Paper from "@mui/material/Paper"
 import TextField from "@mui/material/TextField"
 import MenuItem from "@mui/material/MenuItem"
 import Skeleton from "@mui/material/Skeleton"
+import Switch from "@mui/material/Switch"
+import FormControlLabel from "@mui/material/FormControlLabel"
+import Chip from "@mui/material/Chip"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import PlayArrowIcon from "@mui/icons-material/PlayArrow"
+import EventIcon from "@mui/icons-material/Event"
 import { useForecast } from "@/hooks/useForecast"
 import { HorizonSelector } from "@/components/forecast/HorizonSelector"
 import { ForecastChart } from "@/components/forecast/ForecastChart"
 import { MetricsCard } from "@/components/forecast/MetricsCard"
-import type { DataFreq, ModelName } from "@/lib/types"
+import type { DataFreq, ModelName, PredictionPoint } from "@/lib/types"
+import { api } from "@/lib/api"
 
 const MODEL_OPTIONS: { value: ModelName | "auto"; label: string }[] = [
   { value: "auto",          label: "Auto-detectar (recomendado)" },
@@ -55,6 +60,39 @@ export default function ForecastPage() {
   const [freq,         setFreq]         = useState<DataFreq>("M")
   const [horizon,      setHorizon]      = useState(12)
   const [modelOverride, setModelOverride] = useState<ModelName | "auto">("auto")
+
+  // Events toggle state
+  const [eventsOn, setEventsOn]       = useState(false)
+  const [compareData, setCompareData] = useState<PredictionPoint[] | null>(null)
+  const [eventsCount, setEventsCount] = useState(0)
+  const [loadingCompare, setLoadingCompare] = useState(false)
+
+  const handleEventsToggle = async (checked: boolean) => {
+    setEventsOn(checked)
+    if (!checked || !forecast.result) return
+    if (compareData) return // already fetched
+    setLoadingCompare(true)
+    try {
+      const res = await api.get<{
+        predictions: { date: string; baseline: number; with_events: number; lower: number; upper: number }[]
+        events_applied: number
+      }>(`/api/forecast/${forecast.result.job_id}/compare`)
+      setEventsCount(res.events_applied)
+      // Map compare points to PredictionPoint shape (using with_events as predicted)
+      setCompareData(
+        res.predictions.map((p) => ({
+          date:      p.date,
+          predicted: p.with_events,
+          lower:     p.lower,
+          upper:     p.upper,
+        }))
+      )
+    } catch {
+      setEventsOn(false)
+    } finally {
+      setLoadingCompare(false)
+    }
+  }
 
   const isRunning = forecast.stage === "submitting" || forecast.stage === "polling"
   const canRun    = datasetId.trim() && dateCol.trim() && targetCol.trim() && !isRunning
@@ -213,9 +251,34 @@ export default function ForecastPage() {
       {/* Results */}
       {forecast.stage === "done" && forecast.result && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {/* Events toggle */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={eventsOn}
+                  onChange={(e) => handleEventsToggle(e.target.checked)}
+                  disabled={loadingCompare}
+                />
+              }
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <EventIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                  <Typography variant="body2">Ver con eventos</Typography>
+                  {eventsOn && eventsCount > 0 && (
+                    <Chip label={`${eventsCount} evento${eventsCount > 1 ? "s" : ""} activo${eventsCount > 1 ? "s" : ""}`} size="small" color="primary" />
+                  )}
+                  {eventsOn && eventsCount === 0 && (
+                    <Chip label="Sin eventos con impacto" size="small" variant="outlined" />
+                  )}
+                </Box>
+              }
+            />
+          </Box>
+
           <ForecastChart
             historical={forecast.result.historical}
-            predictions={forecast.result.predictions}
+            predictions={eventsOn && compareData ? compareData : forecast.result.predictions}
             modelName={MODEL_LABELS[forecast.result.model_used]}
           />
           <MetricsCard

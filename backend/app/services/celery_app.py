@@ -29,7 +29,7 @@ celery_app = Celery(
 
 celery_app.conf.update(
     task_always_eager=settings.celery_task_always_eager,
-    task_eager_propagates=True,   # en eager mode, propaga excepciones correctamente
+    task_eager_propagates=True,  # en eager mode, propaga excepciones correctamente
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
@@ -41,6 +41,7 @@ celery_app.conf.update(
 
 
 # -- Tarea principal ----------------------------------------------------------
+
 
 @celery_app.task(bind=True, name="forecast.run")  # type: ignore[misc]
 def run_forecast_task(
@@ -95,7 +96,7 @@ def run_forecast_task(
 
         # 2. Winsorización p5/p95
         _update(15, "Preprocesando serie")
-        p5  = float(series.quantile(0.05))
+        p5 = float(series.quantile(0.05))
         p95 = float(series.quantile(0.95))
         series = series.clip(lower=p5, upper=p95)
 
@@ -109,9 +110,9 @@ def run_forecast_task(
 
         model_map = {
             "moving_average": MovingAverageModel(),
-            "holt_winters":   HoltWintersModel(),
-            "sarima":         SarimaModel(),
-            "lightgbm":       LightGBMModel(),
+            "holt_winters": HoltWintersModel(),
+            "sarima": SarimaModel(),
+            "lightgbm": LightGBMModel(),
         }
         model = model_map.get(model_name, HoltWintersModel())
 
@@ -119,7 +120,7 @@ def run_forecast_task(
         n = len(series)
         split = max(int(n * 0.8), n - horizon)
         train = series.iloc[:split]
-        test  = series.iloc[split:]
+        test = series.iloc[split:]
 
         # 5. Entrenamiento
         _update(40, f"Entrenando {model_name}")
@@ -145,10 +146,12 @@ def run_forecast_task(
         ]
         predictions = [
             {
-                "date":      str(row["date"].date()) if hasattr(row["date"], "date") else str(row["date"]),
+                "date": str(row["date"].date())
+                if hasattr(row["date"], "date")
+                else str(row["date"]),
                 "predicted": round(float(row["predicted"]), 4),
-                "lower":     round(float(row["lower"]), 4),
-                "upper":     round(float(row["upper"]), 4),
+                "lower": round(float(row["lower"]), 4),
+                "upper": round(float(row["upper"]), 4),
             }
             for _, row in forecast_df.iterrows()
         ]
@@ -156,16 +159,16 @@ def run_forecast_task(
         # 8. Guarda en Supabase
         _update(95, "Guardando resultado")
         result = {
-            "job_id":      job_id,
-            "status":      "done",
-            "dataset_id":  dataset_id,
-            "model_used":  model_name,
-            "freq":        freq,
-            "horizon":     horizon,
-            "metrics":     metrics,
-            "historical":  historical,
+            "job_id": job_id,
+            "status": "done",
+            "dataset_id": dataset_id,
+            "model_used": model_name,
+            "freq": freq,
+            "horizon": horizon,
+            "metrics": metrics,
+            "historical": historical,
             "predictions": predictions,
-            "created_at":  datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow().isoformat(),
         }
 
         save_forecast_result(job_id=job_id, result=result)

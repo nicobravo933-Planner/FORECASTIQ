@@ -7,24 +7,24 @@ from __future__ import annotations
 # Pandas 2.2+ renombró aliases de frecuencia.
 # Mapeamos los alias viejos a los nuevos para compatibilidad.
 _FREQ_ALIASES: dict[str, str] = {
-    "M":  "ME",   # Month End
-    "Q":  "QE",   # Quarter End
-    "A":  "YE",   # Year End
-    "Y":  "YE",
+    "M": "ME",  # Month End
+    "Q": "QE",  # Quarter End
+    "A": "YE",  # Year End
+    "Y": "YE",
     "BM": "BME",  # Business Month End
     "BQ": "BQE",
 }
 
 # Períodos estacionales por frecuencia (alias nuevos como clave primaria)
 SEASONAL_PERIODS: dict[str, int] = {
-    "D":   7,
-    "W":  52,
-    "ME": 12,   # mensual → anual
+    "D": 7,
+    "W": 52,
+    "ME": 12,  # mensual → anual
     "MS": 12,
-    "QE":  4,   # trimestral → anual
-    "QS":  4,
-    "YE":  1,
-    "YS":  1,
+    "QE": 4,  # trimestral → anual
+    "QS": 4,
+    "YE": 1,
+    "YS": 1,
 }
 
 

@@ -25,6 +25,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 # ── Schemas de respuesta ───────────────────────────────────────────────────────
 
+
 class UploadResponse(BaseModel):
     dataset_id: str
     filename: str
@@ -34,25 +35,26 @@ class UploadResponse(BaseModel):
 
 class ColumnInfo(BaseModel):
     name: str
-    dtype: str          # "datetime" | "numeric" | "text"
+    dtype: str  # "datetime" | "numeric" | "text"
     null_count: int
-    sample_values: list[str]   # primeros 3 valores como string
+    sample_values: list[str]  # primeros 3 valores como string
 
 
 class PreviewResponse(BaseModel):
     dataset_id: str
     columns: list[ColumnInfo]
-    rows: list[dict[str, str]]   # primeras 10 filas serializadas como strings
+    rows: list[dict[str, str]]  # primeras 10 filas serializadas como strings
     total_rows: int
 
 
 class DetectRequest(BaseModel):
     date_column: str
     target_column: str
-    freq: str = "M"     # "D" | "W" | "M" | "Q"
+    freq: str = "M"  # "D" | "W" | "M" | "Q"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _infer_dtype(series: pd.Series) -> str:
     """Clasifica una columna en datetime | numeric | text."""
@@ -90,6 +92,7 @@ def _parse_csv(content: bytes) -> pd.DataFrame:
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+
 @router.post("/upload", response_model=UploadResponse, status_code=201)
 async def upload_dataset(file: UploadFile) -> UploadResponse:
     """
@@ -107,7 +110,7 @@ async def upload_dataset(file: UploadFile) -> UploadResponse:
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
-            detail=f"El archivo supera el límite de {MAX_FILE_SIZE // (1024*1024)} MB.",
+            detail=f"El archivo supera el límite de {MAX_FILE_SIZE // (1024 * 1024)} MB.",
         )
 
     # Validamos que el CSV sea parseable antes de subirlo

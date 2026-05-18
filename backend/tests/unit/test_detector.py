@@ -49,6 +49,7 @@ def make_volatile_series(n: int = 120) -> pd.Series:
 
 # ── Tests de selección de modelo ──────────────────────────────────────────────
 
+
 def test_short_series_uses_moving_average() -> None:
     """Serie con < 52 observaciones siempre → Moving Average."""
     series = pd.Series(RNG.normal(100, 10, 30))
@@ -98,6 +99,7 @@ def test_detection_result_is_pydantic_model() -> None:
 
 # ── Tests de MAD ──────────────────────────────────────────────────────────────
 
+
 def test_mad_detects_spike_outlier() -> None:
     """Un spike muy alto debe detectarse como outlier."""
     # Serie con variación real (necesaria para que MAD > 0) + spike extremo
@@ -124,6 +126,7 @@ def test_mad_constant_series_returns_no_outliers() -> None:
 
 # ── Tests de FFT ──────────────────────────────────────────────────────────────
 
+
 def test_fft_detects_annual_monthly_seasonality() -> None:
     """Serie mensual con ciclo de 12 meses → FFT devuelve 12."""
     series = make_seasonal_series(n=120, period=12, noise=0.2)
@@ -141,6 +144,7 @@ def test_fft_returns_none_for_white_noise() -> None:
 
 
 # ── Tests de CV ───────────────────────────────────────────────────────────────
+
 
 def test_cv_zero_mean_returns_zero() -> None:
     """Media cero no debe explotar."""

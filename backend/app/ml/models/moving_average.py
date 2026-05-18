@@ -75,19 +75,23 @@ class MovingAverageModel(ForecastModel):
         # Bootstrap CI sobre residuos históricos
         rng = np.random.default_rng(seed=42)
         alpha = 1 - self.ci_level
-        bootstrap_means = np.array([
-            self._last_wma + np.mean(rng.choice(self._residuals, size=len(self._residuals)))
-            for _ in range(self.n_bootstrap)
-        ])
+        bootstrap_means = np.array(
+            [
+                self._last_wma + np.mean(rng.choice(self._residuals, size=len(self._residuals)))
+                for _ in range(self.n_bootstrap)
+            ]
+        )
         lower = float(np.percentile(bootstrap_means, alpha / 2 * 100))
         upper = float(np.percentile(bootstrap_means, (1 - alpha / 2) * 100))
 
-        return pd.DataFrame({
-            "date":      future_dates,
-            "predicted": predicted,
-            "lower":     np.full(horizon, lower),
-            "upper":     np.full(horizon, upper),
-        })
+        return pd.DataFrame(
+            {
+                "date": future_dates,
+                "predicted": predicted,
+                "lower": np.full(horizon, lower),
+                "upper": np.full(horizon, upper),
+            }
+        )
 
     def evaluate(self, test: pd.Series) -> dict[str, float]:
         if self._series is None:

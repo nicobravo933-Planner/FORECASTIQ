@@ -74,21 +74,25 @@ class HoltWintersModel(ForecastModel):
         std_resid = float(np.std(residuals, ddof=1))
 
         # Simula `n_simulations` trayectorias añadiendo ruido gaussiano
-        simulations = np.array([
-            forecast.values + rng.normal(0, std_resid, size=horizon)
-            for _ in range(self.n_simulations)
-        ])
+        simulations = np.array(
+            [
+                forecast.values + rng.normal(0, std_resid, size=horizon)
+                for _ in range(self.n_simulations)
+            ]
+        )
 
         alpha = 1 - self.ci_level
         lower = np.percentile(simulations, alpha / 2 * 100, axis=0)
         upper = np.percentile(simulations, (1 - alpha / 2) * 100, axis=0)
 
-        return pd.DataFrame({
-            "date":      forecast.index,
-            "predicted": forecast.values,
-            "lower":     lower,
-            "upper":     upper,
-        })
+        return pd.DataFrame(
+            {
+                "date": forecast.index,
+                "predicted": forecast.values,
+                "lower": lower,
+                "upper": upper,
+            }
+        )
 
     def evaluate(self, test: pd.Series) -> dict[str, float]:
         if self._model_fit is None:

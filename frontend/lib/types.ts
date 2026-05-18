@@ -20,7 +20,7 @@ export interface UploadResponse {
 
 export interface DatasetColumn {
   name: string
-  dtype: "date" | "numeric" | "string" | "unknown"
+  dtype: "datetime" | "numeric" | "text" | "unknown"
   sample_values: string[]
 }
 
@@ -145,4 +145,20 @@ export interface CalendarEvent {
   end_date: string
   impact_pct: number | null
   is_global: boolean
+}
+
+// ── Forecast Compare ────────────────────────────────────────────
+export interface ComparePoint {
+  date:        string
+  baseline:    number
+  with_events: number
+  lower:       number
+  upper:       number
+}
+
+export interface ForecastCompareResponse {
+  job_id:         string
+  model_used:     string
+  events_applied: number
+  predictions:    ComparePoint[]
 }

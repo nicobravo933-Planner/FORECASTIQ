@@ -33,6 +33,7 @@ dependencies = [
     "lightgbm>=4.4.0",
     "optuna>=3.6.0",                  # hyperparameter optimization
     "duckdb>=1.0.0",                  # in-process SQL for LLM tools
+    "holidays>=0.55",                  # feriados nacionales AR (y más países)
     # ── ML — Prophet (install separately if C compiler issues) ──
     # "prophet>=1.1.5",               # uncomment after: uv add prophet --no-build-isolation
     # ── LLM / HTTP ───────────────────────────────────────────

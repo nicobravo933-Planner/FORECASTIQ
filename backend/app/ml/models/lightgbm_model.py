@@ -42,11 +42,11 @@ def _make_features(series: pd.Series, max_lag: int = 13) -> pd.DataFrame:
     for window in [3, 6, 12]:
         if window < max_lag:
             df[f"roll_mean_{window}"] = df["y"].shift(1).rolling(window).mean()
-            df[f"roll_std_{window}"]  = df["y"].shift(1).rolling(window).std()
+            df[f"roll_std_{window}"] = df["y"].shift(1).rolling(window).std()
 
     # Features de calendario
-    df["month"]       = series.index.month
-    df["quarter"]     = series.index.quarter
+    df["month"] = series.index.month
+    df["quarter"] = series.index.quarter
     df["day_of_year"] = series.index.day_of_year
 
     return df.dropna()
@@ -102,25 +102,29 @@ class LightGBMModel(ForecastModel):
         upper_q = 1 - alpha / 2
 
         q_params = {**self._best_params, "objective": "quantile", "verbose": -1}
-        self._model_lower = self._train_lgb(x, y, {**q_params, "alpha": lower_q}, objective="quantile")
-        self._model_upper = self._train_lgb(x, y, {**q_params, "alpha": upper_q}, objective="quantile")
+        self._model_lower = self._train_lgb(
+            x, y, {**q_params, "alpha": lower_q}, objective="quantile"
+        )
+        self._model_upper = self._train_lgb(
+            x, y, {**q_params, "alpha": upper_q}, objective="quantile"
+        )
 
     def _optimize(self, x: np.ndarray, y: np.ndarray) -> dict:
         """Optuna: busca hiperparámetros minimizando RMSE en validación temporal."""
 
         def objective(trial: optuna.Trial) -> float:
             params = {
-                "objective":        "regression",
-                "metric":           "rmse",
-                "verbose":          -1,
-                "num_leaves":       trial.suggest_int("num_leaves", 16, 128),
-                "learning_rate":    trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
-                "n_estimators":     trial.suggest_int("n_estimators", 50, 500),
-                "min_child_samples":trial.suggest_int("min_child_samples", 5, 50),
-                "subsample":        trial.suggest_float("subsample", 0.5, 1.0),
+                "objective": "regression",
+                "metric": "rmse",
+                "verbose": -1,
+                "num_leaves": trial.suggest_int("num_leaves", 16, 128),
+                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+                "n_estimators": trial.suggest_int("n_estimators", 50, 500),
+                "min_child_samples": trial.suggest_int("min_child_samples", 5, 50),
+                "subsample": trial.suggest_float("subsample", 0.5, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
-                "reg_alpha":        trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
-                "reg_lambda":       trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
+                "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
+                "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
             }
             # Validación temporal: últimos 20% como test
             split = int(len(x) * 0.8)
@@ -144,9 +148,7 @@ class LightGBMModel(ForecastModel):
         study.optimize(objective, n_trials=self.n_trials, timeout=self.optuna_timeout)
         return study.best_params
 
-    def _train_lgb(
-        self, x: np.ndarray, y: np.ndarray, params: dict, objective: str
-    ) -> lgb.Booster:
+    def _train_lgb(self, x: np.ndarray, y: np.ndarray, params: dict, objective: str) -> lgb.Booster:
         final_params = {**params, "objective": objective, "verbose": -1}
         return lgb.train(
             final_params,
@@ -161,9 +163,7 @@ class LightGBMModel(ForecastModel):
             raise RuntimeError("Llamar fit() antes de predict().")
 
         last_date = self._series.index[-1]
-        future_dates = pd.date_range(
-            start=last_date, periods=horizon + 1, freq=self._freq
-        )[1:]
+        future_dates = pd.date_range(start=last_date, periods=horizon + 1, freq=self._freq)[1:]
 
         # Predicción recursiva: cada paso extiende la serie con la pred anterior
         extended = self._series.copy()
@@ -173,7 +173,7 @@ class LightGBMModel(ForecastModel):
             df = _make_features(extended, self.max_lag)
             x_row = df.drop(columns=["y"]).iloc[[-1]].values
 
-            pred_mean  = float(self._model_mean.predict(x_row)[0])
+            pred_mean = float(self._model_mean.predict(x_row)[0])
             pred_lower = float(self._model_lower.predict(x_row)[0])  # type: ignore[union-attr]
             pred_upper = float(self._model_upper.predict(x_row)[0])  # type: ignore[union-attr]
 
@@ -182,17 +182,21 @@ class LightGBMModel(ForecastModel):
             preds_upper.append(pred_upper)
 
             # Agrega la predicción puntual a la serie para el siguiente paso
-            extended = pd.concat([
-                extended,
-                pd.Series([pred_mean], index=pd.DatetimeIndex([future_date])),
-            ])
+            extended = pd.concat(
+                [
+                    extended,
+                    pd.Series([pred_mean], index=pd.DatetimeIndex([future_date])),
+                ]
+            )
 
-        return pd.DataFrame({
-            "date":      future_dates,
-            "predicted": preds_mean,
-            "lower":     preds_lower,
-            "upper":     preds_upper,
-        })
+        return pd.DataFrame(
+            {
+                "date": future_dates,
+                "predicted": preds_mean,
+                "lower": preds_lower,
+                "upper": preds_upper,
+            }
+        )
 
     def evaluate(self, test: pd.Series) -> dict[str, float]:
         if self._model_mean is None:

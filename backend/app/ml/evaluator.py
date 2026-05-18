@@ -102,13 +102,13 @@ def fva(actual: pd.Series, predicted: pd.Series) -> float:
 
     # Alineamos sobre el período común
     n = min(len(naive_values), len(actual), len(predicted))
-    actual_tail    = actual.iloc[-n:]
+    actual_tail = actual.iloc[-n:]
     predicted_tail = predicted.iloc[-n:] if len(predicted) >= n else predicted
-    naive_tail     = naive_values.iloc[-n:]
+    naive_tail = naive_values.iloc[-n:]
 
     # Re-indexamos predicted_tail con el índice de actual_tail
     predicted_tail = pd.Series(predicted_tail.values, index=actual_tail.index)
-    naive_tail     = pd.Series(naive_tail.values,     index=actual_tail.index)
+    naive_tail = pd.Series(naive_tail.values, index=actual_tail.index)
 
     wape_naive = wape(actual_tail, naive_tail)
     wape_model = wape(actual_tail, predicted_tail)
@@ -138,9 +138,9 @@ def evaluate_all(actual: pd.Series, predicted: pd.Series) -> dict[str, float | N
 
     return {
         "wape": round(wape(actual, predicted), 4),
-        "mae":  round(mae(actual, predicted), 4),
+        "mae": round(mae(actual, predicted), 4),
         "bias": round(bias(actual, predicted), 4),
         "rmse": round(rmse(actual, predicted), 4),
         "mape": round(mape_val, 4) if mape_val is not None else None,
-        "fva":  fva(actual, predicted),
+        "fva": fva(actual, predicted),
     }

@@ -17,7 +17,7 @@ import pandas as pd
 class ForecastModel(ABC):
     """Interfaz común para todos los modelos de forecasting de forecastiq."""
 
-    name: str                       # identificador del modelo (ej. "holt_winters")
+    name: str  # identificador del modelo (ej. "holt_winters")
     requires_min_observations: int  # mínimo de obs para entrenar sin error
 
     @abstractmethod

@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.datasets import router as datasets_router
+from app.api.events import router as events_router
 from app.api.forecast import router as forecast_router
 from app.api.health import router as health_router
 from app.core.config import settings
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(datasets_router)
     app.include_router(forecast_router)
+    app.include_router(events_router)
 
     return app
 
