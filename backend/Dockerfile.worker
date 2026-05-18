@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1
+# Dockerfile.worker — igual al API pero arranca el worker de Celery
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+RUN useradd --create-home --shell /bin/bash appuser
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --no-dev --frozen
+
+COPY app/ ./app/
+
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# Comando del worker — Railway inyecta las env vars
+CMD ["uv", "run", "celery", "-A", "app.services.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
