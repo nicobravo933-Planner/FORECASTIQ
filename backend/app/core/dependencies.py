@@ -1,14 +1,14 @@
 """
 Dependencias compartidas de FastAPI (Depends()).
-Phase 5: agrega get_current_user (JWT) y get_optional_user.
+Phase 5: valida sesiones de Better Auth llamando a /api/auth/get-session.
 """
 
 from __future__ import annotations
 
 from typing import Annotated
 
+import httpx
 from fastapi import Depends, Header, HTTPException, status
-from jose import JWTError, jwt
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -17,7 +17,7 @@ from app.core.config import settings
 
 
 class CurrentUser(BaseModel):
-    """Payload extraído del JWT emitido por Better Auth."""
+    """Datos del usuario autenticado, extraídos desde Better Auth."""
 
     user_id: str
     email: str
@@ -25,42 +25,53 @@ class CurrentUser(BaseModel):
     image: str | None = None
 
 
-# ── Helpers JWT ───────────────────────────────────────────────────────────────
+# ── Validación via Better Auth ────────────────────────────────────────────────
 
 
-def _decode_token(token: str) -> CurrentUser:
+async def _validate_session(token: str) -> CurrentUser:
     """
-    Verifica y decodifica el JWT de Better Auth.
-    Better Auth firma con HMAC-SHA256 usando BETTER_AUTH_SECRET (== jwt_secret_key).
+    Llama a Better Auth (Next.js) para verificar el token de sesión.
+    Better Auth expone GET /api/auth/get-session con el token como Bearer.
+    Lanza 401 si el token es inválido o la sesión expiró.
     """
+    url = f"{settings.better_auth_url}/api/auth/get-session"
+    headers = {"Authorization": f"Bearer {token}"}
+
     try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
-    except JWTError as exc:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url, headers=headers)
+    except httpx.RequestError as exc:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o expirado.",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No se pudo contactar el servicio de autenticación.",
         ) from exc
 
-    user_id: str | None = payload.get("sub")
-    email: str | None = payload.get("email")
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesión inválida o expirada.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    data = resp.json()
+    user = data.get("user") or {}
+    session = data.get("session") or {}
+
+    user_id: str | None = user.get("id") or session.get("userId")
+    email: str | None = user.get("email")
 
     if not user_id or not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token no contiene sub/email.",
+            detail="Sesión sin datos de usuario.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     return CurrentUser(
         user_id=user_id,
         email=email,
-        name=payload.get("name"),
-        image=payload.get("image"),
+        name=user.get("name"),
+        image=user.get("image"),
     )
 
 
@@ -85,7 +96,7 @@ async def get_current_user(
             detail="Authorization header requerido.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return _decode_token(token)
+    return await _validate_session(token)
 
 
 async def get_optional_user(
@@ -99,7 +110,7 @@ async def get_optional_user(
     if not token:
         return None
     try:
-        return _decode_token(token)
+        return await _validate_session(token)
     except HTTPException:
         return None
 

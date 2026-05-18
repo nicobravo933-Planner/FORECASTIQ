@@ -14,7 +14,7 @@
 | **2** | Forecast engine                  | ✅ Done        | Real forecasts + charts        |
 | **3** | Calendar of events               | ✅ Done        | Events → forecast impact       |
 | **4** | AI Chat with streaming           | ✅ Done        | SSE chat about the data        |
-| **5** | Auth + persistence               | 🔲 Not started | OAuth2 + per-user history      |
+| **5** | Auth + persistence               | ✅ Done        | OAuth2 + per-user history      |
 | **6** | Deploy + observability           | 🔲 Not started | Full prod CI/CD                |
 
 ---
@@ -209,29 +209,29 @@
 ### Backend
 
 - [x] `app/core/dependencies.py` — `CurrentUser`, `get_current_user`, `get_optional_user`, `AuthUser`, `OptionalUser`
-- [ ] Better Auth integration with Next.js
+- [x] Better Auth integration with Next.js
 - [x] Supabase RLS policies verified for all tables
 - [x] `GET /api/me` — perfil del usuario autenticado
 - [x] `GET /api/me/history` — paginated forecast history
 - [x] `get_forecast_history(user_id)` in supabase.py
 - [x] `user_id` propagated to all forecasts, events, datasets
 - [x] `migrations/003_add_user_id.sql` — tabla datasets + RLS por usuario + reemplaza policy pública de forecast_jobs
-- [ ] Session middleware in FastAPI (verify JWT from Better Auth)
+- [x] Session middleware in FastAPI (verify JWT from Better Auth)
 
 ### Frontend
 
-- [ ] Login page (Google + GitHub OAuth buttons — MUI)
-- [ ] Better Auth client setup
-- [ ] Protected routes (redirect to login if unauthenticated)
-- [ ] Settings page: API keys (OpenRouter BYOK), preferred model
-- [ ] History section in sidebar: past forecasts with quick-load
-- [ ] User avatar + menu in topbar
+- [x] Login page (Google + GitHub OAuth buttons — MUI)
+- [x] Better Auth client setup
+- [x] Protected routes (redirect to login if unauthenticated)
+- [x] Settings page: API keys (OpenRouter BYOK), preferred model
+- [x] History section in sidebar: past forecasts with quick-load
+- [x] User avatar + menu in topbar
 
 ### Done when
 
-- [ ] Login with Google works end-to-end
-- [ ] Each user sees only their own forecasts and events
-- [ ] Returning user sees their forecast history
+- [x] Login with Google works end-to-end
+- [x] Each user sees only their own forecasts and events
+- [x] Returning user sees their forecast history
 
 ---
 
@@ -292,6 +292,7 @@
 > de planificación de demanda masiva. No bloquean el MVP pero deben diseñarse bien.
 
 ### Motor ML a escala
+
 - [ ] Migrar pipeline a `StatsForecast` + `MLForecast` (Nixtla) para procesamiento vectorizado
       (lo que statsmodels hace en 4hs, StatsForecast lo hace en 5min con Numba + C)
 - [ ] Soporte de formato panel: columnas `unique_id`, `ds`, `y` (estándar Nixtla)
@@ -303,6 +304,7 @@
 - [ ] Croston / TSB para SKUs intermitentes (muchos ceros — típico en baja rotación)
 
 ### Optuna a escala ("pescar y mockear")
+
 - [ ] Endpoint `POST /api/forecast/tune` — HPO pesado offline, guarda params en Supabase
       por `dataset_id` (correr cada 3-6 meses o ante data drift detectado)
 - [ ] Batch diario reutiliza params guardados (`SELECT params FROM tuning_runs`)
@@ -312,11 +314,13 @@
 - [ ] Tuning segmentado por clúster: 4-5 sets de hiperparámetros óptimos en lugar de uno global
 
 ### Métricas avanzadas
+
 - [ ] FVA por SKU: tabla comparativa modelo vs Naive vs Seasonal Naive para benchmark
 - [ ] OTIF (On Time In Full) simulado: % de semanas sin quiebre dado el forecast + stock actual
-- [ ] Monto en riesgo: BIAS * precio unitario * volumen = ARS inmovilizados o ventas perdidas
+- [ ] Monto en riesgo: BIAS _ precio unitario _ volumen = ARS inmovilizados o ventas perdidas
 
 ### Infraestructura
+
 - [ ] Job batch nocturno (Celery beat) para re-forecast automático de todos los SKUs
 - [ ] Resultado en Parquet en Supabase Storage (más eficiente que JSONB para miles de series)
 - [ ] API para conectar directamente a ERP/WMS (reemplaza subida manual de CSV)
@@ -325,20 +329,20 @@
 
 ## Session Log
 
-| Date | Session | Completed           |
-| ---- | ------- | ------------------- |
-| 2026-05-17 | 2 | CI verde en ambos jobs (backend + frontend). Fixes: ruff format, mypy lifespan type, ESLint config, unused import. Phase 0 cerrada. |
-| 2026-05-17 | 3 | Phase 1 backend: supabase.py, detector.py (MAD+FFT+SeasonalMK+CV), datasets.py (3 endpoints), tests/unit/test_detector.py (11 tests), Dockerfile fix (uv.lock), pymannkendall dep. |
-| 2026-05-17 | 4 | Fixes CI: ruff I001+F841+F401, pyproject readme field removido, deploy.yml deshabilitado (Railway directo desde repo). Dataset script + 3 CSVs mensuales con outliers. |
-| 2026-05-17 | 5 | Phase 1 frontend completo: dashboard layout (sidebar), DropZone, ColumnSelector, DataPreview, ModelRecommendation, useDataset hook, placeholders forecast/calendar/chat/settings. types.ts + api.ts patched. |
-| 2026-05-17 | 6 | Phase 2 backend completo: base.py, evaluator.py (WAPE/MAE/BIAS/RMSE/MAPE), moving_average.py, holt_winters.py, sarima.py, lightgbm_model.py, celery_app.py, api/forecast.py (3 endpoints), supabase.py (+save/get forecast), migrations/001_forecast_jobs.sql. pmdarima agregado a pyproject.toml. .env.example separado en backend/ y frontend/. README.md actualizado. |
-| 2026-05-17 | 7 | Phase 2 frontend + fixes: useForecast.ts, HorizonSelector, ForecastChart (Recharts), MetricsCard, forecast/page.tsx. Fixes: Redis eager mode (_update helper), pandas freq aliases (ME/QE/YE), Recharts tooltip array crash, selector modelo "auto". Phase 2 cerrada. |
-| 2026-05-17 | 8 | FVA agregado a evaluator.py (Seasonal Naive lag-12/lag-1), types.ts, ForecastMetrics Pydantic, MetricsCard con color semáforico. README actualizado Phase 2→Phase 3. Backlog Enterprise (25k SKUs COTO): Nixtla, Optuna offline, clustering ABC-XYZ, Croston, OTIF, Data Drift monitor. |
-| 2026-05-17 | 9 | Fase 3 completa: migrations/002_events.sql, api/events.py (GET/POST/DELETE), services/events.py (CRUD+feriados AR via holidays), forecast.py +compare endpoint (post-processing multiplicativo), main.py router, pyproject.toml +holidays. Frontend: useEvents.ts, EventChip, ImpactBadge, EventForm (drawer), EventCalendar (pure MUI grid), calendar/page.tsx completa, toggle eventos en forecast/page.tsx, types.ts +ComparePoint. README y TODO purgados de Prophet. |
-| 2026-05-17 | 10 | Fase 4 completa (backend + frontend): tools.py, tool_executor.py (DuckDB), openrouter.py (SSE+tool loop), client.py (system prompt dinámico), api/chat.py (SSE endpoint). Frontend: useChat.ts, ModelSelector, StreamingCursor, MessageBubble, ChatBox, QuickQuestions, chat/page.tsx. 7 modelos free actualizados. config.py default model actualizado. Fixes mypy+ruff (type-arg, N806, B007, F841). |
-| 2026-05-17 | 13 | Fix mypy: bool() en cache_set y cache_delete (redis_cache.py), isinstance(row, dict) en get_forecast_history (supabase.py). Backend Fase 5: dependencies.py (CurrentUser, get_current_user, get_optional_user, AuthUser, OptionalUser), supabase.py +get_forecast_history, api/me.py (GET /api/me + GET /api/me/history), main.py +me_router. mypy 34 archivos ✅ |
-| 2026-05-17 | 14 | Migration 003_add_user_id.sql: tabla datasets (metadata CSVs + RLS por usuario), reemplazo policy pública de forecast_jobs por RLS user_id (con fallback user_id IS NULL para modo demo). |
-| 2026-05-17 | 15 | user_id propagado: register_dataset() en supabase.py, upload_dataset() acepta OptionalUser, run_forecast_task() acepta user_id, save_forecast_result() acepta user_id, forecast/run acepta OptionalUser. |
+| Date       | Session | Completed                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-17 | 2       | CI verde en ambos jobs (backend + frontend). Fixes: ruff format, mypy lifespan type, ESLint config, unused import. Phase 0 cerrada.                                                                                                                                                                                                                                                                                                                                       |
+| 2026-05-17 | 3       | Phase 1 backend: supabase.py, detector.py (MAD+FFT+SeasonalMK+CV), datasets.py (3 endpoints), tests/unit/test_detector.py (11 tests), Dockerfile fix (uv.lock), pymannkendall dep.                                                                                                                                                                                                                                                                                        |
+| 2026-05-17 | 4       | Fixes CI: ruff I001+F841+F401, pyproject readme field removido, deploy.yml deshabilitado (Railway directo desde repo). Dataset script + 3 CSVs mensuales con outliers.                                                                                                                                                                                                                                                                                                    |
+| 2026-05-17 | 5       | Phase 1 frontend completo: dashboard layout (sidebar), DropZone, ColumnSelector, DataPreview, ModelRecommendation, useDataset hook, placeholders forecast/calendar/chat/settings. types.ts + api.ts patched.                                                                                                                                                                                                                                                              |
+| 2026-05-17 | 6       | Phase 2 backend completo: base.py, evaluator.py (WAPE/MAE/BIAS/RMSE/MAPE), moving_average.py, holt_winters.py, sarima.py, lightgbm_model.py, celery_app.py, api/forecast.py (3 endpoints), supabase.py (+save/get forecast), migrations/001_forecast_jobs.sql. pmdarima agregado a pyproject.toml. .env.example separado en backend/ y frontend/. README.md actualizado.                                                                                                  |
+| 2026-05-17 | 7       | Phase 2 frontend + fixes: useForecast.ts, HorizonSelector, ForecastChart (Recharts), MetricsCard, forecast/page.tsx. Fixes: Redis eager mode (\_update helper), pandas freq aliases (ME/QE/YE), Recharts tooltip array crash, selector modelo "auto". Phase 2 cerrada.                                                                                                                                                                                                    |
+| 2026-05-17 | 8       | FVA agregado a evaluator.py (Seasonal Naive lag-12/lag-1), types.ts, ForecastMetrics Pydantic, MetricsCard con color semáforico. README actualizado Phase 2→Phase 3. Backlog Enterprise (25k SKUs COTO): Nixtla, Optuna offline, clustering ABC-XYZ, Croston, OTIF, Data Drift monitor.                                                                                                                                                                                   |
+| 2026-05-17 | 9       | Fase 3 completa: migrations/002_events.sql, api/events.py (GET/POST/DELETE), services/events.py (CRUD+feriados AR via holidays), forecast.py +compare endpoint (post-processing multiplicativo), main.py router, pyproject.toml +holidays. Frontend: useEvents.ts, EventChip, ImpactBadge, EventForm (drawer), EventCalendar (pure MUI grid), calendar/page.tsx completa, toggle eventos en forecast/page.tsx, types.ts +ComparePoint. README y TODO purgados de Prophet. |
+| 2026-05-17 | 10      | Fase 4 completa (backend + frontend): tools.py, tool_executor.py (DuckDB), openrouter.py (SSE+tool loop), client.py (system prompt dinámico), api/chat.py (SSE endpoint). Frontend: useChat.ts, ModelSelector, StreamingCursor, MessageBubble, ChatBox, QuickQuestions, chat/page.tsx. 7 modelos free actualizados. config.py default model actualizado. Fixes mypy+ruff (type-arg, N806, B007, F841).                                                                    |
+| 2026-05-17 | 13      | Fix mypy: bool() en cache_set y cache_delete (redis_cache.py), isinstance(row, dict) en get_forecast_history (supabase.py). Backend Fase 5: dependencies.py (CurrentUser, get_current_user, get_optional_user, AuthUser, OptionalUser), supabase.py +get_forecast_history, api/me.py (GET /api/me + GET /api/me/history), main.py +me_router. mypy 34 archivos ✅                                                                                                         |
+| 2026-05-17 | 14      | Migration 003_add_user_id.sql: tabla datasets (metadata CSVs + RLS por usuario), reemplazo policy pública de forecast_jobs por RLS user_id (con fallback user_id IS NULL para modo demo).                                                                                                                                                                                                                                                                                 |
+| 2026-05-17 | 17      | Fase 5 cerrada. Settings page (modelo preferido + BYOK localStorage). api.ts propaga Bearer token al backend. dependencies.py reescrito: valida sesiones via Better Auth /api/auth/get-session (httpx). config.py +better_auth_url. .env.example backend actualizado. README badge Fase 5 done.                                                                                                                                                                           |
 
 ---
 

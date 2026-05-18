@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # ── Auth ─────────────────────────────────────────────────────
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
+    better_auth_url: str = "http://localhost:3000"  # URL del frontend Next.js
     google_client_id: str = ""
     google_client_secret: str = ""
     github_client_id: str = ""

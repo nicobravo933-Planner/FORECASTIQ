@@ -38,7 +38,7 @@
 >
 > **Phase 4 — AI Chat con streaming SSE** ✅ completa · SSE real-time + DuckDB tools + 7 modelos OpenRouter free + inline charts + rate limiting Redis
 >
-> **Phase 5 — Auth + Persistencia** 🔧 próxima fase · OAuth2 Google/GitHub + historial de forecasts por usuario
+> **Phase 5 — Auth + Persistencia** ✅ completa · OAuth2 Google/GitHub (Better Auth) + historial por usuario + RLS Supabase + Settings BYOK
 
 ---
 
@@ -52,14 +52,14 @@
 
 ## 🎯 Features clave
 
-| Feature                      | Descripción                                                               |
-| ---------------------------- | ------------------------------------------------------------------------- |
-| 📁 **Subida CSV**            | Soltá tu CSV de ventas — no necesita formato previo                       |
-| 🤖 **Selección automática**  | Detección FFT + Seasonal Mann-Kendall elige MA / Holt-Winters / SARIMA / LightGBM |
-| 📈 **Forecast interactivo**  | Horizontes +3 / +6 / +12 meses con intervalos de confianza                |
-| 📅 **Calendario de eventos** | Agregá promociones, feriados y eventos externos — impactan el forecast    |
-| 💬 **Chat IA (streaming)**   | Preguntale a tus datos en lenguaje natural — tokens en tiempo real        |
-| 🔐 **Datos por usuario**     | Login OAuth2 — tus forecasts son privados, aislados por RLS de Supabase   |
+| Feature                      | Descripción                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 📁 **Subida CSV**            | Soltá tu CSV de ventas — no necesita formato previo                                                    |
+| 🤖 **Selección automática**  | Detección FFT + Seasonal Mann-Kendall elige MA / Holt-Winters / SARIMA / LightGBM                      |
+| 📈 **Forecast interactivo**  | Horizontes +3 / +6 / +12 meses con intervalos de confianza                                             |
+| 📅 **Calendario de eventos** | Agregá promociones, feriados y eventos externos — impactan el forecast                                 |
+| 💬 **Chat IA (streaming)**   | Preguntale a tus datos en lenguaje natural — tokens en tiempo real                                     |
+| 🔐 **Datos por usuario**     | Login OAuth2 — tus forecasts son privados, aislados por RLS de Supabase                                |
 | 🆓 **Modelos LLM gratuitos** | Impulsado por OpenRouter free tier (DeepSeek V4 Flash, GLM 4.5 Air, GPT OSS 120B, Nemotron 120B y más) |
 
 ---
@@ -190,6 +190,7 @@ docker compose up
 Las variables están separadas por contexto de deploy:
 
 **`backend/.env`** (Railway / local):
+
 ```bash
 # Supabase
 SUPABASE_URL=https://xxxx.supabase.co
@@ -215,6 +216,7 @@ JWT_SECRET_KEY=  # openssl rand -hex 32
 ```
 
 **`frontend/.env.local`** (Vercel / local):
+
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
@@ -274,7 +276,7 @@ uv run pytest --cov=app --cov-report=html  # con cobertura
 
 El deploy está completamente automatizado vía GitHub Actions:
 
-```
+```Plaintext
 git push main
   → CI: ruff + mypy + pytest (debe pasar)
   → Build imagen Docker → push a ghcr.io
@@ -293,8 +295,8 @@ Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 - [x] **Fase 2** — Motor de forecast (4 modelos ML) ✅
 - [x] **Fase 3** — Calendario de eventos ✅
 - [x] **Fase 4** — Chat IA con streaming SSE ✅
-- [ ] **Fase 5** — Auth + persistencia ← próxima fase
-- [ ] **Fase 6** — Deploy completo a producción
+- [x] **Fase 5** — Auth + persistencia (Google/GitHub OAuth, historial por usuario) ✅
+- [ ] **Fase 6** — Deploy completo a producción ← próxima fase
 
 ---
 
