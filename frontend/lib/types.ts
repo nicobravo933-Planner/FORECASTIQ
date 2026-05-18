@@ -49,10 +49,26 @@ export interface DetectionResult {
 
 export type DataFreq = "D" | "W" | "M" | "Q"
 
-// ── Forecast ─────────────────────────────────────────────────────
-export type ForecastStatus = "pending" | "running" | "done" | "failed"
+// ── Forecast ────────────────────────────────────────────────────
+export type ForecastStatus = "pending" | "started" | "done" | "failed"
 
-export type ModelName = "moving_average" | "holt_winters" | "prophet" | "lightgbm"
+export type ModelName = "moving_average" | "holt_winters" | "sarima" | "lightgbm"
+
+export interface ForecastRunRequest {
+  dataset_id: string
+  date_column: string
+  target_column: string
+  freq: DataFreq
+  horizon: number
+  model_override?: ModelName | null
+}
+
+export interface ForecastStatusResponse {
+  job_id: string
+  status: ForecastStatus
+  progress_pct: number
+  step: string
+}
 
 export interface PredictionPoint {
   date: string
@@ -61,18 +77,34 @@ export interface PredictionPoint {
   upper: number
 }
 
+export interface HistoricalPoint {
+  date: string
+  value: number
+}
+
+export interface ForecastMetrics {
+  wape: number | null
+  mae: number | null
+  bias: number | null
+  rmse: number | null
+  mape: number | null
+  fva: number | null
+}
+
 export interface ForecastResult {
   job_id: string
   status: ForecastStatus
-  model_used: ModelName | null
-  mape: number | null
-  rmse: number | null
-  mae: number | null
+  dataset_id: string
+  model_used: ModelName
+  freq: DataFreq
+  horizon: number
+  metrics: ForecastMetrics
+  historical: HistoricalPoint[]
   predictions: PredictionPoint[]
   created_at: string
 }
 
-// ── Chat ─────────────────────────────────────────────────────────
+// ── Chat ────────────────────────────────────────────────────────
 export type ChatRole = "user" | "assistant"
 
 export interface ChatMessage {

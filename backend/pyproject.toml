@@ -28,6 +28,7 @@ dependencies = [
     "numpy>=1.26.0",
     "scikit-learn>=1.5.0",
     "statsmodels>=0.14.0",            # Holt-Winters, SARIMA
+    "pmdarima>=2.0.0",                # auto-ARIMA para selección automática de (p,d,q)
     "pymannkendall>=1.4.3",           # Mann-Kendall trend test (Seasonal variant)
     "lightgbm>=4.4.0",
     "optuna>=3.6.0",                  # hyperparameter optimization

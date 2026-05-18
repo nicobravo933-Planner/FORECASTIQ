@@ -427,7 +427,7 @@ df_forecasts = pd.DataFrame(columns=[
     "created_at",
 ])
 
-print(f"✓ Forecasts: tabla vacía (estructura lista)")
+print("\u2713 Forecasts: tabla vacía (estructura lista)")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -776,7 +776,7 @@ agg_ropa = (
 agg_ropa.to_csv(OUTPUT_DIR / "ventas_ropa_mensual.csv", index=False, encoding="utf-8-sig")
 print(f"  ventas_ropa_mensual.csv        {len(agg_ropa):>3} filas  (pico invierno jul, verano ene)")
 
-print(f"""
+print("""
   Uso en forecastiq:
     → Subir ventas_totales_mensual.csv
     → Columna fecha:  fecha

@@ -1,0 +1,128 @@
+"use client"
+
+/**
+ * MetricsCard — displays WAPE, MAE, BIAS, RMSE, MAPE chips.
+ * WAPE is the primary metric (highlighted). MAPE shown only if not null.
+ */
+
+import Box from "@mui/material/Box"
+import Paper from "@mui/material/Paper"
+import Typography from "@mui/material/Typography"
+import Tooltip from "@mui/material/Tooltip"
+import Chip from "@mui/material/Chip"
+import type { ForecastMetrics, ModelName } from "@/lib/types"
+
+const MODEL_LABELS: Record<ModelName, string> = {
+  moving_average: "Promedio Móvil",
+  holt_winters:   "Holt-Winters",
+  sarima:         "SARIMA",
+  lightgbm:       "LightGBM",
+}
+
+const METRIC_INFO: { key: keyof ForecastMetrics; label: string; tooltip: string; primary?: boolean }[] = [
+  {
+    key: "wape",
+    label: "WAPE",
+    tooltip: "Weighted Absolute Percentage Error — métrica principal. < 20% es excelente.",
+    primary: true,
+  },
+  {
+    key: "fva",
+    label: "FVA",
+    tooltip: "Forecast Value Added: diferencia entre WAPE Naive y WAPE del modelo. Positivo = el modelo supera al Naive. Negativo = usar Naive directamente.",
+  },
+  {
+    key: "mae",
+    label: "MAE",
+    tooltip: "Error absoluto medio en unidades de la serie.",
+  },
+  {
+    key: "bias",
+    label: "BIAS",
+    tooltip: "Positivo = sobreestima (stock excesivo), negativo = subestima (quiebres). Idealmente cercano a 0.",
+  },
+  {
+    key: "rmse",
+    label: "RMSE",
+    tooltip: "Penaliza errores grandes. Útil para comparar modelos.",
+  },
+  {
+    key: "mape",
+    label: "MAPE",
+    tooltip: "Mean Absolute Percentage Error. No disponible si la serie tiene ceros.",
+  },
+]
+
+interface MetricsCardProps {
+  metrics: ForecastMetrics
+  modelUsed: ModelName
+}
+
+export function MetricsCard({ metrics, modelUsed }: MetricsCardProps) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{ p: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+        <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+          Métricas de evaluación
+        </Typography>
+        <Chip
+          label={MODEL_LABELS[modelUsed]}
+          size="small"
+          color="primary"
+          variant="outlined"
+          sx={{ fontSize: "0.75rem" }}
+        />
+      </Box>
+
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+        {METRIC_INFO.map(({ key, label, tooltip, primary }) => {
+          const val = metrics[key]
+          if (val === null || val === undefined) return null
+
+          // Format: WAPE/MAPE/BIAS as %, MAE/RMSE as number
+          const formatted =
+            key === "wape" || key === "mape"
+              ? `${(val * 100).toFixed(1)}%`
+              : key === "bias"
+              ? `${val >= 0 ? "+" : ""}${(val * 100).toFixed(1)}%`
+              : val.toLocaleString("es-AR", { maximumFractionDigits: 1 })
+
+          const isFva = key === "fva"
+          // FVA: verde si positivo (agrega valor), rojo si negativo (resta valor)
+          const fvaBgColor = isFva
+            ? val >= 0 ? "success.main" : "error.main"
+            : undefined
+
+          return (
+            <Tooltip key={key} title={tooltip} arrow placement="top">
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  bgcolor: primary ? "primary.main" : isFva ? fvaBgColor : "action.hover",
+                  color: primary || isFva ? "primary.contrastText" : "text.primary",
+                  borderRadius: "0.5rem",
+                  px: "1rem",
+                  py: "0.5rem",
+                  minWidth: "5rem",
+                  cursor: "default",
+                }}
+              >
+                <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 500 }}>
+                  {label}
+                </Typography>
+                <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+                  {formatted}
+                </Typography>
+              </Box>
+            </Tooltip>
+          )
+        })}
+      </Box>
+    </Paper>
+  )
+}

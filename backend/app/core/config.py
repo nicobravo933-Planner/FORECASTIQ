@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     upstash_redis_url: str = ""
     upstash_redis_token: str = ""
 
+    # ── Celery ───────────────────────────────────────────────────
+    celery_broker_url: str = "redis://localhost:6379/0"
+    celery_result_backend: str = "redis://localhost:6379/0"
+    celery_task_always_eager: bool = False  # True en dev → sin worker separado
+
     # ── LLM ──────────────────────────────────────────────────────
     openrouter_api_key: str = ""
     openrouter_model: str = "deepseek/deepseek-r1-0528:free"
