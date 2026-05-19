@@ -11,11 +11,12 @@ from __future__ import annotations
 import io
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.core.dependencies import OptionalUser
 from app.ml.detector import DetectionResult, detect_best_model
+from app.services.redis_cache import check_upload_rate_limit
 from app.services.supabase import download_csv, register_dataset, upload_csv
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
@@ -95,11 +96,28 @@ def _parse_csv(content: bytes) -> pd.DataFrame:
 
 
 @router.post("/upload", response_model=UploadResponse, status_code=201)
-async def upload_dataset(file: UploadFile, user: OptionalUser = None) -> UploadResponse:
+async def upload_dataset(
+    request: Request, file: UploadFile, user: OptionalUser = None
+) -> UploadResponse:
     """
     Recibe un CSV, lo valida y lo sube a Supabase Storage.
     Retorna el dataset_id para usar en los siguientes endpoints.
+
+    Rate limit: 5 uploads por hora por IP.
     """
+    ip = request.client.host if request.client else "unknown"
+    rl = check_upload_rate_limit(ip)
+    if not rl.allowed:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=429,
+            content={
+                "detail": f"Demasiados uploads. Límite: 5 por hora. "
+                f"Podés volver a intentar en {rl.reset_in // 60} minutos."
+            },
+            headers={"Retry-After": str(rl.reset_in)},
+        )
     if file.content_type not in ("text/csv", "application/csv", "application/octet-stream"):
         raise HTTPException(
             status_code=400,

@@ -121,11 +121,11 @@
 
 ### Rate Limiting (backend)
 
-- [ ] Extender `redis_cache.py`: `UPLOAD_RATE_LIMIT = 5` uploads/hora/IP
-- [ ] Extender `redis_cache.py`: `FORECAST_RATE_LIMIT = 10` jobs/hora/IP+user
-- [ ] Aplicar rate limit en `POST /api/datasets/upload` (datasets.py)
-- [ ] Aplicar rate limit en `POST /api/forecast/run` (forecast.py)
-- [ ] Respuesta 429 con header `Retry-After` y mensaje amigable en español
+- [x] Extender `redis_cache.py`: `UPLOAD_RATE_LIMIT = 5` uploads/hora/IP
+- [x] Extender `redis_cache.py`: `FORECAST_RATE_LIMIT = 10` jobs/hora/IP+user
+- [x] Aplicar rate limit en `POST /api/datasets/upload` (datasets.py)
+- [x] Aplicar rate limit en `POST /api/forecast/run` (forecast.py)
+- [x] Respuesta 429 con header `Retry-After` y mensaje amigable en español
 
 ### Frontend — Rediseño Login
 
@@ -159,8 +159,8 @@
 - [x] Login page con logo real y split layout funciona en desktop y mobile
 - [x] Sidebar muestra logo PNG
 - [x] Dataset page tiene tabs (aunque Tab 2 y 3 sean placeholders)
-- [ ] Rate limits activos: 5 uploads/h y 10 forecasts/h responden 429 correctamente
-- [ ] CI verde
+- [x] Rate limits activos: 5 uploads/h y 10 forecasts/h responden 429 correctamente
+- [x] CI verde
 
 ---
 
@@ -227,7 +227,7 @@
 | 2026-05-19 | 20      | Fase 7 completa: structlog+middleware (Nivel 1), OTel SDK+traces+forecast_span (Nivel 2), Grafana Alloy en Railway (scrape /metrics → Grafana Cloud Mimir), dashboard producción online. Fixes: Railway TOKEN, mypy FilteringBoundLogger, $PORT sh -c, startCommand railway.toml, archivos faltantes en git (middleware.py, telemetry.py), /metrics router explícito. Dashboard: https://nicobravo933.grafana.net/goto/shcs6k |
 | 2026-05-19 | 21      | Documentación completa: ROADMAP.md creado (Fases 7.5–14 con decisiones de arquitectura cerradas, Quick Start local, fuentes de datos, rate limiting, DuckDB+Parquet strategy). TODO.md reestructurado: Fase 7.5 agregada como próxima, Fases 8-14 comprimidas con referencia a ROADMAP.md. README.md actualizado: Quick Start 5 pasos, sección Dataset Demo, badge Fase 7.5 next. |
 | 2026-05-19 | 22      | Fase 7.5 frontend iniciada: login/page.tsx rediseñado (split layout, logo PNG, feature bullets, glow sutil, mobile responsive). dashboard/layout.tsx: logo texto reemplazado por Image next/image (130×32). |
-| 2026-05-19 | 23      | Fase 7.5 frontend completo: DataSourceTabs (3 tabs), DemoDatasetCard (stats 25k SKUs, placeholder Fase 9), ConnectDbCard (4 engines, nota seguridad), dataset/page.tsx refactorizado. lib/motion.ts creado. components/layout/ + components/dataset/ creados. TODO.md actualizado. |
+| 2026-05-19 | 24      | Fase 7.5 completa: rate limiting backend. redis_cache.py generalizado (_check_rate_limit_generic + check_upload_rate_limit + check_forecast_rate_limit). datasets.py y forecast.py con check 429 + Retry-After. Fase 7.5 cerrada. |
 
 ---
 

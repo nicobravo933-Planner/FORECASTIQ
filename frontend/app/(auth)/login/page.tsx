@@ -39,6 +39,7 @@ export default function LoginPage() {
         minHeight: "100vh",
         display: "flex",
         bgcolor: "background.default",
+        overflow: "hidden",
       }}
     >
       {/* ── Left panel — brand (hidden below md) ── */}
@@ -47,30 +48,42 @@ export default function LoginPage() {
           display: { xs: "none", md: "flex" },
           flex: "0 0 52%",
           flexDirection: "column",
-          justifyContent: "flex-start",
+          justifyContent: "center",
           px: { md: "6rem", lg: "8rem", xl: "10rem" },
-          pt: "4rem",
-          pb: "3rem",
+          py: "3rem",
           position: "relative",
-          // Subtle radial glow behind the logo
+          // Subtle radial glow centered on the divider
           "&::before": {
             content: '""',
             position: "absolute",
             inset: 0,
             background:
-              "radial-gradient(ellipse 70% 55% at 40% 50%, rgba(99,102,241,0.13) 0%, transparent 70%)",
+              "radial-gradient(ellipse 60% 60% at 100% 50%, rgba(99,102,241,0.16) 0%, transparent 65%)",
             pointerEvents: "none",
           },
         }}
       >
-        {/* Logo — centered at top */}
-        <Box sx={{ mb: "3rem", display: "flex", justifyContent: "center" }}>
+        {/* Logo — absolute, centered on the divider line */}
+        <Box
+          sx={{
+            position: "absolute",
+            right: 0,
+            top: "50%",
+            transform: "translate(50%, -50%)",
+            zIndex: 10,
+            // Circle background to cover the divider cleanly
+            borderRadius: "50%",
+            bgcolor: "background.default",
+            p: "0.5rem",
+            lineHeight: 0,
+          }}
+        >
           <Image
             src="/logo.png"
             alt="forecastiq"
-            width={280}
-            height={280}
-            style={{ objectFit: "contain" }}
+            width={260}
+            height={260}
+            style={{ objectFit: "contain", borderRadius: "50%", display: "block" }}
             priority
           />
         </Box>
@@ -186,9 +199,9 @@ export default function LoginPage() {
             <Image
               src="/logo.png"
               alt="forecastiq"
-              width={160}
-              height={44}
-              style={{ objectFit: "contain" }}
+              width={120}
+              height={120}
+              style={{ objectFit: "contain", borderRadius: "50%" }}
               priority
             />
           </Box>

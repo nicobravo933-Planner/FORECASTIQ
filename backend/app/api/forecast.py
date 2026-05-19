@@ -10,13 +10,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.dependencies import OptionalUser
 from app.services.celery_app import run_forecast_task
 from app.services.events import get_ar_holidays, list_events
+from app.services.redis_cache import check_forecast_rate_limit
 from app.services.supabase import get_forecast_result
 
 router = APIRouter(prefix="/api/forecast", tags=["forecast"])
@@ -111,11 +112,30 @@ def _celery_state(job_id: str) -> str:
 
 
 @router.post("/run", response_model=ForecastRunResponse, status_code=202)
-async def run_forecast(body: ForecastRunRequest, user: OptionalUser = None) -> ForecastRunResponse:
+async def run_forecast(
+    request: Request, body: ForecastRunRequest, user: OptionalUser = None
+) -> ForecastRunResponse:
     """
     Lanza el forecast. En modo eager (dev) corre síncronamente y retorna
     job_id inmediatamente — el resultado ya está en Supabase al responder.
+
+    Rate limit: 10 jobs por hora por IP+usuario.
     """
+    ip = request.client.host if request.client else "unknown"
+    # Clave compuesta: si hay usuario autenticado incluye su ID para mayor granularidad
+    rl_key = f"{ip}:{user.user_id}" if user else ip
+    rl = check_forecast_rate_limit(rl_key)
+    if not rl.allowed:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=429,
+            content={
+                "detail": f"Demasiados forecasts. Límite: 10 por hora. "
+                f"Podés volver a intentar en {rl.reset_in // 60} minutos."
+            },
+            headers={"Retry-After": str(rl.reset_in)},
+        )
     task = run_forecast_task.delay(
         dataset_id=body.dataset_id,
         date_column=body.date_column,

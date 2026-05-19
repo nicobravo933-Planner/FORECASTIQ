@@ -21,9 +21,17 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-CHAT_RATE_LIMIT = 30  # requests permitidos por hora por usuario
-RATE_WINDOW_SECS = 3600  # 1 hora
-RATE_KEY_PREFIX = "fiq:rl:chat:"
+CHAT_RATE_LIMIT = 30  # mensajes de chat por hora por usuario
+UPLOAD_RATE_LIMIT = 5  # uploads CSV por hora por IP
+FORECAST_RATE_LIMIT = 10  # jobs de forecast por hora por IP+usuario
+RATE_WINDOW_SECS = 3600  # ventana fija: 1 hora
+
+RATE_KEY_PREFIX_CHAT = "fiq:rl:chat:"
+RATE_KEY_PREFIX_UPLOAD = "fiq:rl:upload:"
+RATE_KEY_PREFIX_FORECAST = "fiq:rl:forecast:"
+
+# Alias legacy — mantiene compatibilidad con chat.py
+RATE_KEY_PREFIX = RATE_KEY_PREFIX_CHAT
 
 
 def _headers() -> dict[str, str]:
@@ -70,52 +78,58 @@ class RateLimitResult:
         self.reset_in = reset_in  # segundos hasta que se resetea el contador
 
 
-def check_rate_limit(identifier: str) -> RateLimitResult:
+def _check_rate_limit_generic(key_prefix: str, identifier: str, limit: int) -> RateLimitResult:
     """
-    Verifica y actualiza el rate limit para un identificador (IP o user_id).
+    Núcleo reutilizable de rate limiting.
 
-    Estrategia: contador con TTL en Redis.
-      INCR fiq:rl:chat:<identifier>  → incrementa (crea con valor 1 si no existe)
-      Si el contador se creó ahora → EXPIRE para fijar la ventana
+    Estrategia: contador con TTL en Redis (ventana fija de RATE_WINDOW_SECS).
+      INCR <prefix><identifier>  → incrementa; crea con valor 1 si no existe
+      Si count == 1 → EXPIRE para anclar la ventana de 1 hora
 
-    Si Redis no está disponible → falla abierto (permite el request).
-
-    Returns:
-        RateLimitResult con .allowed=True si el request puede continuar.
+    Falla abierto si Redis no está disponible (permite el request).
     """
     if not settings.upstash_redis_url or not settings.upstash_redis_token:
-        # Redis no configurado → desarrollo local sin límite
-        return RateLimitResult(allowed=True, remaining=CHAT_RATE_LIMIT, reset_in=RATE_WINDOW_SECS)
+        return RateLimitResult(allowed=True, remaining=limit, reset_in=RATE_WINDOW_SECS)
 
-    key = f"{RATE_KEY_PREFIX}{identifier}"
+    key = f"{key_prefix}{identifier}"
 
     try:
-        # INCR devuelve el nuevo valor del contador
         count_result = _redis_command("INCR", key)
         if count_result is None:
-            # Falla abierto
-            return RateLimitResult(
-                allowed=True, remaining=CHAT_RATE_LIMIT, reset_in=RATE_WINDOW_SECS
-            )
+            return RateLimitResult(allowed=True, remaining=limit, reset_in=RATE_WINDOW_SECS)
 
         count = int(count_result)
 
-        # Si es el primer request de la ventana, fijar TTL
         if count == 1:
             _redis_command("EXPIRE", key, str(RATE_WINDOW_SECS))
 
-        # Consultar TTL restante para el header de reset
         ttl_result = _redis_command("TTL", key)
         reset_in = int(ttl_result) if ttl_result and int(ttl_result) > 0 else RATE_WINDOW_SECS
 
-        remaining = max(0, CHAT_RATE_LIMIT - count)
-        allowed = count <= CHAT_RATE_LIMIT
-
-        return RateLimitResult(allowed=allowed, remaining=remaining, reset_in=reset_in)
+        return RateLimitResult(
+            allowed=count <= limit,
+            remaining=max(0, limit - count),
+            reset_in=reset_in,
+        )
 
     except Exception as exc:
-        logger.warning("Rate limit check failed for %s: %s — allowing request", identifier, exc)
-        return RateLimitResult(allowed=True, remaining=CHAT_RATE_LIMIT, reset_in=RATE_WINDOW_SECS)
+        logger.warning("Rate limit check failed for %s: %s — allowing request", key, exc)
+        return RateLimitResult(allowed=True, remaining=limit, reset_in=RATE_WINDOW_SECS)
+
+
+def check_rate_limit(identifier: str) -> RateLimitResult:
+    """Rate limit para chat (30 req/h). Mantiene firma original para compatibilidad."""
+    return _check_rate_limit_generic(RATE_KEY_PREFIX_CHAT, identifier, CHAT_RATE_LIMIT)
+
+
+def check_upload_rate_limit(ip: str) -> RateLimitResult:
+    """Rate limit para uploads CSV: 5 por hora por IP."""
+    return _check_rate_limit_generic(RATE_KEY_PREFIX_UPLOAD, ip, UPLOAD_RATE_LIMIT)
+
+
+def check_forecast_rate_limit(identifier: str) -> RateLimitResult:
+    """Rate limit para jobs de forecast: 10 por hora por IP+usuario."""
+    return _check_rate_limit_generic(RATE_KEY_PREFIX_FORECAST, identifier, FORECAST_RATE_LIMIT)
 
 
 # ── Generic cache helpers ─────────────────────────────────────────────────────
