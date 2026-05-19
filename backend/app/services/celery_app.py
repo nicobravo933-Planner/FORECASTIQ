@@ -65,6 +65,7 @@ def run_forecast_task(
       6. Calcula métricas con hold-out 20%
       7. Guarda resultado en Supabase DB
     """
+    from app.core.telemetry import forecast_span
     from app.ml.detector import detect_best_model
     from app.ml.models.holt_winters import HoltWintersModel
     from app.ml.models.lightgbm_model import LightGBMModel
@@ -84,97 +85,112 @@ def run_forecast_task(
             self.update_state(state="STARTED", meta={"progress_pct": pct, "step": step})
 
     try:
-        # 1. Descarga y parseo
-        _update(5, "Descargando datos")
-        content = download_csv(dataset_id)
-        df = pd.read_csv(io.BytesIO(content))
-        df[date_column] = pd.to_datetime(df[date_column])
-        df = df.sort_values(date_column).reset_index(drop=True)
+        # OTel: span que cubre todo el pipeline de forecast
+        with forecast_span(
+            dataset_id=dataset_id,
+            model_name=model_override or "auto",
+            horizon=horizon,
+            freq=freq,
+        ) as span:
+            # 1. Descarga y parseo
+            _update(5, "Descargando datos")
+            content = download_csv(dataset_id)
+            df = pd.read_csv(io.BytesIO(content))
+            df[date_column] = pd.to_datetime(df[date_column])
+            df = df.sort_values(date_column).reset_index(drop=True)
 
-        series = pd.to_numeric(df[target_column], errors="coerce")
-        series = series.interpolate(method="linear").ffill().bfill()
-        series.index = pd.DatetimeIndex(df[date_column])
-        series = series.asfreq(freq, method="ffill")
+            series = pd.to_numeric(df[target_column], errors="coerce")
+            series = series.interpolate(method="linear").ffill().bfill()
+            series.index = pd.DatetimeIndex(df[date_column])
+            series = series.asfreq(freq, method="ffill")
 
-        # 2. Winsorización p5/p95
-        _update(15, "Preprocesando serie")
-        p5 = float(series.quantile(0.05))
-        p95 = float(series.quantile(0.95))
-        series = series.clip(lower=p5, upper=p95)
+            # 2. Winsorización p5/p95
+            _update(15, "Preprocesando serie")
+            p5 = float(series.quantile(0.05))
+            p95 = float(series.quantile(0.95))
+            series = series.clip(lower=p5, upper=p95)
 
-        # 3. Detección / selección de modelo
-        _update(25, "Seleccionando modelo")
-        if model_override:
-            model_name = model_override
-        else:
-            detection = detect_best_model(series, freq=freq)
-            model_name = detection.model
+            # 3. Detección / selección de modelo
+            _update(25, "Seleccionando modelo")
+            if model_override:
+                model_name = model_override
+            else:
+                detection = detect_best_model(series, freq=freq)
+                model_name = detection.model
 
-        model_map = {
-            "moving_average": MovingAverageModel(),
-            "holt_winters": HoltWintersModel(),
-            "sarima": SarimaModel(),
-            "lightgbm": LightGBMModel(),
-        }
-        model = model_map.get(model_name, HoltWintersModel())
+            # Actualizar span con el modelo real seleccionado
+            span.set_attribute("forecast.model", model_name)
 
-        # 4. Split train/test 80/20
-        n = len(series)
-        split = max(int(n * 0.8), n - horizon)
-        train = series.iloc[:split]
-        test = series.iloc[split:]
-
-        # 5. Entrenamiento
-        _update(40, f"Entrenando {model_name}")
-        model.fit(train)
-
-        # 6. Métricas sobre test
-        _update(75, "Calculando métricas")
-        metrics: dict[str, Any] = model.evaluate(test) if len(test) > 0 else {}
-
-        # Re-entrena con toda la serie para la predicción final
-        model.fit(series)
-
-        # 7. Predicción
-        _update(85, "Generando forecast")
-        forecast_df = model.predict(horizon)
-
-        history_window = min(len(series), horizon * 2)
-        history = series.iloc[-history_window:]
-
-        historical = [
-            {"date": str(d.date()), "value": float(v)}
-            for d, v in zip(history.index, history.values, strict=False)
-        ]
-        predictions = [
-            {
-                "date": str(row["date"].date())
-                if hasattr(row["date"], "date")
-                else str(row["date"]),
-                "predicted": round(float(row["predicted"]), 4),
-                "lower": round(float(row["lower"]), 4),
-                "upper": round(float(row["upper"]), 4),
+            model_map = {
+                "moving_average": MovingAverageModel(),
+                "holt_winters": HoltWintersModel(),
+                "sarima": SarimaModel(),
+                "lightgbm": LightGBMModel(),
             }
-            for _, row in forecast_df.iterrows()
-        ]
+            model = model_map.get(model_name, HoltWintersModel())
 
-        # 8. Guarda en Supabase
-        _update(95, "Guardando resultado")
-        result: dict[str, Any] = {
-            "job_id": job_id,
-            "status": "done",
-            "dataset_id": dataset_id,
-            "model_used": model_name,
-            "freq": freq,
-            "horizon": horizon,
-            "metrics": metrics,
-            "historical": historical,
-            "predictions": predictions,
-            "created_at": datetime.utcnow().isoformat(),
-        }
+            # 4. Split train/test 80/20
+            n = len(series)
+            split = max(int(n * 0.8), n - horizon)
+            train = series.iloc[:split]
+            test = series.iloc[split:]
 
-        save_forecast_result(job_id=job_id, result=result, user_id=user_id)
-        return result
+            # 5. Entrenamiento
+            _update(40, f"Entrenando {model_name}")
+            model.fit(train)
+
+            # 6. Métricas sobre test
+            _update(75, "Calculando métricas")
+            metrics: dict[str, Any] = model.evaluate(test) if len(test) > 0 else {}
+
+            # Registrar métricas clave en el span para verlas en Grafana Tempo
+            if metrics:
+                span.set_attribute("forecast.wape", float(metrics.get("wape") or 0))
+                span.set_attribute("forecast.mae", float(metrics.get("mae") or 0))
+
+            # Re-entrena con toda la serie para la predicción final
+            model.fit(series)
+
+            # 7. Predicción
+            _update(85, "Generando forecast")
+            forecast_df = model.predict(horizon)
+
+            history_window = min(len(series), horizon * 2)
+            history = series.iloc[-history_window:]
+
+            historical = [
+                {"date": str(d.date()), "value": float(v)}
+                for d, v in zip(history.index, history.values, strict=False)
+            ]
+            predictions = [
+                {
+                    "date": str(row["date"].date())
+                    if hasattr(row["date"], "date")
+                    else str(row["date"]),
+                    "predicted": round(float(row["predicted"]), 4),
+                    "lower": round(float(row["lower"]), 4),
+                    "upper": round(float(row["upper"]), 4),
+                }
+                for _, row in forecast_df.iterrows()
+            ]
+
+            # 8. Guarda en Supabase
+            _update(95, "Guardando resultado")
+            result: dict[str, Any] = {
+                "job_id": job_id,
+                "status": "done",
+                "dataset_id": dataset_id,
+                "model_used": model_name,
+                "freq": freq,
+                "horizon": horizon,
+                "metrics": metrics,
+                "historical": historical,
+                "predictions": predictions,
+                "created_at": datetime.utcnow().isoformat(),
+            }
+
+            save_forecast_result(job_id=job_id, result=result, user_id=user_id)
+            return result
 
     except Exception as exc:
         raise RuntimeError(str(exc)) from exc
