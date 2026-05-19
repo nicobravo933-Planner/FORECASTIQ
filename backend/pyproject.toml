@@ -48,6 +48,14 @@ dependencies = [
     "orjson>=3.10.0",                 # faster JSON serialization
     "tenacity>=8.5.0",                # retry logic for LLM calls
     "sentry-sdk[fastapi]>=2.13.0",    # error monitoring
+    # ── Observability ─────────────────────────────────────────
+    "structlog>=24.4.0",               # structured logging JSON
+    "prometheus-fastapi-instrumentator>=7.0.0",  # /metrics endpoint
+    # ── OpenTelemetry (Fase 7 Nivel 2) ────────────────────────
+    "opentelemetry-sdk>=1.25.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.25.0",  # OTLP/HTTP → Grafana Cloud
+    "opentelemetry-instrumentation-fastapi>=0.46b0",   # auto-instrumenta FastAPI
+    "opentelemetry-instrumentation-httpx>=0.46b0",     # traza llamadas LLM (httpx)
 ]
 
 [project.optional-dependencies]
