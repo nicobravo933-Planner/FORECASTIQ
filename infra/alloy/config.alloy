@@ -1,16 +1,16 @@
 // ── Grafana Alloy config — ForecastIQ observability ──────────────────────
 // Qué hace:
-//   1. Scrapea /metrics de forecastiq-api (Prometheus) cada 15s
+//   1. Scrapea /metrics de forecastiq-api (Prometheus) cada 15s via HTTPS público
 //   2. Remote-write métricas → Grafana Cloud Mimir (sa-east-1)
 //   3. Recibe logs via HTTP POST → reenvía a Grafana Cloud Loki
 //
 // Variables de entorno requeridas en Railway:
-//   GRAFANA_USER          = 3226856
-//   GRAFANA_API_TOKEN     = <tu token>
-//   FORECASTIQ_API_URL    = https://<tu-api>.railway.app
+//   GRAFANA_USER             = 3226856
+//   GRAFANA_API_TOKEN        = <tu token>
+//   FORECASTIQ_METRICS_HOST  = forecastiq-api-production.up.railway.app:443
 // ──────────────────────────────────────────────────────────────────────────
 
-// ── 1. Scrape /metrics de forecastiq-api ─────────────────────────────────
+// ── 1. Scrape /metrics de forecastiq-api (HTTPS público) ─────────────────
 prometheus.scrape "forecastiq_api" {
   targets = [
     {
@@ -21,7 +21,11 @@ prometheus.scrape "forecastiq_api" {
   ]
   scrape_interval = "15s"
   metrics_path    = "/metrics"
-  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  scheme          = "https"
+  tls_config {
+    insecure_skip_verify = false
+  }
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
 }
 
 // ── 2. Remote write → Grafana Cloud Mimir ────────────────────────────────
