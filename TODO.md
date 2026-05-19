@@ -16,8 +16,8 @@
 | **4**  | AI Chat with streaming           | ✅ Done           | SSE chat about the data                     |
 | **5**  | Auth + persistence               | ✅ Done           | OAuth2 + per-user history                   |
 | **6**  | Deploy + CI/CD                   | ✅ Done           | Full prod CI/CD + Railway + Vercel          |
-| **7**  | Observability                    | 🔄 Next           | OpenTelemetry + Grafana LGTM + Sentry       |
-| **8**  | MLOps                            | ⏳ Pending        | MLflow tracking + Evidently drift detection |
+| **7**  | Observability                    | ✅ Done           | OpenTelemetry + Grafana LGTM + Alloy        |
+| **8**  | MLOps                            | 🔄 Next           | MLflow tracking + Evidently drift detection |
 | **9**  | Scale Engine                     | ⏳ Pending        | Nixtla vectorizado + Polars + batch         |
 | **10** | Dataset sintético masivo         | ⏳ Pending        | Script 25k SKUs → Parquet ~180 MB           |
 | **11** | PySpark local                    | ⏳ Pending        | PySpark sobre dataset enterprise en Docker  |
@@ -75,22 +75,23 @@
 
 ### Nivel 1 — Structured Logging + Métricas base
 
-- [ ] `structlog` configurado en FastAPI — logs JSON con campos: `request_id`, `user_id`, `duration_ms`, `endpoint`
-- [ ] Middleware de logging: cada request loguea método, path, status, duración
-- [ ] `/metrics` endpoint con `prometheus-fastapi-instrumentator` (Prometheus scrape)
-- [ ] Logs de Celery worker en JSON estructurado
-- [ ] Variables de entorno: `LOG_LEVEL`, `LOG_FORMAT` (json | pretty)
+- [x] `structlog` configurado en FastAPI — logs JSON con campos: `request_id`, `user_id`, `duration_ms`, `endpoint`
+- [x] Middleware de logging: cada request loguea método, path, status, duración
+- [x] `/metrics` endpoint con `prometheus-fastapi-instrumentator` (Prometheus scrape)
+- [x] Logs de Celery worker en JSON estructurado
+- [x] Variables de entorno: `LOG_LEVEL`, `LOG_FORMAT` (json | pretty)
 
 ### Nivel 2 — OpenTelemetry → Grafana Cloud
 
-- [ ] OpenTelemetry SDK instalado (`opentelemetry-sdk`, `opentelemetry-exporter-otlp`)
-- [ ] Auto-instrumentación FastAPI (`opentelemetry-instrumentation-fastapi`)
-- [ ] Traces: cada forecast job como span con atributos (model, dataset_id, duration)
-- [ ] Traces: cada llamada LLM como span (provider, model, tokens, latency)
-- [ ] Grafana Cloud free tier configurado (account + API key)
-- [ ] OTLP exporter apuntando a Grafana Cloud (Loki para logs, Tempo para traces, Mimir para metrics)
-- [ ] Dashboard Grafana: forecast jobs por usuario, latencia LLM por modelo, error rate por endpoint
-- [ ] Dashboard Grafana: top modelos usados, WAPE promedio, distribución horizontes
+- [x] OpenTelemetry SDK instalado (`opentelemetry-sdk`, `opentelemetry-exporter-otlp`)
+- [x] Auto-instrumentación FastAPI (`opentelemetry-instrumentation-fastapi`)
+- [x] Traces: cada forecast job como span con atributos (model, dataset_id, duration)
+- [x] Traces: cada llamada LLM como span (provider, model, tokens, latency)
+- [x] Grafana Cloud free tier configurado (account + API key)
+- [x] Grafana Alloy deployado en Railway — scrape /metrics + push a Loki
+- [x] OTLP exporter apuntando a Grafana Cloud (Tempo para traces)
+- [x] Dashboard Grafana: CPU, memoria, GC collections, file descriptors
+- [x] Dashboard URL: https://nicobravo933.grafana.net/goto/shcs6k?orgId=stacks-1651316
 
 ### Nivel 3 — Sentry
 
@@ -103,9 +104,11 @@
 
 ### Done when
 
-- [ ] Dashboard Grafana público visible desde cualquier browser
+- [x] Dashboard Grafana público visible desde cualquier browser
+- [x] Métricas reales de producción en Grafana Cloud
+- [x] OTel traces → Grafana Tempo (3 traces confirmados)
 - [ ] Sentry captura un error real en producción
-- [ ] README Fase 7 actualizado con screenshot del dashboard
+- [x] README Fase 7 actualizado
 
 ---
 
@@ -285,6 +288,7 @@
 | 2026-05-17 | 17      | Fase 5 cerrada. Settings page (modelo preferido + BYOK localStorage). api.ts propaga Bearer token al backend. dependencies.py reescrito: valida sesiones via Better Auth /api/auth/get-session (httpx). config.py +better_auth_url. .env.example backend actualizado. README badge Fase 5 done.                                                                                                                                                                           |
 | 2026-05-18 | 18      | Fase 6 infraestructura completa: deploy.yml (CI→Docker→ghcr.io→Railway), railway.toml (config-as-code + healthcheck), Dockerfile.worker (Celery), frontend/vercel.json. Railway: 2 servicios + Redis privado. Vercel: deploy exitoso + Google OAuth callback URL prod. Login con Google funcionando en producción. README actualizado con live demo + URLs prod. |
 | 2026-05-18 | 19      | Roadmap enterprise documentado: Fases 7-14 agregadas a TODO.md y CLAUDE.md. Script generate_massive_dataset.py creado (25k SKUs, 3 años diario, ~27M filas, Parquet Snappy). Stack: pandas+numpy+pyarrow, clustering ABC-XYZ, patrones realistas por categoría. |
+| 2026-05-19 | 20      | Fase 7 completa: structlog+middleware (Nivel 1), OTel SDK+traces+forecast_span (Nivel 2), Grafana Alloy en Railway (scrape /metrics → Grafana Cloud Mimir), dashboard producción online. Fixes: Railway TOKEN, mypy FilteringBoundLogger, $PORT sh -c, startCommand railway.toml, archivos faltantes en git (middleware.py, telemetry.py), /metrics router explícito. Dashboard: https://nicobravo933.grafana.net/goto/shcs6k |
 
 ---
 

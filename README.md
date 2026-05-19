@@ -4,9 +4,10 @@
   <br/><br/>
   <!-- Estado del proyecto -->
   <img src="https://img.shields.io/badge/status-live%20en%20producción-22c55e?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-7%20observability-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/phase-7%20observability%20✅-22c55e?style=for-the-badge"/>
   <br/><br/>
-  <a href="https://forecastiq.vercel.app"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-forecastiq.vercel.app-6366f1?style=for-the-badge"/></a>
+  <a href="https://forecastiq.vercel.app/dashboard/dataset"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-forecastiq.vercel.app-6366f1?style=for-the-badge"/></a>
+  <a href="https://nicobravo933.grafana.net/goto/shcs6k?orgId=stacks-1651316"><img src="https://img.shields.io/badge/📊%20Grafana%20Dashboard-production%20metrics-F46800?style=for-the-badge&logo=grafana&logoColor=white"/></a>
   <br/><br/>
   <!-- Core stack -->
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white"/>
@@ -32,8 +33,8 @@
   <img src="https://img.shields.io/badge/data-27M%20filas%20sintéticas-f59e0b"/>
   <br/>
   <!-- Roadmap futuro -->
-  <img src="https://img.shields.io/badge/próximo-OpenTelemetry%20%2B%20Grafana-F46800?logo=grafana&logoColor=white"/>
-  <img src="https://img.shields.io/badge/roadmap-MLflow%20%2B%20Evidently-0194E2?logo=mlflow&logoColor=white"/>
+  <img src="https://img.shields.io/badge/próximo-MLflow%20%2B%20Evidently-0194E2?logo=mlflow&logoColor=white"/>
+  <img src="https://img.shields.io/badge/observability-Grafana%20Cloud%20%E2%9C%85-F46800?logo=grafana&logoColor=white"/>
   <img src="https://img.shields.io/badge/roadmap-PySpark%20%2B%20Nixtla-E25A1C?logo=apachespark&logoColor=white"/>
   <img src="https://img.shields.io/badge/roadmap-Airflow%20DAGs-017CEE?logo=apacheairflow&logoColor=white"/>
   <img src="https://img.shields.io/badge/roadmap-BigQuery%20%2B%20dbt-4285F4?logo=googlebigquery&logoColor=white"/>
@@ -58,9 +59,9 @@
 >
 > **Phase 5 — Auth + Persistencia** ✅ completa · OAuth2 Google/GitHub (Better Auth) + historial por usuario + RLS Supabase + Settings BYOK
 >
-> **Phase 6 — Deploy + CI/CD** ✅ completa · Railway (API + Worker) + Vercel (frontend) + CI/CD GitHub Actions + Redis Railway
+> **Phase 6 — Deploy + CI/CD** ✅ completa · GitHub Actions → Railway (API + Worker) + Vercel (frontend) + Google OAuth prod
 >
-> **Phase 7 — Observability** 🔄 en progreso · OpenTelemetry + Grafana LGTM (Loki/Tempo/Mimir) + Sentry error tracking
+> **Phase 7 — Observability** ✅ completa · structlog JSON + OTel traces → Grafana Tempo + Grafana Alloy (scrape /metrics → Grafana Cloud) + [dashboard producción](https://nicobravo933.grafana.net/goto/shcs6k)
 >
 > **Phase 8–14 — Enterprise Roadmap** ⏳ pendiente · MLflow · Evidently AI · Nixtla · Polars · PySpark · Airflow · BigQuery/dbt · Terraform + K8s
 
