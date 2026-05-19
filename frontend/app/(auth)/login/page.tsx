@@ -1,19 +1,30 @@
 "use client"
 
 /**
- * Login page — Google and GitHub OAuth buttons.
- * Redirects to /dashboard/dataset after successful login.
+ * Login page — split layout.
+ * Left panel: brand + logo + feature bullets (hidden on mobile).
+ * Right panel: OAuth buttons card.
  */
 
+import Image from "next/image"
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
-import Card from "@mui/material/Card"
-import CardContent from "@mui/material/CardContent"
 import Divider from "@mui/material/Divider"
 import Typography from "@mui/material/Typography"
 import GoogleIcon from "@mui/icons-material/Google"
 import GitHubIcon from "@mui/icons-material/GitHub"
+import AutoGraphIcon from "@mui/icons-material/AutoGraph"
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
+import ChatIcon from "@mui/icons-material/Chat"
+import LockOpenIcon from "@mui/icons-material/LockOpen"
 import { signIn } from "@/lib/auth-client"
+
+const FEATURES = [
+  { icon: <AutoGraphIcon sx={{ fontSize: "1.125rem" }} />, text: "Detección automática del mejor modelo ML" },
+  { icon: <CalendarMonthIcon sx={{ fontSize: "1.125rem" }} />, text: "Eventos y feriados que impactan el forecast" },
+  { icon: <ChatIcon sx={{ fontSize: "1.125rem" }} />, text: "Chat IA en tiempo real sobre tus datos" },
+  { icon: <LockOpenIcon sx={{ fontSize: "1.125rem" }} />, text: "Tus forecasts privados con RLS por usuario" },
+]
 
 export default function LoginPage() {
   const handleGoogle = () =>
@@ -27,25 +38,170 @@ export default function LoginPage() {
       sx={{
         minHeight: "100vh",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
         bgcolor: "background.default",
       }}
     >
-      <Card sx={{ width: "100%", maxWidth: "24rem", borderRadius: "1rem" }} elevation={3}>
-        <CardContent sx={{ p: "2.5rem" }}>
-          {/* Logo */}
-          <Box sx={{ textAlign: "center", mb: "2rem" }}>
-            <Typography variant="h5" color="primary" fontWeight={700} letterSpacing="-0.03em">
-              forecastiq
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: "0.25rem" }}>
-              Forecasting con IA para tus ventas
+      {/* ── Left panel — brand (hidden below md) ── */}
+      <Box
+        sx={{
+          display: { xs: "none", md: "flex" },
+          flex: "0 0 52%",
+          flexDirection: "column",
+          justifyContent: "center",
+          px: "4rem",
+          py: "3rem",
+          position: "relative",
+          // Subtle radial glow behind the logo
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(ellipse 70% 55% at 40% 50%, rgba(99,102,241,0.13) 0%, transparent 70%)",
+            pointerEvents: "none",
+          },
+        }}
+      >
+        {/* Logo */}
+        <Box sx={{ mb: "2.5rem" }}>
+          <Image
+            src="/logo.png"
+            alt="forecastiq"
+            width={200}
+            height={56}
+            style={{ objectFit: "contain", objectPosition: "left" }}
+            priority
+          />
+        </Box>
+
+        {/* Tagline */}
+        <Typography
+          variant="h2"
+          sx={{
+            fontWeight: 700,
+            lineHeight: 1.2,
+            letterSpacing: "-0.03em",
+            mb: "1rem",
+            color: "text.primary",
+          }}
+        >
+          Forecasting con IA
+          <br />
+          <Box component="span" sx={{ color: "primary.light" }}>
+            para tus ventas
+          </Box>
+        </Typography>
+
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{ mb: "2.5rem", maxWidth: "28rem", lineHeight: 1.7 }}
+        >
+          Subí tu CSV, detectamos el modelo óptimo automáticamente y charlás con
+          tus datos en lenguaje natural.
+        </Typography>
+
+        {/* Feature bullets */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+          {FEATURES.map((f, i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                color: "text.secondary",
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "2rem",
+                  height: "2rem",
+                  borderRadius: "0.5rem",
+                  bgcolor: "rgba(99,102,241,0.12)",
+                  color: "primary.light",
+                  flexShrink: 0,
+                }}
+              >
+                {f.icon}
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                {f.text}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+
+        {/* Bottom badge */}
+        <Box sx={{ mt: "3rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <Box
+            sx={{
+              px: "0.625rem",
+              py: "0.25rem",
+              borderRadius: "0.375rem",
+              bgcolor: "rgba(16,185,129,0.12)",
+              border: "1px solid rgba(16,185,129,0.25)",
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ color: "success.main", fontWeight: 600, letterSpacing: "0.04em" }}
+            >
+              LIVE
             </Typography>
           </Box>
+          <Typography variant="caption" color="text.disabled">
+            En producción · Railway + Vercel
+          </Typography>
+        </Box>
+      </Box>
 
-          <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: "1.5rem" }}>
-            Iniciá sesión para guardar tus forecasts y acceder a tu historial
+      {/* ── Right panel — auth card ── */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          px: { xs: "1.25rem", sm: "2rem" },
+          py: "2rem",
+          // Subtle top border accent on mobile (full width)
+          borderLeft: { md: "1px solid" },
+          borderColor: { md: "divider" },
+        }}
+      >
+        <Box sx={{ width: "100%", maxWidth: "22rem" }}>
+          {/* Logo on mobile only */}
+          <Box
+            sx={{
+              display: { xs: "flex", md: "none" },
+              justifyContent: "center",
+              mb: "2rem",
+            }}
+          >
+            <Image
+              src="/logo.png"
+              alt="forecastiq"
+              width={160}
+              height={44}
+              style={{ objectFit: "contain" }}
+              priority
+            />
+          </Box>
+
+          {/* Heading */}
+          <Typography
+            variant="h5"
+            fontWeight={700}
+            sx={{ letterSpacing: "-0.02em", mb: "0.375rem" }}
+          >
+            Bienvenido
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: "2rem" }}>
+            Iniciá sesión para guardar tus forecasts y acceder a tu historial.
           </Typography>
 
           {/* OAuth buttons */}
@@ -57,12 +213,17 @@ export default function LoginPage() {
               onClick={handleGoogle}
               sx={{
                 py: "0.75rem",
-                borderRadius: "0.5rem",
-                textTransform: "none",
+                borderRadius: "0.625rem",
                 fontWeight: 500,
+                fontSize: "0.9375rem",
                 borderColor: "divider",
                 color: "text.primary",
-                "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                transition: "all 0.15s ease",
+                "&:hover": {
+                  borderColor: "primary.main",
+                  bgcolor: "rgba(99,102,241,0.06)",
+                  transform: "translateY(-1px)",
+                },
               }}
             >
               Continuar con Google
@@ -75,25 +236,48 @@ export default function LoginPage() {
               onClick={handleGitHub}
               sx={{
                 py: "0.75rem",
-                borderRadius: "0.5rem",
-                textTransform: "none",
+                borderRadius: "0.625rem",
                 fontWeight: 500,
+                fontSize: "0.9375rem",
                 borderColor: "divider",
                 color: "text.primary",
-                "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                transition: "all 0.15s ease",
+                "&:hover": {
+                  borderColor: "primary.main",
+                  bgcolor: "rgba(99,102,241,0.06)",
+                  transform: "translateY(-1px)",
+                },
               }}
             >
               Continuar con GitHub
             </Button>
           </Box>
 
-          <Divider sx={{ my: "1.5rem" }} />
+          <Divider sx={{ my: "1.5rem", borderColor: "divider" }} />
 
-          <Typography variant="caption" color="text.disabled" textAlign="center" display="block">
-            También podés usar la app sin cuenta — tus datos no se guardarán entre sesiones.
+          <Typography
+            variant="caption"
+            color="text.disabled"
+            textAlign="center"
+            display="block"
+            sx={{ lineHeight: 1.6 }}
+          >
+            También podés usar la app sin cuenta —{" "}
+            <Box
+              component="span"
+              onClick={() => (window.location.href = "/dashboard/dataset")}
+              sx={{
+                color: "primary.light",
+                cursor: "pointer",
+                "&:hover": { textDecoration: "underline" },
+              }}
+            >
+              entrar como invitado
+            </Box>
+            . Tus datos no se guardarán entre sesiones.
           </Typography>
-        </CardContent>
-      </Card>
+        </Box>
+      </Box>
     </Box>
   )
 }

@@ -5,6 +5,7 @@
  * All dashboard routes share this shell.
  */
 
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import Box from "@mui/material/Box"
@@ -75,18 +76,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       >
         {/* Logo */}
-        <Box sx={{ px: "1.25rem", py: "1.5rem" }}>
-          <Typography
-            variant="h6"
-            color="primary"
-            fontWeight={700}
-            sx={{ letterSpacing: "-0.03em" }}
-          >
-            forecastiq
-          </Typography>
-          <Typography variant="caption" color="text.disabled">
-            Forecasting con IA
-          </Typography>
+        <Box
+          sx={{
+            px: "1.25rem",
+            py: "1.25rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          <Image
+            src="/logo.png"
+            alt="forecastiq"
+            width={130}
+            height={32}
+            style={{ objectFit: "contain", objectPosition: "left" }}
+            priority
+          />
         </Box>
 
         <Divider sx={{ borderColor: "divider" }} />

@@ -2,6 +2,7 @@
 
 > **Claude: read this file at the start of every session.**
 > Update task status as work progresses. Never skip phases — complete current phase before starting next.
+> **Para detalles de arquitectura de Fases 7.5–14, leer ROADMAP.md.**
 
 ---
 
@@ -17,7 +18,8 @@
 | **5**  | Auth + persistence               | ✅ Done           | OAuth2 + per-user history                   |
 | **6**  | Deploy + CI/CD                   | ✅ Done           | Full prod CI/CD + Railway + Vercel          |
 | **7**  | Observability                    | ✅ Done           | OpenTelemetry + Grafana LGTM + Alloy        |
-| **8**  | MLOps                            | 🔄 Next           | MLflow tracking + Evidently drift detection |
+| **7.5**| UI Polish + Rate Limiting        | 🔄 Next           | Diseño SaaS profesional + protección Railway|
+| **8**  | MLOps                            | ⏳ Pending        | MLflow tracking + Evidently drift detection |
 | **9**  | Scale Engine                     | ⏳ Pending        | Nixtla vectorizado + Polars + batch         |
 | **10** | Dataset sintético masivo         | ⏳ Pending        | Script 25k SKUs → Parquet ~180 MB           |
 | **11** | PySpark local                    | ⏳ Pending        | PySpark sobre dataset enterprise en Docker  |
@@ -112,161 +114,95 @@
 
 ---
 
-## Phase 8 — MLOps (MLflow + Evidently AI)
+## Phase 7.5 — UI Polish + Rate Limiting
 
-> Goal: tracking de experimentos ML reproducible + detección automática de data drift.
-> Stack: MLflow (local o Railway) + Evidently AI + alertas vía Grafana.
+> Goal: interfaz SaaS profesional para portfolio + protección Railway de uso abusivo.
+> Ver decisiones de arquitectura completas en **ROADMAP.md → Fase 7.5**.
 
-- [ ] MLflow server en Docker (local) y Railway (prod)
-- [ ] Cada run de forecast registrado en MLflow: params, métricas (WAPE/MAE/BIAS), artefactos
-- [ ] Model Registry: versionar modelos entrenados por dataset
-- [ ] Evidently AI: reporte de data drift por SKU (comparar distribución histórica vs últimas semanas)
-- [ ] Endpoint `GET /api/drift/{dataset_id}` → devuelve drift score por columna
-- [ ] Alerta automática si WAPE sube >5% respecto a baseline → log estructurado + Sentry event
-- [ ] Dashboard MLflow embebido o linkeado desde la UI de ForecastIQ
-- [ ] `MLFLOW_TRACKING_URI` en config.py + .env.example
+### Rate Limiting (backend)
+
+- [ ] Extender `redis_cache.py`: `UPLOAD_RATE_LIMIT = 5` uploads/hora/IP
+- [ ] Extender `redis_cache.py`: `FORECAST_RATE_LIMIT = 10` jobs/hora/IP+user
+- [ ] Aplicar rate limit en `POST /api/datasets/upload` (datasets.py)
+- [ ] Aplicar rate limit en `POST /api/forecast/run` (forecast.py)
+- [ ] Respuesta 429 con header `Retry-After` y mensaje amigable en español
+
+### Frontend — Rediseño Login
+
+- [x] `app/(auth)/login/page.tsx` — split layout: panel izquierdo (gradient + logo + bullets) / panel derecho (card OAuth)
+- [x] Logo PNG via `<Image src="/logo.png">` de `next/image` (ya en `public/`)
+- [x] Mobile: colapsa a solo panel derecho (breakpoint `md`)
+
+### Frontend — Sidebar
+
+- [x] `dashboard/layout.tsx` — reemplazar texto "forecastiq" por `<Image>` logo PNG
+- [x] Ajustar tamaño logo en sidebar: ~32px height
+
+### Frontend — Dataset page (tabs)
+
+- [x] `dataset/page.tsx` — agregar `<Tabs>` con 3 opciones:
+  - Tab 1: `📄 Subir CSV` — DropZone actual sin cambios funcionales
+  - Tab 2: `🎲 Dataset demo` — placeholder UI (funcionalidad en Fase 9)
+  - Tab 3: `🔌 Conectar DB` — placeholder UI (backlog enterprise)
+- [x] Crear `components/dataset/DataSourceTabs.tsx`
+- [x] Crear `components/dataset/DemoDatasetCard.tsx` (placeholder con stats del dataset)
+- [x] Crear `components/dataset/ConnectDbCard.tsx` (placeholder con nota de seguridad)
+
+### Estructura de carpetas
+
+- [x] Crear `frontend/components/layout/` (README.md, preparado para Fase 8+)
+- [x] Crear `frontend/components/dataset/` con los nuevos componentes
+- [x] Crear `frontend/lib/motion.ts` — constantes de animación (durations, easings, transitions)
+
+### Done when
+
+- [x] Login page con logo real y split layout funciona en desktop y mobile
+- [x] Sidebar muestra logo PNG
+- [x] Dataset page tiene tabs (aunque Tab 2 y 3 sean placeholders)
+- [ ] Rate limits activos: 5 uploads/h y 10 forecasts/h responden 429 correctamente
+- [ ] CI verde
 
 ---
 
-## Phase 9 — Scale Engine (Nixtla + Polars + Batch)
+## Phases 8–14 — Enterprise Roadmap
 
-> Goal: procesar 25k SKUs en minutos, no horas. Reemplazar statsmodels por Nixtla.
-> Stack: StatsForecast + MLForecast (Nixtla) + Polars + Celery Beat (batch nocturno).
+> Detalles completos, decisiones de arquitectura y especificaciones técnicas en **ROADMAP.md**.
+> El tracking de tareas se agrega aquí cuando cada fase se activa.
 
-- [ ] Migrar pipeline a `StatsForecast` (Nixtla) — formato panel `unique_id/ds/y`
-- [ ] Reemplazar pandas por Polars en ingesta y pre-procesamiento
-- [ ] Global Model con `MLForecast` + LightGBM sobre todos los SKUs simultáneamente
-- [ ] Clustering ABC-XYZ: asignar modelo por segmento (A-X→HW / A-Z→LGB / C-Z→Naive)
-- [ ] Croston/TSB para SKUs intermitentes (demanda esporádica con muchos ceros)
-- [ ] Celery Beat: job batch nocturno que re-forecasta todos los SKUs del usuario
-- [ ] Resultados guardados en Parquet en Supabase Storage (no JSONB)
-- [ ] Benchmark: tiempo statsmodels vs Nixtla sobre mismo dataset de 1k SKUs
+### Resumen
 
----
+| Fase | Nombre | Stack clave |
+|------|--------|-------------|
+| **8** | MLOps | MLflow + Evidently AI + Sentry alerts |
+| **9** | Scale Engine | Nixtla StatsForecast + Polars + DuckDB + Celery Beat |
+| **10** | Dataset Sintético | 25k SKUs × 3 años → Parquet 180 MB en Supabase Storage |
+| **11** | PySpark Local | Docker Spark cluster · feature engineering distribuido |
+| **12** | Airflow | DAGs: forecast batch + drift check + MLflow cleanup |
+| **13** | Data Warehouse | BigQuery free tier + dbt models + SQL analítico |
+| **14** | Infra as Code | Terraform + Kubernetes manifests + Helm chart |
 
-## Phase 10 — Dataset Sintético Masivo
-
-> Goal: generar un dataset realista de 25k SKUs con historia diaria de 3 años (~27M filas)
-> para usar como combustible en las fases 11-13.
-> Script standalone: no modifica la app, corre en local.
+### Phase 10 — Dataset Sintético (tareas pendientes)
 
 - [x] Script `scripts/generate_dataset.py` creado y documentado
-- [ ] Output: `data/ventas_25k_skus.parquet` (~180 MB, compresión Snappy)
-- [ ] Columnas: `sku_id`, `categoria`, `canal`, `fecha`, `ventas`, `precio`, `stock`, `cluster_abc`, `cluster_xyz`
-- [ ] Patrones realistas: tendencia + estacionalidad anual/semanal + ruido + outliers + ceros
-- [ ] Clustering ABC-XYZ calculado en el script (por volumen y variabilidad)
-- [ ] README del script con instrucciones de ejecución
-- [ ] Upload a Supabase Storage (`datasets/` bucket) sin superar 400 MB del plan free
-
----
-
-## Phase 11 — PySpark Local (Docker)
-
-> Goal: practicar PySpark sobre el dataset de 25k SKUs. Todo corre local con Docker.
-> No se necesita cluster — Spark standalone mode es suficiente para aprender.
-
-- [ ] `docker-compose.spark.yml` — Spark master + 2 workers (imagen bitnami/spark)
-- [ ] `notebooks/spark_forecast_pipeline.ipynb` — notebook PySpark con:
-      - Lectura del Parquet de 25k SKUs
-      - Feature engineering distribuido (lag features, rolling means)
-      - Forecast por partición (mapPartitions sobre unique_id)
-      - Escritura resultado en Parquet particionado por categoria/fecha
-- [ ] Script `scripts/spark_benchmark.py` — compara tiempo Pandas vs Polars vs Spark
-- [ ] Documentación: cuándo tiene sentido usar Spark vs Polars
-
----
-
-## Phase 12 — Airflow (Orquestación Batch)
-
-> Goal: orquestar el pipeline completo con Airflow — el estándar de la industria.
-> DAGs: ingesta → validación → forecast → drift check → notificación.
-
-- [ ] `docker-compose.airflow.yml` — Airflow con CeleryExecutor (local)
-- [ ] DAG `forecast_batch_daily`: ingesta Parquet → Nixtla forecast → guardar resultados
-- [ ] DAG `drift_check_weekly`: Evidently drift report → alerta si umbral superado
-- [ ] DAG `mlflow_cleanup_monthly`: archiva runs viejos de MLflow
-- [ ] Conexión Airflow → Supabase (via PostgresHook)
-- [ ] Documentación: comparativa Airflow vs Prefect vs Celery Beat
-
----
-
-## Phase 13 — Data Warehouse
-
-> Goal: conectar ForecastIQ a un DWH real. BigQuery free tier o Snowflake trial.
-> Practicar SQL analítico, dbt, y arquitectura Lakehouse.
-
-- [ ] Cuenta BigQuery creada (free tier: 10 GB storage + 1 TB queries/mes)
-- [ ] Dataset `forecastiq_demo` en BigQuery con tablas: `ventas`, `forecasts`, `drift_reports`
-- [ ] Script de carga: Parquet → BigQuery via `google-cloud-bigquery` Python client
-- [ ] dbt project básico: modelos `stg_ventas`, `fct_forecast_accuracy`, `mart_abc_xyz`
-- [ ] Endpoint `GET /api/dw/query` — ejecuta query analítica en BigQuery y devuelve resultado
-- [ ] Comparativa BigQuery vs Snowflake vs Databricks en README
-
----
-
-## Phase 14 — Infra as Code (Terraform + Kubernetes)
-
-> Goal: documentar y codificar toda la infraestructura. Kubernetes manifests para scale-out.
-> Terraform para Railway + Supabase + Vercel (donde hay provider).
-
-- [ ] `infra/terraform/` — Railway service + Supabase project + variables
-- [ ] `infra/k8s/` — manifests: Deployment API, Deployment Worker, Service, Ingress, HPA
-- [ ] Helm chart básico para ForecastIQ
-- [ ] `infra/README.md` — arquitectura completa con diagrama
-- [ ] Diagrama de arquitectura: local dev → Railway → K8s → AWS EKS
+- [ ] Ejecutar script → generar `data/ventas_25k_skus.parquet` (~180 MB)
+- [ ] Upload a Supabase Storage (`datasets/` bucket) como `ventas_25k_skus.parquet`
+- [ ] Verificar tamaño total Storage no supera 400 MB del plan free
 
 ---
 
 ## Backlog (Post-MVP)
 
-- [ ] Multiple time series support (all products simultaneously)
-- [ ] CSV column auto-mapping with LLM assistance
-- [ ] User-provided DB connection string (ephemeral, never stored)
+> Ver ROADMAP.md para detalles completos de cada ítem.
+
+- [ ] CSV column auto-mapping with LLM assistance (Tab 1 dataset page)
+- [ ] User-provided DB connection string — Tab 3 dataset page (ephemeral, never persisted)
 - [ ] BYOK — user provides their own OpenRouter API key
 - [ ] Export forecast to Excel / PDF
-- [ ] Email notifications when long forecast job completes
-- [ ] Kubernetes manifests (documentation for scale-out)
-- [ ] Nix flake for reproducible ML environment
+- [ ] Email notifications when long forecast job completes (Resend/SendGrid)
+- [ ] Landing page pública con hero + features + demo embed
 - [ ] Spanish / English i18n toggle
-
-## Backlog — Escala Enterprise (25k SKUs tipo COTO)
-
-> Estas tareas son para cuando forecastiq pase de series individuales a un pipeline
-> de planificación de demanda masiva. No bloquean el MVP pero deben diseñarse bien.
-
-### Motor ML a escala
-
-- [ ] Migrar pipeline a `StatsForecast` + `MLForecast` (Nixtla) para procesamiento vectorizado
-      (lo que statsmodels hace en 4hs, StatsForecast lo hace en 5min con Numba + C)
-- [ ] Soporte de formato panel: columnas `unique_id`, `ds`, `y` (estándar Nixtla)
-      → un solo request procesa todos los SKUs en paralelo
-- [ ] Global Model: un único LightGBM entrenado sobre todos los SKUs (MLForecast)
-      en lugar de un modelo por serie
-- [ ] Clustering ABC-XYZ previo al forecast: asignar modelos por segmento
-      (A-X: Holt-Winters / A-Z: LightGBM / C-Z: Naive)
-- [ ] Croston / TSB para SKUs intermitentes (muchos ceros — típico en baja rotación)
-
-### Optuna a escala ("pescar y mockear")
-
-- [ ] Endpoint `POST /api/forecast/tune` — HPO pesado offline, guarda params en Supabase
-      por `dataset_id` (correr cada 3-6 meses o ante data drift detectado)
-- [ ] Batch diario reutiliza params guardados (`SELECT params FROM tuning_runs`)
-      sin correr Optuna en cada forecast (de 30min a <5s)
-- [ ] Monitor de Data Drift: calcular WAPE diario y alertar si se desvía >5% de media histórica
-      → dispara re-tuning automático el fin de semana
-- [ ] Tuning segmentado por clúster: 4-5 sets de hiperparámetros óptimos en lugar de uno global
-
-### Métricas avanzadas
-
-- [ ] FVA por SKU: tabla comparativa modelo vs Naive vs Seasonal Naive para benchmark
-- [ ] OTIF (On Time In Full) simulado: % de semanas sin quiebre dado el forecast + stock actual
-- [ ] Monto en riesgo: BIAS _ precio unitario _ volumen = ARS inmovilizados o ventas perdidas
-
-### Infraestructura
-
-- [ ] Job batch nocturno (Celery beat) para re-forecast automático de todos los SKUs
-- [ ] Resultado en Parquet en Supabase Storage (más eficiente que JSONB para miles de series)
-- [ ] API para conectar directamente a ERP/WMS (reemplaza subida manual de CSV)
+- [ ] CONTRIBUTING.md para open source contributors
+- [ ] Sentry free tier (backend + frontend) — quedó pendiente de Fase 7
 
 ---
 
@@ -289,6 +225,9 @@
 | 2026-05-18 | 18      | Fase 6 infraestructura completa: deploy.yml (CI→Docker→ghcr.io→Railway), railway.toml (config-as-code + healthcheck), Dockerfile.worker (Celery), frontend/vercel.json. Railway: 2 servicios + Redis privado. Vercel: deploy exitoso + Google OAuth callback URL prod. Login con Google funcionando en producción. README actualizado con live demo + URLs prod. |
 | 2026-05-18 | 19      | Roadmap enterprise documentado: Fases 7-14 agregadas a TODO.md y CLAUDE.md. Script generate_massive_dataset.py creado (25k SKUs, 3 años diario, ~27M filas, Parquet Snappy). Stack: pandas+numpy+pyarrow, clustering ABC-XYZ, patrones realistas por categoría. |
 | 2026-05-19 | 20      | Fase 7 completa: structlog+middleware (Nivel 1), OTel SDK+traces+forecast_span (Nivel 2), Grafana Alloy en Railway (scrape /metrics → Grafana Cloud Mimir), dashboard producción online. Fixes: Railway TOKEN, mypy FilteringBoundLogger, $PORT sh -c, startCommand railway.toml, archivos faltantes en git (middleware.py, telemetry.py), /metrics router explícito. Dashboard: https://nicobravo933.grafana.net/goto/shcs6k |
+| 2026-05-19 | 21      | Documentación completa: ROADMAP.md creado (Fases 7.5–14 con decisiones de arquitectura cerradas, Quick Start local, fuentes de datos, rate limiting, DuckDB+Parquet strategy). TODO.md reestructurado: Fase 7.5 agregada como próxima, Fases 8-14 comprimidas con referencia a ROADMAP.md. README.md actualizado: Quick Start 5 pasos, sección Dataset Demo, badge Fase 7.5 next. |
+| 2026-05-19 | 22      | Fase 7.5 frontend iniciada: login/page.tsx rediseñado (split layout, logo PNG, feature bullets, glow sutil, mobile responsive). dashboard/layout.tsx: logo texto reemplazado por Image next/image (130×32). |
+| 2026-05-19 | 23      | Fase 7.5 frontend completo: DataSourceTabs (3 tabs), DemoDatasetCard (stats 25k SKUs, placeholder Fase 9), ConnectDbCard (4 engines, nota seguridad), dataset/page.tsx refactorizado. lib/motion.ts creado. components/layout/ + components/dataset/ creados. TODO.md actualizado. |
 
 ---
 

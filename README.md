@@ -3,8 +3,8 @@
   <em>Conectá tus ventas. Obtené forecasts con IA al instante. Charlá con tus números.</em>
   <br/><br/>
   <!-- Estado del proyecto -->
-  <img src="https://img.shields.io/badge/status-live%20en%20producción-22c55e?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-7%20observability%20✅-22c55e?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/status-live%20en%20producci%C3%B3n-22c55e?style=for-the-badge&logo=githubactions&logoColor=white"/>
+  <img src="https://img.shields.io/badge/phase-7.5%20UI%20Polish%20🔄-6366f1?style=for-the-badge"/>
   <br/><br/>
   <a href="https://forecastiq.vercel.app/dashboard/dataset"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-forecastiq.vercel.app-6366f1?style=for-the-badge"/></a>
   <a href="https://nicobravo933.grafana.net/goto/shcs6k?orgId=stacks-1651316"><img src="https://img.shields.io/badge/📊%20Grafana%20Dashboard-production%20metrics-F46800?style=for-the-badge&logo=grafana&logoColor=white"/></a>
@@ -79,7 +79,8 @@
 
 | Feature                      | Descripción                                                                                            |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 📁 **Subida CSV**            | Soltá tu CSV de ventas — no necesita formato previo                                                    |
+| 📁 **Subida CSV**            | Soltá tu CSV de ventas — no necesita formato previo. Límite 10 MB.                                     |
+| 🎲 **Dataset demo**          | Dataset 25k SKUs × 3 años disponible para explorar sin subir nada (Fase 9)                            |
 | 🤖 **Selección automática**  | Detección FFT + Seasonal Mann-Kendall elige MA / Holt-Winters / SARIMA / LightGBM                      |
 | 📈 **Forecast interactivo**  | Horizontes +3 / +6 / +12 meses con intervalos de confianza                                             |
 | 📅 **Calendario de eventos** | Agregá promociones, feriados y eventos externos — impactan el forecast                                 |
@@ -162,52 +163,51 @@ forecastiq/
 
 ---
 
-## 🚀 Desarrollo local
+## 🚀 Quick Start local
 
-### Prerrequisitos
-
-- Python 3.12+
-- Node.js 20+
-- [UV](https://github.com/astral-sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Docker + Docker Compose
-- Un proyecto de [Supabase](https://supabase.com) (free tier)
-- Una API key de [OpenRouter](https://openrouter.ai) (free tier disponible)
-
-### 1. Clonar y configurar
+> Levantá la app completa en ~5 minutos. No necesitás Vercel ni Railway.
 
 ```bash
-git clone https://github.com/nicobravo/forecastiq.git
-cd forecastiq
-cp .env.example .env
-# Completá tus keys en .env
-```
+# 1. Clonar
+git clone https://github.com/nicobravo/forecastiq.git && cd forecastiq
 
-### 2. Iniciar backend + redis
+# 2. Redis local
+docker run -d -p 6379:6379 redis:alpine
 
-```bash
-docker compose up -d redis
-cd backend
+# 3. Backend
+cd backend && cp .env.example .env   # completar SUPABASE_* y JWT_SECRET_KEY
 uv sync
 uv run uvicorn app.main:app --reload --port 8000
-```
 
-### 3. Iniciar frontend
+# 4. Celery worker (terminal separada)
+cd backend && uv run celery -A app.services.celery_app.celery_app worker --loglevel=info
 
-```bash
-cd frontend
-npm install
-npm run dev
+# 5. Frontend (terminal separada)
+cd frontend && cp .env.example .env.local   # completar NEXT_PUBLIC_SUPABASE_* y BETTER_AUTH_*
+npm install && npm run dev
 # → http://localhost:3000
 ```
 
-### 4. O todo con Docker
+> **Variables mínimas:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`,
+> `JWT_SECRET_KEY` (cualquier string en local), `BETTER_AUTH_URL=http://localhost:3000`.
+> Sin `OPENROUTER_API_KEY` la app funciona pero el chat IA no responde.
 
-```bash
-docker compose up
-# backend → :8000
-# frontend → :3000
-# redis   → :6379
+### Migraciones Supabase (una sola vez)
+
+Ejecutar en orden en el **SQL Editor** del Dashboard de Supabase:
+
 ```
+1. backend/migrations/001_forecast_jobs.sql
+2. backend/migrations/002_events.sql
+3. backend/migrations/003_add_user_id.sql
+```
+
+### Prerrequisitos
+
+- Python 3.12+ · Node.js 20+ · Docker (solo para Redis)
+- [UV](https://astral.sh/uv): `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- Cuenta [Supabase](https://supabase.com) (free tier) — obligatorio
+- API key [OpenRouter](https://openrouter.ai) (free tier) — opcional (solo para chat IA)
 
 ---
 
@@ -332,21 +332,15 @@ Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 - [x] **Fase 5** — Auth + persistencia (Google/GitHub OAuth, historial por usuario)
 - [x] **Fase 6** — Deploy completo a producción (Railway + Vercel + CI/CD)
 
-### 🔄 En progreso
+- [x] **Fase 7** — Observability · structlog JSON + OTel traces → Grafana Cloud + [dashboard](https://nicobravo933.grafana.net/goto/shcs6k)
 
-- [ ] **Fase 7** — Observability · OpenTelemetry → Grafana Cloud (Loki + Tempo + Mimir) + Sentry
+### 🔄 En curso
+
+- [ ] **Fase 7.5** — UI Polish + Rate Limiting · rediseño login/sidebar/dataset · protección Railway
 
 ### ⏳ Roadmap Enterprise (Fases 8–14)
 
-| Fase | Objetivo | Stack |
-|------|----------|-------|
-| **8** | MLOps | MLflow experiment tracking + Evidently AI drift detection |
-| **9** | Scale Engine | Nixtla StatsForecast vectorizado + Polars + Celery Beat batch |
-| **10** | Dataset sintético | 25k SKUs × 3 años diario → 27M filas Parquet (✅ script listo) |
-| **11** | PySpark local | Docker Spark cluster · feature engineering distribuido |
-| **12** | Airflow | DAGs batch: forecast → drift check → MLflow cleanup |
-| **13** | Data Warehouse | BigQuery free tier + dbt models + SQL analítico |
-| **14** | Infra as Code | Terraform + Kubernetes manifests + Helm chart |
+> Ver [`ROADMAP.md`](ROADMAP.md) para especificaciones técnicas y decisiones de arquitectura de cada fase.
 
 ---
 
