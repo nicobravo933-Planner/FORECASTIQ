@@ -18,17 +18,17 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
 
     # ── Logging ──────────────────────────────────────────────────
-    log_level: str = "INFO"    # DEBUG | INFO | WARNING | ERROR
-    log_format: str = "pretty" # pretty (dev) | json (prod)
+    log_level: str = "INFO"  # DEBUG | INFO | WARNING | ERROR
+    log_format: str = "pretty"  # pretty (dev) | json (prod)
 
     # ── OpenTelemetry ─────────────────────────────────────────────
-    otel_enabled: bool = False         # False en dev, True en prod (Railway)
+    otel_enabled: bool = False  # False en dev, True en prod (Railway)
     otel_service_name: str = "forecastiq"
-    otel_otlp_endpoint: str = ""       # https://otlp-gateway-...grafana.net/otlp
-    otel_otlp_headers: str = ""        # Authorization=Basic <base64token>
+    otel_otlp_endpoint: str = ""  # https://otlp-gateway-...grafana.net/otlp
+    otel_otlp_headers: str = ""  # Authorization=Basic <base64token>
 
     # ── Alloy (Loki push) ───────────────────────────────────────
-    alloy_loki_url: str = ""           # http://alloy:3100/loki/api/v1/push (Railway internal)
+    alloy_loki_url: str = ""  # http://alloy:3100/loki/api/v1/push (Railway internal)
 
     # ── Supabase ─────────────────────────────────────────────────
     supabase_url: str = ""
