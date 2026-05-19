@@ -47,9 +47,10 @@ export default function LoginPage() {
           display: { xs: "none", md: "flex" },
           flex: "0 0 52%",
           flexDirection: "column",
-          justifyContent: "center",
-          px: "4rem",
-          py: "3rem",
+          justifyContent: "flex-start",
+          px: { md: "6rem", lg: "8rem", xl: "10rem" },
+          pt: "4rem",
+          pb: "3rem",
           position: "relative",
           // Subtle radial glow behind the logo
           "&::before": {
@@ -62,14 +63,14 @@ export default function LoginPage() {
           },
         }}
       >
-        {/* Logo */}
-        <Box sx={{ mb: "2.5rem" }}>
+        {/* Logo — centered at top */}
+        <Box sx={{ mb: "3rem", display: "flex", justifyContent: "center" }}>
           <Image
             src="/logo.png"
             alt="forecastiq"
-            width={200}
-            height={56}
-            style={{ objectFit: "contain", objectPosition: "left" }}
+            width={280}
+            height={280}
+            style={{ objectFit: "contain" }}
             priority
           />
         </Box>
