@@ -14,14 +14,19 @@ from app.api.events import router as events_router
 from app.api.forecast import router as forecast_router
 from app.api.health import router as health_router
 from app.api.me import router as me_router
+from app.api.metrics import router as metrics_router
+from app.api.metrics import setup_metrics
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.core.middleware import RequestLoggingMiddleware
+from app.core.telemetry import instrument_fastapi, setup_telemetry
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     setup_logging()
+    setup_telemetry()
     yield
     # Shutdown — liberar recursos si es necesario
 
@@ -45,6 +50,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Request logging — loguea método/path/status/duration_ms con structlog
+    app.add_middleware(RequestLoggingMiddleware)
+
     # Routers
     app.include_router(health_router)
     app.include_router(datasets_router)
@@ -52,6 +60,13 @@ def create_app() -> FastAPI:
     app.include_router(events_router)
     app.include_router(chat_router)
     app.include_router(me_router)
+    app.include_router(metrics_router)
+
+    # Prometheus /metrics — debe ir después de registrar todos los routers
+    setup_metrics(app)
+
+    # OpenTelemetry — auto-instrumenta FastAPI (debe ir al final)
+    instrument_fastapi(app)
 
     return app
 
