@@ -1,12 +1,10 @@
 # railway.toml — Grafana Alloy service
-# Scrapes /metrics from forecastiq-api and forwards to Grafana Cloud
+# Alloy no tiene healthcheck HTTP estándar — Railway lo gestiona por proceso
 
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/-/healthy"
-healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
