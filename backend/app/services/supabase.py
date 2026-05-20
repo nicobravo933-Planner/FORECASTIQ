@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC
 from typing import Any
 
 from supabase import Client, create_client
@@ -123,3 +124,40 @@ def get_forecast_history(user_id: str, page: int = 1, page_size: int = 20) -> li
     if not data or not isinstance(data, list):
         return []
     return [dict(row) for row in data if isinstance(row, dict)]
+
+
+def list_recent_datasets(hours: int = 48) -> list[dict[str, Any]]:
+    """
+    Lista los datasets registrados en las últimas `hours` horas.
+    Usado por el Celery Beat nocturno para saber qué datasets re-forecastear.
+
+    Retorna lista de dicts con: id (=dataset_id), filename, date_column,
+    target_column, freq, horizon, user_id.
+    Los campos date_column/target_column/freq/horizon pueden ser None si el
+    usuario no completó la configuración — el caller usa defaults.
+    """
+    from datetime import datetime, timedelta
+
+    cutoff = (datetime.now(tz=UTC) - timedelta(hours=hours)).isoformat()
+    client = get_supabase()
+    response = (
+        client.table("datasets")
+        .select(
+            "dataset_id, filename, date_column, target_column, freq, horizon, user_id, created_at"
+        )
+        .gte("created_at", cutoff)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    data = response.data
+    if not data or not isinstance(data, list):
+        return []
+    # Normaliza: usa dataset_id como clave 'id' para que el caller lo consuma limpio
+    result: list[dict[str, Any]] = []
+    for row in data:
+        if not isinstance(row, dict):
+            continue
+        item = dict(row)
+        item["id"] = item.get("dataset_id", "")
+        result.append(item)
+    return result

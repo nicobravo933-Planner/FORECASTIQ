@@ -220,9 +220,9 @@ def run_batch_forecast(
         abc_col: str = cluster_abc_col  # type: ignore[assignment]
         xyz_col: str = cluster_xyz_col  # type: ignore[assignment]
 
-        cluster_label = pl.concat_str(
-            [pl.col(abc_col), pl.col(xyz_col)], separator="-"
-        ).alias("_cluster")
+        cluster_label = pl.concat_str([pl.col(abc_col), pl.col(xyz_col)], separator="-").alias(
+            "_cluster"
+        )
         panel_pl = panel_pl.with_columns(cluster_label)
 
         # Tabla única_id → cluster (para hacer join sin duplicar filas)
@@ -230,9 +230,7 @@ def run_batch_forecast(
         panel_pl = panel_pl.join(id_cluster, on="unique_id", how="left")
 
         # drop_nulls: Polars incluye None en to_list() si hay filas sin cluster
-        segments: list[str] = [
-            s for s in panel_pl["_cluster"].unique().to_list() if s is not None
-        ]
+        segments: list[str] = [s for s in panel_pl["_cluster"].unique().to_list() if s is not None]
         parts: list[pd.DataFrame] = []
 
         for seg in segments:

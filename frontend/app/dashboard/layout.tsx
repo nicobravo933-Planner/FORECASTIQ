@@ -5,6 +5,7 @@
  * All dashboard routes share this shell.
  */
 
+import BarChartIcon from "@mui/icons-material/BarChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import ChatIcon from "@mui/icons-material/Chat";
 import ScienceIcon from "@mui/icons-material/Science";
@@ -42,6 +43,7 @@ const NAV_ITEMS = [
 	},
 	{ label: "Chat IA", href: "/dashboard/chat", icon: <ChatIcon /> },
 	{ label: "MLOps", href: "/dashboard/mlops", icon: <ScienceIcon /> },
+	{ label: "Batch", href: "/dashboard/batch", icon: <BarChartIcon /> },
 	{ label: "Ajustes", href: "/dashboard/settings", icon: <SettingsIcon /> },
 ];
 

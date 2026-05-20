@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import io
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import settings
 
@@ -245,3 +246,107 @@ def run_forecast_task(
 
     except Exception as exc:
         raise RuntimeError(str(exc)) from exc
+
+
+# -- Celery Beat — tarea nocturna de re-forecast ------------------------------
+
+# Activa el Beat schedule solo en producción (en dev usamos eager mode)
+# Cómo arrancar Beat en producción (junto al worker):
+#   celery -A app.services.celery_app beat --loglevel=info
+celery_app.conf.beat_schedule = {
+    "nightly-batch-reforecast": {
+        "task": "forecast.batch_reforecast",
+        # 02:00 hora Argentina (UTC-3). Celery usa UTC internamente → 05:00 UTC
+        "schedule": crontab(hour=5, minute=0),
+        "args": [],
+    },
+}
+
+
+@celery_app.task(bind=True, name="forecast.batch_reforecast")  # type: ignore[untyped-decorator]
+def batch_reforecast(self: Any) -> dict[str, Any]:  # noqa: ARG001
+    """
+    Tarea nocturna de Celery Beat — 02:00 hora Argentina (05:00 UTC).
+
+    Re-ejecuta el forecast vectorizado Nixtla sobre todos los datasets
+    activos del último día.
+
+    Pipeline:
+      1. Lista los datasets subidos en las últimas 48h (por si hubo demora)
+      2. Por cada dataset, dispara run_forecast_task con el modelo por defecto
+      3. Loguea resultado en structlog con métricas resumidas
+
+    En Fase 12 (Airflow), este cron se reemplazará por un DAG con sensores.
+    """
+
+    import structlog as _structlog
+
+    _log = _structlog.get_logger("celery_beat")
+
+    job_id = self.request.id or "batch-reforecast-manual"
+    _log.info("batch_reforecast_started", job_id=job_id)
+
+    # Importación tardía para evitar circularidad con supabase.py
+    from app.services.supabase import list_recent_datasets
+
+    datasets = list_recent_datasets(hours=48)
+    total = len(datasets)
+    succeeded = 0
+    failed_ids: list[str] = []
+
+    _log.info("batch_reforecast_datasets_found", total=total)
+
+    for ds in datasets:
+        dataset_id = ds.get("id", "")
+        if not dataset_id:
+            continue
+
+        date_col = ds.get("date_column", "date")
+        target_col = ds.get("target_column", "value")
+        freq = ds.get("freq", "W")
+        horizon = int(ds.get("horizon", 12))
+        user_id = ds.get("user_id")
+
+        try:
+            # Reutiliza la tarea de forecast individual — misma lógica, mismo tracking MLflow
+            run_forecast_task.apply(
+                args=[
+                    dataset_id,
+                    date_col,
+                    target_col,
+                    freq,
+                    horizon,
+                ],
+                kwargs={"user_id": user_id},
+            )
+            succeeded += 1
+            _log.info(
+                "batch_reforecast_item_done",
+                dataset_id=dataset_id,
+                freq=freq,
+                horizon=horizon,
+            )
+        except Exception as exc:
+            failed_ids.append(dataset_id)
+            _log.error(
+                "batch_reforecast_item_failed",
+                dataset_id=dataset_id,
+                error=str(exc),
+            )
+
+    _log.info(
+        "batch_reforecast_finished",
+        total=total,
+        succeeded=succeeded,
+        failed=len(failed_ids),
+        failed_ids=failed_ids,
+    )
+
+    return {
+        "job_id": job_id,
+        "total": total,
+        "succeeded": succeeded,
+        "failed": len(failed_ids),
+        "failed_ids": failed_ids,
+        "run_at": datetime.now(tz=UTC).isoformat(),
+    }

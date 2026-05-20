@@ -228,10 +228,23 @@
 
 ---
 
-- [x] Script `scripts/generate_dataset.py` creado y documentado
-- [ ] Ejecutar script → generar `data/ventas_25k_skus.parquet` (~180 MB)
-- [ ] Upload a Supabase Storage (`datasets/` bucket) como `ventas_25k_skus.parquet`
-- [ ] Verificar tamaño total Storage no supera 400 MB del plan free
+## Phase 9 — Scale Engine (Nixtla + Polars)
+
+> Goal: procesar múltiples series en paralelo con pipeline vectorizado Nixtla + Polars.
+
+- [x] `pyproject.toml` — `statsforecast>=1.7.0` + `polars>=1.0.0`
+- [x] `app/services/nixtla_forecaster.py` — pipeline vectorizado, ABC-XYZ, n_jobs=-1, fallback SeasonalNaive
+- [x] `app/api/batch.py` — POST /api/batch/forecast (rate limit, validación 50k records)
+- [x] `app/main.py` — registrar batch_router
+- [x] `components/mlops/WapeTrendChart.tsx` — evolución WAPE Recharts con reference lines 10%/25%
+- [x] `app/dashboard/mlops/page.tsx` — WapeTrendChart integrado (sin fetch extra)
+- [x] `lib/types.ts` — BatchForecastRequest, BatchForecastResponse, BatchPredictionPoint
+- [x] `scripts/benchmark_models.py` — comparativa statsmodels vs Nixtla (argparse --n-skus / --skip-statsmodels)
+- [x] Celery Beat nocturno `batch_reforecast` — crontab 02:00 AR (05:00 UTC)
+- [x] `app/services/supabase.py` — `list_recent_datasets(hours)` para Beat
+- [x] `app/dashboard/batch/page.tsx` — playground formulario POST /api/batch/forecast
+- [x] `dashboard/layout.tsx` — item "Batch" con BarChartIcon en sidebar
+- [ ] `uv sync` en EC2 tras git push (instalar statsforecast + polars en producción)
 
 ---
 
@@ -279,6 +292,7 @@
 | 2026-05-20 | 28      | Fase 8 backend completo: pyproject.toml +mlflow +evidently +joblib. config.py +4 vars MLflow. mlflow_tracker.py creado (log_forecast_run, get_recent_runs, get_run_detail, dagshub URL builder). drift_detector.py creado (Evidently DataDriftPreset, detect_drift, detect_wape_drift, _save_report_html Supabase Storage, get_drift_summary). celery_app.py integrado (pasos 9+10: mlflow tracking + drift detection post-forecast). api/mlops.py creado (GET /api/experiments, GET /api/experiments/{run_id}, GET /api/drift/{dataset_id}). main.py registra mlops_router + drift_router. .env.example actualizado con vars MLflow. |
 | 2026-05-20 | 29      | Fase 8 frontend completo: types.ts +MlflowRun +DriftSummary +DriftColumnResult. components/mlops/ExperimentTable.tsx (tabla WAPE semafórico, link Dagshub). components/mlops/DriftCard.tsx (badge verde/amarillo/rojo + links Evidently HTML). components/mlops/MLflowLink.tsx (botón Dagshub/local). app/dashboard/mlops/page.tsx (página integradora con dataset selector). dashboard/layout.tsx +MLOps en sidebar nav. |
 | 2026-05-20 | 30      | Fase 9 inicio (Opción B end-to-end): pyproject.toml +statsforecast +polars. nixtla_forecaster.py creado (pipeline vectorizado multi-serie, segmentación ABC-XYZ, AutoETS+AutoARIMA+SeasonalNaive, n_jobs=-1, Polars para ingesta). api/batch.py creado (POST /api/batch/forecast, rate limit reutilizado, validación 50k records). main.py +batch_router. WapeTrendChart.tsx creado (Recharts line chart WAPE evolution, reference lines 10%/25%). mlops/page.tsx placeholder reemplazado por WapeTrendChart real. types.ts +BatchForecastRequest +BatchForecastResponse +BatchPredictionPoint. |
+| 2026-05-20 | 31      | Fase 9 casi cerrada: scripts/benchmark_models.py (statsmodels vs Nixtla, 3 métodos, argparse). Celery Beat batch_reforecast (crontab 05:00 UTC=02:00 AR) + supabase.list_recent_datasets(hours=48). Frontend /dashboard/batch/page.tsx (playground JSON panel, selector freq/horizon/columnas/ABC-XYZ, tabla resultado). Sidebar +Batch item BarChartIcon. TODO.md: Phase 9 sección creada, 12/13 tareas [x]. Pendiente solo: uv sync en EC2. |
 
 ---
 
