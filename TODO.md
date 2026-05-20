@@ -191,10 +191,10 @@
 
 ### Setup previo (hacer vos antes de arrancar el código)
 
-- [ ] Crear cuenta en [dagshub.com](https://dagshub.com)
-- [ ] Crear repo `forecastiq` en Dagshub (puede ser mirror del repo de GitHub)
-- [ ] Generar token: Dagshub → Settings → Access Tokens
-- [ ] Completar en `backend/.env` (local: `MLFLOW_TRACKING_URI=./mlruns`, prod: URL Dagshub)
+- [x] Crear cuenta en [dagshub.com](https://dagshub.com)
+- [x] Crear repo `forecastiq` en Dagshub (mirror del repo de GitHub)
+- [x] Generar token: Dagshub → Settings → Access Tokens
+- [x] Completar en `backend/.env` (local: `MLFLOW_TRACKING_URI=./mlruns`, prod: URL Dagshub)
 
 ### Backend
 
@@ -275,6 +275,7 @@
 | 2026-05-19 | 24      | Fase 7.5 completa: rate limiting backend. redis_cache.py generalizado (\_check_rate_limit_generic + check_upload_rate_limit + check_forecast_rate_limit). datasets.py y forecast.py con check 429 + Retry-After. Fase 7.5 cerrada.                                                                                                                                                                                                                                        |
 | 2026-05-19 | 25      | Sidebar: logo cambiado de logo.png → logo_rectangular.png en dashboard/layout.tsx. Edición quirúrgica de 1 línea.                                                                                                                                                                                                                                                                                                                                                         |
 | 2026-05-20 | 26      | Migración Railway → AWS+Dagshub completa: railway.toml archivados en infra/_deprecated_railway/. deploy.yml reescrito (SSH → EC2 via appleboy/ssh-action). docker-compose.yml actualizado (volumen mlruns, healthcheck, IMAGE var). backend/.env.example con MLFLOW_* y sin referencias Railway. infra/aws/ creado (setup_ec2.sh + README.md). README.md reescrito (badges AWS/Upstash/Dagshub, tabla costo $0, arquitectura actualizada). TODO.md: Fase 7.5 ✅, Fase 8 🔄 Next con todas las tareas detalladas. |
+| 2026-05-20 | 27      | Setup completo AWS EC2 + Dagshub en producción: cuenta AWS, instancia t3.micro Amazon Linux 2023, Docker + Docker Compose instalados, imagen ghcr.io pulleada, 3 contenedores corriendo (backend + celery_worker + redis), health check ✅ environment=production. Systemd service configurado para autostart. Variables IMAGE + ENVIRONMENT persistidas en /etc/environment. EC2_MANUAL_OPERACIONES.md creado (gitignored). Setup previo Fase 8 completo (Dagshub token + repo mirror GitHub). |
 
 ---
 

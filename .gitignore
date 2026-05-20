@@ -60,3 +60,7 @@ desktop.ini
 # ─── Misc ──────────────────────────────────────────────────────
 *.csv
 !scripts/sample_data/*.csv
+
+# ─── Documentación personal (no subir) ───────────────────────
+EC2_MANUAL_OPERACIONES.md
+.gitignore_append.txt
