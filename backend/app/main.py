@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.batch import router as batch_router
 from app.api.chat import router as chat_router
 from app.api.datasets import router as datasets_router
 from app.api.events import router as events_router
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(metrics_router)
     app.include_router(mlops_router)
     app.include_router(drift_router)
+    app.include_router(batch_router)
 
     # Prometheus /metrics — debe ir después de registrar todos los routers
     setup_metrics(app)

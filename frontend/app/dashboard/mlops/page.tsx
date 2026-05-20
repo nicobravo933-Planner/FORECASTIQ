@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DriftCard } from "@/components/mlops/DriftCard";
 import { ExperimentTable } from "@/components/mlops/ExperimentTable";
 import { MLflowLink } from "@/components/mlops/MLflowLink";
+import { WapeTrendChart } from "@/components/mlops/WapeTrendChart";
 import { api, ApiError } from "@/lib/api";
 import { type DriftSummary, type MlflowRun } from "@/lib/types";
 
@@ -170,26 +171,21 @@ export default function MlopsPage() {
         </Grid>
 
         <Grid item xs={12} md={6}>
-          {/* Placeholder for future DriftChart component (Phase 9) */}
+          {/* WAPE trend chart — uses already-loaded runs, no extra fetch */}
           <Box
             sx={{
-              border: "1px dashed",
+              border: "1px solid",
               borderColor: "divider",
               borderRadius: "0.75rem",
-              p: "1.5rem",
+              p: "1.25rem",
               height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-              color: "text.disabled",
+              minHeight: "16rem",
             }}
           >
-            <ScienceIcon sx={{ fontSize: "2rem" }} />
-            <Typography variant="body2" align="center">
-              Gráfico de tendencia WAPE disponible en Fase 9
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: "0.75rem" }}>
+              Evolución WAPE por run
             </Typography>
+            <WapeTrendChart runs={runs} />
           </Box>
         </Grid>
       </Grid>

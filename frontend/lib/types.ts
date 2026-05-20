@@ -216,3 +216,31 @@ export interface DriftSummary {
   reports:     { name: string; url: string }[]
   latest_url:  string | null
 }
+
+// ── Batch Forecast (Fase 9) ─────────────────────────────────────────────
+
+export interface BatchForecastRequest {
+  records:         Record<string, unknown>[]
+  date_col?:       string
+  target_col?:     string
+  id_col?:         string
+  cluster_abc_col?: string | null
+  cluster_xyz_col?: string | null
+  freq?:           string
+  horizon?:        number
+}
+
+export interface BatchPredictionPoint {
+  unique_id:  string
+  ds:         string
+  predicted:  number
+}
+
+export interface BatchForecastResponse {
+  n_series:    number
+  horizon:     number
+  freq:        string
+  model_used:  string
+  duration_s:  number
+  predictions: BatchPredictionPoint[]
+}

@@ -20,7 +20,7 @@
 | **7**   | Observability                    | ✅ Done    | OpenTelemetry + Grafana LGTM + Alloy         |
 | **7.5** | UI Polish + Rate Limiting        | ✅ Done    | Diseño SaaS profesional + rate limits 429   |
 | **8**   | MLOps                            | ✅ Done    | MLflow (Dagshub) + Evidently drift detection |
-| **9**   | Scale Engine                     | 🔄 Next    | Nixtla vectorizado + Polars + batch          |
+| **9**   | Scale Engine                     | 🔄 Active  | Nixtla vectorizado + Polars + batch          |
 | **10**  | Dataset sintético masivo         | ⏳ Pending | Script 25k SKUs → Parquet ~180 MB            |
 | **11**  | PySpark local                    | ⏳ Pending | PySpark sobre dataset enterprise en Docker   |
 | **12**  | Airflow                          | ⏳ Pending | Orquestación batch nocturno con DAGs         |
@@ -278,6 +278,7 @@
 | 2026-05-20 | 27      | Setup completo AWS EC2 + Dagshub en producción: cuenta AWS, instancia t3.micro Amazon Linux 2023, Docker + Docker Compose instalados, imagen ghcr.io pulleada, 3 contenedores corriendo (backend + celery_worker + redis), health check ✅ environment=production. Systemd service configurado para autostart. Variables IMAGE + ENVIRONMENT persistidas en /etc/environment. EC2_MANUAL_OPERACIONES.md creado (gitignored). Setup previo Fase 8 completo (Dagshub token + repo mirror GitHub). |
 | 2026-05-20 | 28      | Fase 8 backend completo: pyproject.toml +mlflow +evidently +joblib. config.py +4 vars MLflow. mlflow_tracker.py creado (log_forecast_run, get_recent_runs, get_run_detail, dagshub URL builder). drift_detector.py creado (Evidently DataDriftPreset, detect_drift, detect_wape_drift, _save_report_html Supabase Storage, get_drift_summary). celery_app.py integrado (pasos 9+10: mlflow tracking + drift detection post-forecast). api/mlops.py creado (GET /api/experiments, GET /api/experiments/{run_id}, GET /api/drift/{dataset_id}). main.py registra mlops_router + drift_router. .env.example actualizado con vars MLflow. |
 | 2026-05-20 | 29      | Fase 8 frontend completo: types.ts +MlflowRun +DriftSummary +DriftColumnResult. components/mlops/ExperimentTable.tsx (tabla WAPE semafórico, link Dagshub). components/mlops/DriftCard.tsx (badge verde/amarillo/rojo + links Evidently HTML). components/mlops/MLflowLink.tsx (botón Dagshub/local). app/dashboard/mlops/page.tsx (página integradora con dataset selector). dashboard/layout.tsx +MLOps en sidebar nav. |
+| 2026-05-20 | 30      | Fase 9 inicio (Opción B end-to-end): pyproject.toml +statsforecast +polars. nixtla_forecaster.py creado (pipeline vectorizado multi-serie, segmentación ABC-XYZ, AutoETS+AutoARIMA+SeasonalNaive, n_jobs=-1, Polars para ingesta). api/batch.py creado (POST /api/batch/forecast, rate limit reutilizado, validación 50k records). main.py +batch_router. WapeTrendChart.tsx creado (Recharts line chart WAPE evolution, reference lines 10%/25%). mlops/page.tsx placeholder reemplazado por WapeTrendChart real. types.ts +BatchForecastRequest +BatchForecastResponse +BatchPredictionPoint. |
 
 ---
 

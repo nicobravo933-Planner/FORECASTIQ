@@ -60,6 +60,9 @@ dependencies = [
     "mlflow>=2.14.0",                  # experiment tracking → Dagshub
     "evidently>=0.4.30",               # data drift detection
     "joblib>=1.4.0",                   # serialización de modelos ML
+    # ── Scale Engine (Fase 9) ─────────────────────────────────
+    "statsforecast>=1.7.0",            # Nixtla — vectorized multi-series forecasting
+    "polars>=1.0.0",                   # columnar DataFrame, reemplaza pandas en ingesta
 ]
 
 [project.optional-dependencies]
