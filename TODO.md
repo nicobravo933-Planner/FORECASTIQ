@@ -19,8 +19,8 @@
 | **6**   | Deploy + CI/CD                   | ✅ Done    | Full prod CI/CD + AWS EC2 + Vercel           |
 | **7**   | Observability                    | ✅ Done    | OpenTelemetry + Grafana LGTM + Alloy         |
 | **7.5** | UI Polish + Rate Limiting        | ✅ Done    | Diseño SaaS profesional + rate limits 429   |
-| **8**   | MLOps                            | 🔄 Next    | MLflow (Dagshub) + Evidently drift detection |
-| **9**   | Scale Engine                     | ⏳ Pending | Nixtla vectorizado + Polars + batch          |
+| **8**   | MLOps                            | ✅ Done    | MLflow (Dagshub) + Evidently drift detection |
+| **9**   | Scale Engine                     | 🔄 Next    | Nixtla vectorizado + Polars + batch          |
 | **10**  | Dataset sintético masivo         | ⏳ Pending | Script 25k SKUs → Parquet ~180 MB            |
 | **11**  | PySpark local                    | ⏳ Pending | PySpark sobre dataset enterprise en Docker   |
 | **12**  | Airflow                          | ⏳ Pending | Orquestación batch nocturno con DAGs         |
@@ -198,32 +198,32 @@
 
 ### Backend
 
-- [ ] `pyproject.toml` — agregar `mlflow>=2.14.0` y `evidently>=0.4.0`
-- [ ] `app/core/config.py` — variables `mlflow_tracking_uri`, `mlflow_tracking_username`, `mlflow_tracking_password`
-- [ ] `app/services/mlflow_tracker.py` — wrapper `log_forecast_run(params, metrics, model)`
-- [ ] `app/services/drift_detector.py` — Evidently `DataDriftPreset`, guarda HTML en Supabase Storage
-- [ ] `celery_app.py` — integrar `mlflow.start_run()` + drift detector dentro de `run_forecast_task`
-- [ ] `app/api/mlops.py` — 3 endpoints nuevos:
+- [x] `pyproject.toml` — agregar `mlflow>=2.14.0` y `evidently>=0.4.0`
+- [x] `app/core/config.py` — variables `mlflow_tracking_uri`, `mlflow_tracking_username`, `mlflow_tracking_password`
+- [x] `app/services/mlflow_tracker.py` — wrapper `log_forecast_run(params, metrics, model)`
+- [x] `app/services/drift_detector.py` — Evidently `DataDriftPreset`, guarda HTML en Supabase Storage
+- [x] `celery_app.py` — integrar `mlflow.start_run()` + drift detector dentro de `run_forecast_task`
+- [x] `app/api/mlops.py` — 3 endpoints nuevos:
   - `GET /api/experiments` — lista runs MLflow del usuario
   - `GET /api/experiments/{run_id}` — detalle de un run
   - `GET /api/drift/{dataset_id}` — drift score por columna (JSON)
-- [ ] `main.py` — registrar `mlops_router`
+- [x] `main.py` — registrar `mlops_router`
 - [ ] Alerta automática: WAPE ↗ >5% vs promedio últimos 5 runs → log structlog con `drift_alert=True`
 
 ### Frontend
 
-- [ ] `components/mlops/ExperimentTable.tsx` — tabla de runs (WAPE, modelo, fecha, link Dagshub)
-- [ ] `components/mlops/DriftCard.tsx` — badge verde/amarillo/rojo por columna
-- [ ] `components/mlops/MLflowLink.tsx` — botón que abre Dagshub experiments URL
-- [ ] `app/dashboard/mlops/page.tsx` — página que integra los 3 componentes
+- [x] `components/mlops/ExperimentTable.tsx` — tabla de runs (WAPE, modelo, fecha, link Dagshub)
+- [x] `components/mlops/DriftCard.tsx` — badge verde/amarillo/rojo por columna
+- [x] `components/mlops/MLflowLink.tsx` — botón que abre Dagshub experiments URL
+- [x] `app/dashboard/mlops/page.tsx` — página que integra los 3 componentes
 - [ ] `dashboard/layout.tsx` — agregar “MLOps” al sidebar nav
 
 ### Done when
 
 - [ ] Cada forecast run loguea params + métricas en Dagshub MLflow UI (URL pública)
 - [ ] Reporte Evidently HTML guardado en Supabase Storage por cada run
-- [ ] `GET /api/experiments` devuelve lista de runs del usuario
-- [ ] Página `/dashboard/mlops` muestra tabla de experiments + drift badges
+- [x] `GET /api/experiments` devuelve lista de runs del usuario
+- [x] Página `/dashboard/mlops` muestra tabla de experiments + drift badges
 - [ ] CI verde
 
 ---
@@ -276,6 +276,8 @@
 | 2026-05-19 | 25      | Sidebar: logo cambiado de logo.png → logo_rectangular.png en dashboard/layout.tsx. Edición quirúrgica de 1 línea.                                                                                                                                                                                                                                                                                                                                                         |
 | 2026-05-20 | 26      | Migración Railway → AWS+Dagshub completa: railway.toml archivados en infra/_deprecated_railway/. deploy.yml reescrito (SSH → EC2 via appleboy/ssh-action). docker-compose.yml actualizado (volumen mlruns, healthcheck, IMAGE var). backend/.env.example con MLFLOW_* y sin referencias Railway. infra/aws/ creado (setup_ec2.sh + README.md). README.md reescrito (badges AWS/Upstash/Dagshub, tabla costo $0, arquitectura actualizada). TODO.md: Fase 7.5 ✅, Fase 8 🔄 Next con todas las tareas detalladas. |
 | 2026-05-20 | 27      | Setup completo AWS EC2 + Dagshub en producción: cuenta AWS, instancia t3.micro Amazon Linux 2023, Docker + Docker Compose instalados, imagen ghcr.io pulleada, 3 contenedores corriendo (backend + celery_worker + redis), health check ✅ environment=production. Systemd service configurado para autostart. Variables IMAGE + ENVIRONMENT persistidas en /etc/environment. EC2_MANUAL_OPERACIONES.md creado (gitignored). Setup previo Fase 8 completo (Dagshub token + repo mirror GitHub). |
+| 2026-05-20 | 28      | Fase 8 backend completo: pyproject.toml +mlflow +evidently +joblib. config.py +4 vars MLflow. mlflow_tracker.py creado (log_forecast_run, get_recent_runs, get_run_detail, dagshub URL builder). drift_detector.py creado (Evidently DataDriftPreset, detect_drift, detect_wape_drift, _save_report_html Supabase Storage, get_drift_summary). celery_app.py integrado (pasos 9+10: mlflow tracking + drift detection post-forecast). api/mlops.py creado (GET /api/experiments, GET /api/experiments/{run_id}, GET /api/drift/{dataset_id}). main.py registra mlops_router + drift_router. .env.example actualizado con vars MLflow. |
+| 2026-05-20 | 29      | Fase 8 frontend completo: types.ts +MlflowRun +DriftSummary +DriftColumnResult. components/mlops/ExperimentTable.tsx (tabla WAPE semafórico, link Dagshub). components/mlops/DriftCard.tsx (badge verde/amarillo/rojo + links Evidently HTML). components/mlops/MLflowLink.tsx (botón Dagshub/local). app/dashboard/mlops/page.tsx (página integradora con dataset selector). dashboard/layout.tsx +MLOps en sidebar nav. |
 
 ---
 

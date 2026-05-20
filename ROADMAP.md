@@ -13,7 +13,7 @@
 | Fase                                                | Nombre                    | Estado       | Prioridad        |
 | --------------------------------------------------- | ------------------------- | ------------ | ---------------- |
 | [7.5](#fase-75--ui-polish--rate-limiting)           | UI Polish + Rate Limiting | ✅ Completa  | —                |
-| [8](#fase-8--mlops-mlflow--evidently-ai)            | MLOps                     | 🔄 En curso  | Alta             |
+| [8](#fase-8--mlops-mlflow--evidently-ai)            | MLOps                     | ✅ Completa  | —                |
 | [9](#fase-9--scale-engine-nixtla--polars)           | Scale Engine              | ⏳ Pendiente | Alta             |
 | [10](#fase-10--dataset-sintético-masivo)            | Dataset Sintético         | ⏳ Pendiente | Media            |
 | [11](#fase-11--pyspark-local-docker)                | PySpark Local             | ⏳ Pendiente | Media            |

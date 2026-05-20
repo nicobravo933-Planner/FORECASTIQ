@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
 
+    # ── MLflow (Fase 8) ────────────────────────────────────────
+    mlflow_tracking_uri: str = "./mlruns"  # local: ./mlruns | prod: dagshub URL
+    mlflow_tracking_username: str = ""  # dagshub username
+    mlflow_tracking_password: str = ""  # dagshub token
+    mlflow_experiment_name: str = "forecastiq"
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"

@@ -185,3 +185,34 @@ export interface ForecastCompareResponse {
   events_applied: number
   predictions:    ComparePoint[]
 }
+
+// ── MLOps (Fase 8) ──────────────────────────────────────────────
+export interface MlflowRun {
+  run_id:      string
+  run_name:    string
+  status:      string
+  start_time:  string
+  model:       string
+  freq:        string
+  horizon:     string
+  n_obs:       string
+  wape:        number | null
+  mae:         number | null
+  bias:        number | null
+  rmse:        number | null
+  dataset_id:  string
+  dagshub_url: string
+}
+
+export interface DriftColumnResult {
+  drift_detected: boolean
+  drift_score:    number | null
+  stattest:       string
+  threshold:      number | null
+}
+
+export interface DriftSummary {
+  dataset_id:  string
+  reports:     { name: string; url: string }[]
+  latest_url:  string | null
+}

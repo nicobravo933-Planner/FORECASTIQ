@@ -190,6 +190,57 @@ def run_forecast_task(
             }
 
             save_forecast_result(job_id=job_id, result=result, user_id=user_id)
+
+            # 9. MLflow tracking
+            from app.services.mlflow_tracker import log_forecast_run
+
+            mlflow_params = {
+                "model": model_name,
+                "freq": freq,
+                "horizon": horizon,
+                "n_obs": len(series),
+                "dataset_id": dataset_id,
+            }
+            log_forecast_run(
+                params=mlflow_params,
+                metrics={k: float(v) for k, v in metrics.items() if v is not None},
+                model_obj=model,
+                dataset_id=dataset_id,
+                user_id=user_id,
+                job_id=job_id,
+            )
+
+            # 10. Drift detection (solo si hay suficiente historial)
+            if len(series) >= 8:
+                from app.services.drift_detector import detect_drift
+
+                # Ventana reciente = 25% de la serie (mínimo 4 puntos)
+                recent_window = max(4, len(series) // 4)
+                series_recent = series.iloc[-recent_window:]
+                series_ref = series.iloc[:-recent_window]
+
+                if len(series_ref) >= 4:
+                    detect_drift(
+                        series_full=series_ref,
+                        series_recent=series_recent,
+                        dataset_id=dataset_id,
+                        job_id=job_id,
+                    )
+
+                # Alerta WAPE drift (requiere historial de runs)
+                current_wape = float(metrics.get("wape") or 0)
+                if current_wape > 0:
+                    import structlog as _structlog
+
+                    _log = _structlog.get_logger("celery_app")
+                    _log.info(
+                        "forecast_wape_logged",
+                        job_id=job_id,
+                        dataset_id=dataset_id,
+                        wape=current_wape,
+                        model=model_name,
+                    )
+
             return result
 
     except Exception as exc:

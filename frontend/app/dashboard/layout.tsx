@@ -7,6 +7,7 @@
 
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import ChatIcon from "@mui/icons-material/Chat";
+import ScienceIcon from "@mui/icons-material/Science";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
 		icon: <CalendarMonthIcon />,
 	},
 	{ label: "Chat IA", href: "/dashboard/chat", icon: <ChatIcon /> },
+	{ label: "MLOps", href: "/dashboard/mlops", icon: <ScienceIcon /> },
 	{ label: "Ajustes", href: "/dashboard/settings", icon: <SettingsIcon /> },
 ];
 

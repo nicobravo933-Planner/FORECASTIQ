@@ -4,7 +4,7 @@
   <br/><br/>
   <!-- Estado del proyecto -->
   <img src="https://img.shields.io/badge/status-live%20en%20producci%C3%B3n-22c55e?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-8%20MLOps%20🔄-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/phase-9%20Scale%20Engine%20%E2%8F%B3-6366f1?style=for-the-badge"/>
   <br/><br/>
   <a href="https://forecastiq.vercel.app/dashboard/dataset"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-forecastiq.vercel.app-6366f1?style=for-the-badge"/></a>
   <a href="https://nicobravo933.grafana.net/goto/shcs6k?orgId=stacks-1651316"><img src="https://img.shields.io/badge/📊%20Grafana%20Dashboard-production%20metrics-F46800?style=for-the-badge&logo=grafana&logoColor=white"/></a>
@@ -65,7 +65,7 @@
 >
 > **Phase 7.5 — UI Polish + Rate Limiting** ✅ completa · split login · logo sidebar · tabs dataset · rate limits 429
 >
-> **Phase 8 — MLOps** 🔄 en curso · MLflow (Dagshub) + Evidently AI drift detection
+> **Phase 8 — MLOps** ✅ completa · MLflow (Dagshub) + Evidently AI drift detection + dashboard `/dashboard/mlops`
 >
 > **Phase 9–14 — Enterprise Roadmap** ⏳ pendiente · Nixtla · Polars · PySpark · Airflow · BigQuery/dbt · Terraform + K8s
 
@@ -354,10 +354,11 @@ Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 - [x] **Fase 6** — Deploy completo a producción (AWS EC2 + Vercel + CI/CD)
 - [x] **Fase 7** — Observability · structlog JSON + OTel traces → Grafana Cloud + [dashboard](https://nicobravo933.grafana.net/goto/shcs6k)
 - [x] **Fase 7.5** — UI Polish + Rate Limiting · split login · logo sidebar · tabs dataset
+- [x] **Fase 8** — MLOps · MLflow (Dagshub) + Evidently AI + dashboard `/dashboard/mlops`
 
 ### 🔄 En curso
 
-- [ ] **Fase 8** — MLOps · MLflow (Dagshub) + Evidently AI drift detection
+- [ ] **Fase 9** — Scale Engine · Nixtla StatsForecast + Polars + DuckDB + Celery Beat
 
 ### ⏳ Roadmap Enterprise (Fases 9–14)
 

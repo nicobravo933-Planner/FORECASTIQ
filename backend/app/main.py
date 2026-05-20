@@ -16,6 +16,8 @@ from app.api.health import router as health_router
 from app.api.me import router as me_router
 from app.api.metrics import router as metrics_router
 from app.api.metrics import setup_metrics
+from app.api.mlops import drift_router
+from app.api.mlops import router as mlops_router
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.middleware import RequestLoggingMiddleware
@@ -61,6 +63,8 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(me_router)
     app.include_router(metrics_router)
+    app.include_router(mlops_router)
+    app.include_router(drift_router)
 
     # Prometheus /metrics — debe ir después de registrar todos los routers
     setup_metrics(app)
