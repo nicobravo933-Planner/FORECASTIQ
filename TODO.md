@@ -20,7 +20,7 @@
 | **7**   | Observability                    | ✅ Done    | OpenTelemetry + Grafana LGTM + Alloy         |
 | **7.5** | UI Polish + Rate Limiting        | ✅ Done    | Diseño SaaS profesional + rate limits 429   |
 | **8**   | MLOps                            | ✅ Done    | MLflow (Dagshub) + Evidently drift detection |
-| **9**   | Scale Engine                     | 🔄 Active  | Nixtla vectorizado + Polars + batch          |
+| **9**   | Scale Engine                     | ✅ Done   | Nixtla vectorizado + Polars + batch          |
 | **10**  | Dataset sintético masivo         | ⏳ Pending | Script 25k SKUs → Parquet ~180 MB            |
 | **11**  | PySpark local                    | ⏳ Pending | PySpark sobre dataset enterprise en Docker   |
 | **12**  | Airflow                          | ⏳ Pending | Orquestación batch nocturno con DAGs         |
@@ -244,7 +244,7 @@
 - [x] `app/services/supabase.py` — `list_recent_datasets(hours)` para Beat
 - [x] `app/dashboard/batch/page.tsx` — playground formulario POST /api/batch/forecast
 - [x] `dashboard/layout.tsx` — item "Batch" con BarChartIcon en sidebar
-- [ ] `uv sync` en EC2 tras git push (instalar statsforecast + polars en producción)
+- [x] `uv sync` en EC2 — `docker compose up -d` con imagen nueva. 3 contenedores ✅ + Beat arrancado.
 
 ---
 
