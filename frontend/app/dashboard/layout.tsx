@@ -107,8 +107,8 @@ export default function DashboardLayout({
 					<Image
 						src="/logo_rectangular.png"
 						alt="forecastiq"
-						width={260}
-						height={64}
+						width={182}
+						height={42}
 						style={{ objectFit: "contain", objectPosition: "left" }}
 						priority
 					/>
