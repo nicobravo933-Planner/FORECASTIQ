@@ -86,7 +86,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }}
         >
           <Image
-            src="/logo.png"
+            src="/logo_rectangular.png"
             alt="forecastiq"
             width={130}
             height={32}

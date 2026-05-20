@@ -8,24 +8,24 @@
 
 ## 🗺️ Phase Overview
 
-| Phase  | Name                             | Status            | Goal                                        |
-| ------ | -------------------------------- | ----------------- | ------------------------------------------- |
-| **0**  | Foundation                       | ✅ Done           | Repo + env + CI green                       |
-| **1**  | Data ingestion + model detection | ✅ Done           | Upload CSV → auto-select model              |
-| **2**  | Forecast engine                  | ✅ Done           | Real forecasts + charts                     |
-| **3**  | Calendar of events               | ✅ Done           | Events → forecast impact                    |
-| **4**  | AI Chat with streaming           | ✅ Done           | SSE chat about the data                     |
-| **5**  | Auth + persistence               | ✅ Done           | OAuth2 + per-user history                   |
-| **6**  | Deploy + CI/CD                   | ✅ Done           | Full prod CI/CD + Railway + Vercel          |
-| **7**  | Observability                    | ✅ Done           | OpenTelemetry + Grafana LGTM + Alloy        |
-| **7.5**| UI Polish + Rate Limiting        | 🔄 Next           | Diseño SaaS profesional + protección Railway|
-| **8**  | MLOps                            | ⏳ Pending        | MLflow tracking + Evidently drift detection |
-| **9**  | Scale Engine                     | ⏳ Pending        | Nixtla vectorizado + Polars + batch         |
-| **10** | Dataset sintético masivo         | ⏳ Pending        | Script 25k SKUs → Parquet ~180 MB           |
-| **11** | PySpark local                    | ⏳ Pending        | PySpark sobre dataset enterprise en Docker  |
-| **12** | Airflow                          | ⏳ Pending        | Orquestación batch nocturno con DAGs        |
-| **13** | Data Warehouse                   | ⏳ Pending        | BigQuery free tier o Snowflake trial        |
-| **14** | Infra as Code                    | ⏳ Pending        | Terraform + Kubernetes manifests            |
+| Phase   | Name                             | Status     | Goal                                         |
+| ------- | -------------------------------- | ---------- | -------------------------------------------- |
+| **0**   | Foundation                       | ✅ Done    | Repo + env + CI green                        |
+| **1**   | Data ingestion + model detection | ✅ Done    | Upload CSV → auto-select model               |
+| **2**   | Forecast engine                  | ✅ Done    | Real forecasts + charts                      |
+| **3**   | Calendar of events               | ✅ Done    | Events → forecast impact                     |
+| **4**   | AI Chat with streaming           | ✅ Done    | SSE chat about the data                      |
+| **5**   | Auth + persistence               | ✅ Done    | OAuth2 + per-user history                    |
+| **6**   | Deploy + CI/CD                   | ✅ Done    | Full prod CI/CD + Railway + Vercel           |
+| **7**   | Observability                    | ✅ Done    | OpenTelemetry + Grafana LGTM + Alloy         |
+| **7.5** | UI Polish + Rate Limiting        | 🔄 Next    | Diseño SaaS profesional + protección Railway |
+| **8**   | MLOps                            | ⏳ Pending | MLflow tracking + Evidently drift detection  |
+| **9**   | Scale Engine                     | ⏳ Pending | Nixtla vectorizado + Polars + batch          |
+| **10**  | Dataset sintético masivo         | ⏳ Pending | Script 25k SKUs → Parquet ~180 MB            |
+| **11**  | PySpark local                    | ⏳ Pending | PySpark sobre dataset enterprise en Docker   |
+| **12**  | Airflow                          | ⏳ Pending | Orquestación batch nocturno con DAGs         |
+| **13**  | Data Warehouse                   | ⏳ Pending | BigQuery free tier o Snowflake trial         |
+| **14**  | Infra as Code                    | ⏳ Pending | Terraform + Kubernetes manifests             |
 
 ---
 
@@ -171,15 +171,15 @@
 
 ### Resumen
 
-| Fase | Nombre | Stack clave |
-|------|--------|-------------|
-| **8** | MLOps | MLflow + Evidently AI + Sentry alerts |
-| **9** | Scale Engine | Nixtla StatsForecast + Polars + DuckDB + Celery Beat |
+| Fase   | Nombre            | Stack clave                                            |
+| ------ | ----------------- | ------------------------------------------------------ |
+| **8**  | MLOps             | MLflow + Evidently AI + Sentry alerts                  |
+| **9**  | Scale Engine      | Nixtla StatsForecast + Polars + DuckDB + Celery Beat   |
 | **10** | Dataset Sintético | 25k SKUs × 3 años → Parquet 180 MB en Supabase Storage |
-| **11** | PySpark Local | Docker Spark cluster · feature engineering distribuido |
-| **12** | Airflow | DAGs: forecast batch + drift check + MLflow cleanup |
-| **13** | Data Warehouse | BigQuery free tier + dbt models + SQL analítico |
-| **14** | Infra as Code | Terraform + Kubernetes manifests + Helm chart |
+| **11** | PySpark Local     | Docker Spark cluster · feature engineering distribuido |
+| **12** | Airflow           | DAGs: forecast batch + drift check + MLflow cleanup    |
+| **13** | Data Warehouse    | BigQuery free tier + dbt models + SQL analítico        |
+| **14** | Infra as Code     | Terraform + Kubernetes manifests + Helm chart          |
 
 ### Phase 10 — Dataset Sintético (tareas pendientes)
 
@@ -222,12 +222,13 @@
 | 2026-05-17 | 13      | Fix mypy: bool() en cache_set y cache_delete (redis_cache.py), isinstance(row, dict) en get_forecast_history (supabase.py). Backend Fase 5: dependencies.py (CurrentUser, get_current_user, get_optional_user, AuthUser, OptionalUser), supabase.py +get_forecast_history, api/me.py (GET /api/me + GET /api/me/history), main.py +me_router. mypy 34 archivos ✅                                                                                                         |
 | 2026-05-17 | 14      | Migration 003_add_user_id.sql: tabla datasets (metadata CSVs + RLS por usuario), reemplazo policy pública de forecast_jobs por RLS user_id (con fallback user_id IS NULL para modo demo).                                                                                                                                                                                                                                                                                 |
 | 2026-05-17 | 17      | Fase 5 cerrada. Settings page (modelo preferido + BYOK localStorage). api.ts propaga Bearer token al backend. dependencies.py reescrito: valida sesiones via Better Auth /api/auth/get-session (httpx). config.py +better_auth_url. .env.example backend actualizado. README badge Fase 5 done.                                                                                                                                                                           |
-| 2026-05-18 | 18      | Fase 6 infraestructura completa: deploy.yml (CI→Docker→ghcr.io→Railway), railway.toml (config-as-code + healthcheck), Dockerfile.worker (Celery), frontend/vercel.json. Railway: 2 servicios + Redis privado. Vercel: deploy exitoso + Google OAuth callback URL prod. Login con Google funcionando en producción. README actualizado con live demo + URLs prod. |
-| 2026-05-18 | 19      | Roadmap enterprise documentado: Fases 7-14 agregadas a TODO.md y CLAUDE.md. Script generate_massive_dataset.py creado (25k SKUs, 3 años diario, ~27M filas, Parquet Snappy). Stack: pandas+numpy+pyarrow, clustering ABC-XYZ, patrones realistas por categoría. |
-| 2026-05-19 | 20      | Fase 7 completa: structlog+middleware (Nivel 1), OTel SDK+traces+forecast_span (Nivel 2), Grafana Alloy en Railway (scrape /metrics → Grafana Cloud Mimir), dashboard producción online. Fixes: Railway TOKEN, mypy FilteringBoundLogger, $PORT sh -c, startCommand railway.toml, archivos faltantes en git (middleware.py, telemetry.py), /metrics router explícito. Dashboard: https://nicobravo933.grafana.net/goto/shcs6k |
-| 2026-05-19 | 21      | Documentación completa: ROADMAP.md creado (Fases 7.5–14 con decisiones de arquitectura cerradas, Quick Start local, fuentes de datos, rate limiting, DuckDB+Parquet strategy). TODO.md reestructurado: Fase 7.5 agregada como próxima, Fases 8-14 comprimidas con referencia a ROADMAP.md. README.md actualizado: Quick Start 5 pasos, sección Dataset Demo, badge Fase 7.5 next. |
-| 2026-05-19 | 22      | Fase 7.5 frontend iniciada: login/page.tsx rediseñado (split layout, logo PNG, feature bullets, glow sutil, mobile responsive). dashboard/layout.tsx: logo texto reemplazado por Image next/image (130×32). |
-| 2026-05-19 | 24      | Fase 7.5 completa: rate limiting backend. redis_cache.py generalizado (_check_rate_limit_generic + check_upload_rate_limit + check_forecast_rate_limit). datasets.py y forecast.py con check 429 + Retry-After. Fase 7.5 cerrada. |
+| 2026-05-18 | 18      | Fase 6 infraestructura completa: deploy.yml (CI→Docker→ghcr.io→Railway), railway.toml (config-as-code + healthcheck), Dockerfile.worker (Celery), frontend/vercel.json. Railway: 2 servicios + Redis privado. Vercel: deploy exitoso + Google OAuth callback URL prod. Login con Google funcionando en producción. README actualizado con live demo + URLs prod.                                                                                                          |
+| 2026-05-18 | 19      | Roadmap enterprise documentado: Fases 7-14 agregadas a TODO.md y CLAUDE.md. Script generate_massive_dataset.py creado (25k SKUs, 3 años diario, ~27M filas, Parquet Snappy). Stack: pandas+numpy+pyarrow, clustering ABC-XYZ, patrones realistas por categoría.                                                                                                                                                                                                           |
+| 2026-05-19 | 20      | Fase 7 completa: structlog+middleware (Nivel 1), OTel SDK+traces+forecast_span (Nivel 2), Grafana Alloy en Railway (scrape /metrics → Grafana Cloud Mimir), dashboard producción online. Fixes: Railway TOKEN, mypy FilteringBoundLogger, $PORT sh -c, startCommand railway.toml, archivos faltantes en git (middleware.py, telemetry.py), /metrics router explícito. Dashboard: https://nicobravo933.grafana.net/goto/shcs6k                                             |
+| 2026-05-19 | 21      | Documentación completa: ROADMAP.md creado (Fases 7.5–14 con decisiones de arquitectura cerradas, Quick Start local, fuentes de datos, rate limiting, DuckDB+Parquet strategy). TODO.md reestructurado: Fase 7.5 agregada como próxima, Fases 8-14 comprimidas con referencia a ROADMAP.md. README.md actualizado: Quick Start 5 pasos, sección Dataset Demo, badge Fase 7.5 next.                                                                                         |
+| 2026-05-19 | 22      | Fase 7.5 frontend iniciada: login/page.tsx rediseñado (split layout, logo PNG, feature bullets, glow sutil, mobile responsive). dashboard/layout.tsx: logo texto reemplazado por Image next/image (130×32).                                                                                                                                                                                                                                                               |
+| 2026-05-19 | 24      | Fase 7.5 completa: rate limiting backend. redis_cache.py generalizado (\_check_rate_limit_generic + check_upload_rate_limit + check_forecast_rate_limit). datasets.py y forecast.py con check 429 + Retry-After. Fase 7.5 cerrada.                                                                                                                                                                                                                                        |
+| 2026-05-19 | 25      | Sidebar: logo cambiado de logo.png → logo_rectangular.png en dashboard/layout.tsx. Edición quirúrgica de 1 línea.                                                                                                                                                                                                                                                                                                                                                         |
 
 ---
 

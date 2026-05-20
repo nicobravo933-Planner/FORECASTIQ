@@ -10,16 +10,16 @@
 
 ## Índice
 
-| Fase | Nombre | Estado | Prioridad |
-|------|--------|--------|-----------|
-| [7.5](#fase-75--ui-polish--rate-limiting) | UI Polish + Rate Limiting | 🔄 En curso | Alta — portfolio + protección Railway |
-| [8](#fase-8--mlops-mlflow--evidently-ai) | MLOps | ⏳ Pendiente | Alta — diferenciador técnico |
-| [9](#fase-9--scale-engine-nixtla--polars) | Scale Engine | ⏳ Pendiente | Alta — 25k SKUs |
-| [10](#fase-10--dataset-sintético-masivo) | Dataset Sintético | ⏳ Pendiente | Media — combustible para 11-13 |
-| [11](#fase-11--pyspark-local-docker) | PySpark Local | ⏳ Pendiente | Media — portafolio data engineering |
-| [12](#fase-12--airflow-orquestación-batch) | Airflow | ⏳ Pendiente | Media — orquestación enterprise |
-| [13](#fase-13--data-warehouse-bigquery--dbt) | Data Warehouse | ⏳ Pendiente | Baja — showcase analítico |
-| [14](#fase-14--infra-as-code-terraform--kubernetes) | Infra as Code | ⏳ Pendiente | Baja — showcase devops |
+| Fase                                                | Nombre                    | Estado       | Prioridad                             |
+| --------------------------------------------------- | ------------------------- | ------------ | ------------------------------------- |
+| [7.5](#fase-75--ui-polish--rate-limiting)           | UI Polish + Rate Limiting | 🔄 En curso  | Alta — portfolio + protección Railway |
+| [8](#fase-8--mlops-mlflow--evidently-ai)            | MLOps                     | ⏳ Pendiente | Alta — diferenciador técnico          |
+| [9](#fase-9--scale-engine-nixtla--polars)           | Scale Engine              | ⏳ Pendiente | Alta — 25k SKUs                       |
+| [10](#fase-10--dataset-sintético-masivo)            | Dataset Sintético         | ⏳ Pendiente | Media — combustible para 11-13        |
+| [11](#fase-11--pyspark-local-docker)                | PySpark Local             | ⏳ Pendiente | Media — portafolio data engineering   |
+| [12](#fase-12--airflow-orquestación-batch)          | Airflow                   | ⏳ Pendiente | Media — orquestación enterprise       |
+| [13](#fase-13--data-warehouse-bigquery--dbt)        | Data Warehouse            | ⏳ Pendiente | Baja — showcase analítico             |
+| [14](#fase-14--infra-as-code-terraform--kubernetes) | Infra as Code             | ⏳ Pendiente | Baja — showcase devops                |
 
 ---
 
@@ -42,19 +42,19 @@ puede agotar Storage y CPU en minutos.
 
 **Rate limiting por endpoint:**
 
-| Endpoint | Límite | Ventana | Razón |
-|---|---|---|---|
-| `POST /api/datasets/upload` | 5 uploads | 1 hora / IP | Storage Supabase free = 1 GB total |
-| `POST /api/forecast/run` | 10 jobs | 1 hora / IP+user | ML es el recurso más caro en Railway |
-| `POST /api/chat` | 30 mensajes | 1 hora / IP+user | Ya implementado |
-| `GET *` | sin límite | — | Solo lectura, barato |
+| Endpoint                    | Límite      | Ventana          | Razón                                |
+| --------------------------- | ----------- | ---------------- | ------------------------------------ |
+| `POST /api/datasets/upload` | 5 uploads   | 1 hora / IP      | Storage Supabase free = 1 GB total   |
+| `POST /api/forecast/run`    | 10 jobs     | 1 hora / IP+user | ML es el recurso más caro en Railway |
+| `POST /api/chat`            | 30 mensajes | 1 hora / IP+user | Ya implementado                      |
+| `GET *`                     | sin límite  | —                | Solo lectura, barato                 |
 
 Implementación: extender `redis_cache.py` (ya existe) con `UPLOAD_RATE_KEY_PREFIX` y
 `FORECAST_RATE_KEY_PREFIX`. Misma lógica de ventana fija que el rate limit de chat.
 
 **Frontend — arquitectura de componentes nueva:**
 
-```
+```Plaintext
 frontend/components/
   layout/          ← NUEVO: Sidebar, Topbar, UserBadge (extraer de dashboard/layout.tsx)
   upload/          ← EXISTE: DropZone, DataPreview, ColumnSelector (renombrar de ui/)
@@ -102,7 +102,7 @@ frontend/lib/
 
 ### Stack decidido
 
-```
+```Plaintext
 Forecast run (Celery worker)
     │
     ├── mlflow.start_run()
@@ -125,7 +125,7 @@ Model Registry:
 
 ### Endpoints nuevos
 
-```
+```Plaintext
 GET  /api/drift/{dataset_id}     → drift score por columna (JSON)
 GET  /api/experiments            → lista de runs MLflow del usuario
 GET  /api/experiments/{run_id}   → detalle de un run (params + métricas)
@@ -134,6 +134,7 @@ GET  /api/experiments/{run_id}   → detalle de un run (params + métricas)
 ### Alerta automática de drift
 
 Si WAPE del forecast más reciente sube >5% respecto al promedio de los últimos 5 runs:
+
 1. Log estructurado con `structlog` (campo `drift_alert=True`)
 2. Sentry event con severity `warning`
 3. (Futuro) Email al usuario via Resend/SendGrid
@@ -147,6 +148,7 @@ Si WAPE del forecast más reciente sube >5% respecto al promedio de los últimos
 ### Railway considerations
 
 MLflow server como servicio separado en Railway:
+
 - Imagen: `ghcr.io/mlflow/mlflow:latest`
 - Puerto: 5000 interno, expuesto solo al backend (private networking)
 - Storage de artefactos: Supabase Storage (via S3-compatible API de Supabase)
@@ -204,7 +206,7 @@ forecast_df = sf.forecast(df=panel, h=30)
 
 ### Clustering ABC-XYZ → modelo por segmento
 
-```
+```Plaintext
 A-X (alto volumen, baja variabilidad)  → Holt-Winters (ETS)
 A-Z (alto volumen, alta variabilidad)  → LightGBM (MLForecast)
 B-X, B-Y                               → AutoETS
@@ -233,6 +235,7 @@ en Parquet en Supabase Storage (no JSONB — más eficiente para miles de series
 ### Benchmark requerido
 
 Script `scripts/benchmark_models.py` que compara sobre el mismo dataset de 1k SKUs:
+
 - `statsmodels` (loop, actual)
 - `StatsForecast` (Nixtla vectorizado)
 - `MLForecast` + LightGBM (global model)
@@ -248,7 +251,7 @@ Output: tabla markdown con tiempo de ejecución + WAPE por segmento.
 
 ### Especificación del dataset
 
-```
+```Plaintext
 Archivo:    data/ventas_25k_skus.parquet
 Formato:    Parquet, compresión Snappy
 Tamaño:     ~180 MB
@@ -268,13 +271,13 @@ Columnas:
 
 ### Patrones por categoría
 
-| Categoría | Tendencia | Estacionalidad anual | Estacionalidad semanal | % ceros |
-|---|---|---|---|---|
-| Electrónica | +3%/año | Navidad fuerte (×2.5) | Fines de semana +20% | 2% |
-| Alimentos | +1%/año | Moderada | Fuerte (×1.8 fin de semana) | 0% |
-| Indumentaria | 0% (moda) | Primavera/Otoño fuertes | Moderada | 5% |
-| Hogar | +2%/año | Fin de año | Baja | 15% |
-| Deportes | +5%/año | Verano + Año Nuevo | Fines de semana | 10% |
+| Categoría    | Tendencia | Estacionalidad anual    | Estacionalidad semanal      | % ceros |
+| ------------ | --------- | ----------------------- | --------------------------- | ------- |
+| Electrónica  | +3%/año   | Navidad fuerte (×2.5)   | Fines de semana +20%        | 2%      |
+| Alimentos    | +1%/año   | Moderada                | Fuerte (×1.8 fin de semana) | 0%      |
+| Indumentaria | 0% (moda) | Primavera/Otoño fuertes | Moderada                    | 5%      |
+| Hogar        | +2%/año   | Fin de año              | Baja                        | 15%     |
+| Deportes     | +5%/año   | Verano + Año Nuevo      | Fines de semana             | 10%     |
 
 ### Script
 
@@ -291,7 +294,7 @@ Upload manual a Supabase Storage bucket `datasets/` como `ventas_25k_skus.parque
 
 ### Cuándo Spark vs Polars (decisión documentada)
 
-```
+```Plaintext
 Polars  → hasta ~100M filas en una sola máquina, latencia baja, API más ergonómica
 Spark   → >100M filas O necesitás distribución real O el job debe escalar horizontalmente
           O el equipo ya usa Databricks/EMR y la infra existe
@@ -311,8 +314,8 @@ services:
     environment:
       - SPARK_MODE=master
     ports:
-      - "8080:8080"   # Spark UI
-      - "7077:7077"   # Master port
+      - "8080:8080" # Spark UI
+      - "7077:7077" # Master port
 
   spark-worker-1:
     image: bitnami/spark:3.5
@@ -334,6 +337,7 @@ services:
 ### Notebook PySpark
 
 `notebooks/spark_forecast_pipeline.ipynb`:
+
 1. Leer Parquet desde Supabase Storage (o local)
 2. Feature engineering distribuido: lag-7, lag-30, rolling mean 7/30, day_of_week, month
 3. Forecast por partición (`mapPartitions` sobre `unique_id`) con modelo LightGBM local
@@ -349,7 +353,7 @@ services:
 
 ### DAGs
 
-```
+```Plaintext
 forecast_batch_daily  (cron: 0 2 * * *)
     1. sensor: esperar que Supabase Storage tenga el Parquet actualizado
     2. download_parquet_task: descarga incremental (solo SKUs con nuevos datos)
@@ -379,11 +383,11 @@ mlflow_cleanup_monthly  (cron: 0 0 1 * *)
 
 ### Comparativa documentada (para el README de la fase)
 
-| Orquestador | Cuándo usarlo | Ventaja | Desventaja |
-|---|---|---|---|
-| Celery Beat | Jobs simples, misma codebase | Ya instalado, sin overhead | No tiene UI, difícil de monitorear |
-| Airflow | Pipelines complejos, dependencias entre tareas | UI, retry, SLA, sensors | Heavy (PostgreSQL + Redis + workers) |
-| Prefect | Equipos modernos, Python-native | UI cloud, fácil de aprender | Vendor lock-in en cloud |
+| Orquestador | Cuándo usarlo                                  | Ventaja                     | Desventaja                           |
+| ----------- | ---------------------------------------------- | --------------------------- | ------------------------------------ |
+| Celery Beat | Jobs simples, misma codebase                   | Ya instalado, sin overhead  | No tiene UI, difícil de monitorear   |
+| Airflow     | Pipelines complejos, dependencias entre tareas | UI, retry, SLA, sensors     | Heavy (PostgreSQL + Redis + workers) |
+| Prefect     | Equipos modernos, Python-native                | UI cloud, fácil de aprender | Vendor lock-in en cloud              |
 
 ---
 
@@ -394,7 +398,7 @@ mlflow_cleanup_monthly  (cron: 0 0 1 * *)
 
 ### Arquitectura Lakehouse
 
-```
+```Plaintext
 Raw layer     → Supabase Storage (Parquet) — source of truth, inmutable
 Serving layer → BigQuery free tier — análisis ad-hoc, dashboards
 Transform     → dbt — modelos SQL versionados, tests de calidad
@@ -457,7 +461,7 @@ Permite `helm install forecastiq ./infra/helm/forecastiq -f values.prod.yaml`.
 
 ### Escalado documentado
 
-```
+```Plaintext
 Railway (hoy)     → 1 API + 1 Worker + Redis · hobby plan · suficiente para portfolio
 K8s en GKE/EKS    → cuando MRR > $1k o necesitás >10 req/s sostenidos
   - API: HPA 2-10 pods basado en CPU
@@ -474,17 +478,20 @@ K8s en GKE/EKS    → cuando MRR > $1k o necesitás >10 req/s sostenidos
 > Diseñadas en la sesión del 2026-05-19.
 
 ### Tab 1: CSV Upload (actual)
+
 - Límite actual: 10 MB → elevar a 50 MB (dentro del free tier de Supabase Storage)
 - Agregar validación de columnas mínimas con mensaje de error amigable
 - Auto-mapping de columnas con LLM (backlog post-MVP)
 
 ### Tab 2: Dataset Demo (Fase 9)
+
 - Dataset "Ventas 25k SKUs — 3 años diarios" disponible para todos los usuarios
 - Backend: DuckDB lee desde Supabase Storage via URL firmada (no descarga 180 MB)
 - Usuario elige un SKU o categoría desde el frontend → forecast sobre esa serie
 - Rate limit especial: 20 forecasts/hora sobre el dataset demo (más permisivo que uploads)
 
 ### Tab 3: Conexión directa DB (Backlog Enterprise)
+
 - Soportar: PostgreSQL, BigQuery, Snowflake, S3/Parquet
 - Connection string ingresada por el usuario → **efímera, nunca persistida**
 - El backend la usa para una query, descarta la conexión inmediatamente
@@ -562,6 +569,7 @@ npm run dev
 ### Migraciones Supabase (una sola vez)
 
 Ejecutar en orden en el SQL Editor del Dashboard de Supabase:
+
 1. `backend/migrations/001_forecast_jobs.sql`
 2. `backend/migrations/002_events.sql`
 3. `backend/migrations/003_add_user_id.sql`
