@@ -16,10 +16,10 @@
 | **3**   | Calendar of events               | ✅ Done    | Events → forecast impact                     |
 | **4**   | AI Chat with streaming           | ✅ Done    | SSE chat about the data                      |
 | **5**   | Auth + persistence               | ✅ Done    | OAuth2 + per-user history                    |
-| **6**   | Deploy + CI/CD                   | ✅ Done    | Full prod CI/CD + Railway + Vercel           |
+| **6**   | Deploy + CI/CD                   | ✅ Done    | Full prod CI/CD + AWS EC2 + Vercel           |
 | **7**   | Observability                    | ✅ Done    | OpenTelemetry + Grafana LGTM + Alloy         |
-| **7.5** | UI Polish + Rate Limiting        | 🔄 Next    | Diseño SaaS profesional + protección Railway |
-| **8**   | MLOps                            | ⏳ Pending | MLflow tracking + Evidently drift detection  |
+| **7.5** | UI Polish + Rate Limiting        | ✅ Done    | Diseño SaaS profesional + rate limits 429   |
+| **8**   | MLOps                            | 🔄 Next    | MLflow (Dagshub) + Evidently drift detection |
 | **9**   | Scale Engine                     | ⏳ Pending | Nixtla vectorizado + Polars + batch          |
 | **10**  | Dataset sintético masivo         | ⏳ Pending | Script 25k SKUs → Parquet ~180 MB            |
 | **11**  | PySpark local                    | ⏳ Pending | PySpark sobre dataset enterprise en Docker   |
@@ -171,17 +171,62 @@
 
 ### Resumen
 
-| Fase   | Nombre            | Stack clave                                            |
-| ------ | ----------------- | ------------------------------------------------------ |
-| **8**  | MLOps             | MLflow + Evidently AI + Sentry alerts                  |
-| **9**  | Scale Engine      | Nixtla StatsForecast + Polars + DuckDB + Celery Beat   |
-| **10** | Dataset Sintético | 25k SKUs × 3 años → Parquet 180 MB en Supabase Storage |
-| **11** | PySpark Local     | Docker Spark cluster · feature engineering distribuido |
-| **12** | Airflow           | DAGs: forecast batch + drift check + MLflow cleanup    |
-| **13** | Data Warehouse    | BigQuery free tier + dbt models + SQL analítico        |
-| **14** | Infra as Code     | Terraform + Kubernetes manifests + Helm chart          |
+| Fase   | Nombre            | Stack clave                                              |
+| ------ | ----------------- | -------------------------------------------------------- |
+| **8**  | MLOps             | MLflow (Dagshub) + Evidently AI + drift alerts           |
+| **9**  | Scale Engine      | Nixtla StatsForecast + Polars + DuckDB + Celery Beat     |
+| **10** | Dataset Sintético | 25k SKUs × 3 años → Parquet 180 MB en Supabase Storage   |
+| **11** | PySpark Local     | Docker Spark cluster · feature engineering distribuido   |
+| **12** | Airflow           | DAGs: forecast batch + drift check + MLflow cleanup      |
+| **13** | Data Warehouse    | BigQuery free tier + dbt models + SQL analítico          |
+| **14** | Infra as Code     | Terraform (AWS) + Kubernetes manifests + Helm chart      |
 
-### Phase 10 — Dataset Sintético (tareas pendientes)
+---
+
+## Phase 8 — MLOps (MLflow + Evidently AI)
+
+> Goal: tracking reproducible de experimentos + detección automática de data drift.
+> MLflow hosteado en **Dagshub** (free, permanente). Evidently corre dentro del Celery worker.
+> Ver arquitectura completa en **ROADMAP.md → Fase 8**.
+
+### Setup previo (hacer vos antes de arrancar el código)
+
+- [ ] Crear cuenta en [dagshub.com](https://dagshub.com)
+- [ ] Crear repo `forecastiq` en Dagshub (puede ser mirror del repo de GitHub)
+- [ ] Generar token: Dagshub → Settings → Access Tokens
+- [ ] Completar en `backend/.env` (local: `MLFLOW_TRACKING_URI=./mlruns`, prod: URL Dagshub)
+
+### Backend
+
+- [ ] `pyproject.toml` — agregar `mlflow>=2.14.0` y `evidently>=0.4.0`
+- [ ] `app/core/config.py` — variables `mlflow_tracking_uri`, `mlflow_tracking_username`, `mlflow_tracking_password`
+- [ ] `app/services/mlflow_tracker.py` — wrapper `log_forecast_run(params, metrics, model)`
+- [ ] `app/services/drift_detector.py` — Evidently `DataDriftPreset`, guarda HTML en Supabase Storage
+- [ ] `celery_app.py` — integrar `mlflow.start_run()` + drift detector dentro de `run_forecast_task`
+- [ ] `app/api/mlops.py` — 3 endpoints nuevos:
+  - `GET /api/experiments` — lista runs MLflow del usuario
+  - `GET /api/experiments/{run_id}` — detalle de un run
+  - `GET /api/drift/{dataset_id}` — drift score por columna (JSON)
+- [ ] `main.py` — registrar `mlops_router`
+- [ ] Alerta automática: WAPE ↗ >5% vs promedio últimos 5 runs → log structlog con `drift_alert=True`
+
+### Frontend
+
+- [ ] `components/mlops/ExperimentTable.tsx` — tabla de runs (WAPE, modelo, fecha, link Dagshub)
+- [ ] `components/mlops/DriftCard.tsx` — badge verde/amarillo/rojo por columna
+- [ ] `components/mlops/MLflowLink.tsx` — botón que abre Dagshub experiments URL
+- [ ] `app/dashboard/mlops/page.tsx` — página que integra los 3 componentes
+- [ ] `dashboard/layout.tsx` — agregar “MLOps” al sidebar nav
+
+### Done when
+
+- [ ] Cada forecast run loguea params + métricas en Dagshub MLflow UI (URL pública)
+- [ ] Reporte Evidently HTML guardado en Supabase Storage por cada run
+- [ ] `GET /api/experiments` devuelve lista de runs del usuario
+- [ ] Página `/dashboard/mlops` muestra tabla de experiments + drift badges
+- [ ] CI verde
+
+---
 
 - [x] Script `scripts/generate_dataset.py` creado y documentado
 - [ ] Ejecutar script → generar `data/ventas_25k_skus.parquet` (~180 MB)
@@ -229,6 +274,7 @@
 | 2026-05-19 | 22      | Fase 7.5 frontend iniciada: login/page.tsx rediseñado (split layout, logo PNG, feature bullets, glow sutil, mobile responsive). dashboard/layout.tsx: logo texto reemplazado por Image next/image (130×32).                                                                                                                                                                                                                                                               |
 | 2026-05-19 | 24      | Fase 7.5 completa: rate limiting backend. redis_cache.py generalizado (\_check_rate_limit_generic + check_upload_rate_limit + check_forecast_rate_limit). datasets.py y forecast.py con check 429 + Retry-After. Fase 7.5 cerrada.                                                                                                                                                                                                                                        |
 | 2026-05-19 | 25      | Sidebar: logo cambiado de logo.png → logo_rectangular.png en dashboard/layout.tsx. Edición quirúrgica de 1 línea.                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-05-20 | 26      | Migración Railway → AWS+Dagshub completa: railway.toml archivados en infra/_deprecated_railway/. deploy.yml reescrito (SSH → EC2 via appleboy/ssh-action). docker-compose.yml actualizado (volumen mlruns, healthcheck, IMAGE var). backend/.env.example con MLFLOW_* y sin referencias Railway. infra/aws/ creado (setup_ec2.sh + README.md). README.md reescrito (badges AWS/Upstash/Dagshub, tabla costo $0, arquitectura actualizada). TODO.md: Fase 7.5 ✅, Fase 8 🔄 Next con todas las tareas detalladas. |
 
 ---
 

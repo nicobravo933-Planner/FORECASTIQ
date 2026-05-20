@@ -658,7 +658,7 @@ Databricks Community: Spark + MLflow + Delta Lake — para practicar lakehouse c
 ```
 infra/
 ├── terraform/
-│   ├── railway.tf      (Railway services + variables)
+│   ├── aws.tf          (EC2 + security groups)
 │   ├── supabase.tf     (proyecto + storage buckets)
 │   └── vercel.tf       (proyecto + env vars)
 └── k8s/
@@ -667,7 +667,7 @@ infra/
     ├── ingress.yaml    (nginx-ingress)
     └── helm/           (Helm chart completo)
 
-Escalado: Railway (hoy) → K8s en GKE/EKS cuando MRR > $1k
+Escalado: EC2 t2.micro (hoy) → K8s en GKE/EKS cuando se necesite >10 req/s sostenidos
 ```
 
 ---

@@ -4,7 +4,7 @@
   <br/><br/>
   <!-- Estado del proyecto -->
   <img src="https://img.shields.io/badge/status-live%20en%20producci%C3%B3n-22c55e?style=for-the-badge&logo=githubactions&logoColor=white"/>
-  <img src="https://img.shields.io/badge/phase-7.5%20UI%20Polish%20🔄-6366f1?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/phase-8%20MLOps%20🔄-6366f1?style=for-the-badge"/>
   <br/><br/>
   <a href="https://forecastiq.vercel.app/dashboard/dataset"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-forecastiq.vercel.app-6366f1?style=for-the-badge"/></a>
   <a href="https://nicobravo933.grafana.net/goto/shcs6k?orgId=stacks-1651316"><img src="https://img.shields.io/badge/📊%20Grafana%20Dashboard-production%20metrics-F46800?style=for-the-badge&logo=grafana&logoColor=white"/></a>
@@ -18,23 +18,23 @@
   <br/>
   <!-- Infrastructure -->
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Redis-Railway-DC382D?logo=redis&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Redis-Upstash-00E9A3?logo=upstash&logoColor=white"/>
   <img src="https://img.shields.io/badge/Celery-worker-37814A?logo=celery&logoColor=white"/>
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Backend-Railway-0B0D0E?logo=railway&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Backend-AWS%20EC2-FF9900?logo=amazonaws&logoColor=white"/>
   <img src="https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white"/>
   <br/>
-  <!-- ML / AI -->
+  <!-- ML / AI / MLOps -->
   <img src="https://img.shields.io/badge/LLM-OpenRouter-FF6B35"/>
   <img src="https://img.shields.io/badge/ML-Holt--Winters-4285F4"/>
   <img src="https://img.shields.io/badge/ML-SARIMA-0ea5e9"/>
   <img src="https://img.shields.io/badge/ML-LightGBM-green"/>
   <img src="https://img.shields.io/badge/HPO-Optuna-6236FF"/>
-  <img src="https://img.shields.io/badge/data-27M%20filas%20sintéticas-f59e0b"/>
+  <img src="https://img.shields.io/badge/MLflow-Dagshub-0194E2?logo=mlflow&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Evidently-drift%20detection-8B5CF6"/>
   <br/>
   <!-- Roadmap futuro -->
-  <img src="https://img.shields.io/badge/próximo-MLflow%20%2B%20Evidently-0194E2?logo=mlflow&logoColor=white"/>
-  <img src="https://img.shields.io/badge/observability-Grafana%20Cloud%20%E2%9C%85-F46800?logo=grafana&logoColor=white"/>
+  <img src="https://img.shields.io/badge/observability-Grafana%20Cloud%20✅-F46800?logo=grafana&logoColor=white"/>
   <img src="https://img.shields.io/badge/roadmap-PySpark%20%2B%20Nixtla-E25A1C?logo=apachespark&logoColor=white"/>
   <img src="https://img.shields.io/badge/roadmap-Airflow%20DAGs-017CEE?logo=apacheairflow&logoColor=white"/>
   <img src="https://img.shields.io/badge/roadmap-BigQuery%20%2B%20dbt-4285F4?logo=googlebigquery&logoColor=white"/>
@@ -59,11 +59,15 @@
 >
 > **Phase 5 — Auth + Persistencia** ✅ completa · OAuth2 Google/GitHub (Better Auth) + historial por usuario + RLS Supabase + Settings BYOK
 >
-> **Phase 6 — Deploy + CI/CD** ✅ completa · GitHub Actions → Railway (API + Worker) + Vercel (frontend) + Google OAuth prod
+> **Phase 6 — Deploy + CI/CD** ✅ completa · GitHub Actions → Docker → ghcr.io → AWS EC2 + Vercel (frontend)
 >
-> **Phase 7 — Observability** ✅ completa · structlog JSON + OTel traces → Grafana Tempo + Grafana Alloy (scrape /metrics → Grafana Cloud) + [dashboard producción](https://nicobravo933.grafana.net/goto/shcs6k)
+> **Phase 7 — Observability** ✅ completa · structlog JSON + OTel traces → Grafana Cloud + [dashboard producción](https://nicobravo933.grafana.net/goto/shcs6k)
 >
-> **Phase 8–14 — Enterprise Roadmap** ⏳ pendiente · MLflow · Evidently AI · Nixtla · Polars · PySpark · Airflow · BigQuery/dbt · Terraform + K8s
+> **Phase 7.5 — UI Polish + Rate Limiting** ✅ completa · split login · logo sidebar · tabs dataset · rate limits 429
+>
+> **Phase 8 — MLOps** 🔄 en curso · MLflow (Dagshub) + Evidently AI drift detection
+>
+> **Phase 9–14 — Enterprise Roadmap** ⏳ pendiente · Nixtla · Polars · PySpark · Airflow · BigQuery/dbt · Terraform + K8s
 
 ---
 
@@ -87,36 +91,38 @@
 | 💬 **Chat IA (streaming)**   | Preguntale a tus datos en lenguaje natural — tokens en tiempo real                                     |
 | 🔐 **Datos por usuario**     | Login OAuth2 — tus forecasts son privados, aislados por RLS de Supabase                                |
 | 🆓 **Modelos LLM gratuitos** | Impulsado por OpenRouter free tier (DeepSeek V4 Flash, GLM 4.5 Air, GPT OSS 120B, Nemotron 120B y más) |
+| 🧪 **MLflow tracking**       | Cada forecast queda registrado con params + métricas + modelo serializado (Fase 8)                     |
+| 📉 **Drift detection**       | Evidently AI detecta cuándo los datos cambiaron y el modelo necesita reentrenarse (Fase 8)             |
 
 ---
 
 ## 🏗️ Arquitectura
 
-```Plaintext
+```plaintext
 ┌──────────────────────────────────────────────────────────────┐
 │                     Navegador del usuario                     │
-│              Next.js 14 + MUI v6 + TypeScript               │
+│              Next.js 14 + MUI v6 + TypeScript                │
 │          (Vercel — deploy automático en git push)             │
 └─────────────────────────┬────────────────────────────────────┘
                           │  REST + SSE
 ┌─────────────────────────▼────────────────────────────────────┐
 │                     Backend FastAPI                           │
 │              Python 3.12 · UV · pydantic-settings            │
-│          (Railway — contenedor Docker, auto-deploy)           │
+│        (AWS EC2 t2.micro — Docker Compose, auto-deploy)      │
 │                                                              │
 │   ┌──────────────┐  ┌────────────────┐  ┌────────────────┐  │
 │   │  Motor ML    │  │  Router LLM    │  │  Celery Worker │  │
 │   │  detector.py │  │  OpenRouter    │  │  background    │  │
 │   │  Holt-Winters│  │  SSE streaming │  │  jobs ML       │  │
-│   │  LightGBM    │  │  multi-model   │  │                │  │
+│   │  LightGBM    │  │  multi-model   │  │  + MLflow      │  │
 │   └──────────────┘  └────────────────┘  └────────────────┘  │
-└──────┬──────────────────────────────────────┬────────────────┘
-       │                                      │
-┌──────▼──────┐                    ┌──────────▼─────────────┐
-│  Supabase   │                    │    Railway Redis        │
-│ PostgreSQL  │                    │  Celery broker + cache  │
-│   Storage   │                    │  (resultados forecast)  │
-│ Auth + RLS  │                    └────────────────────────┘
+└──────┬──────────────────────────┬───────────────────────────-┘
+       │                          │
+┌──────▼──────┐        ┌──────────▼──────────┐   ┌───────────┐
+│  Supabase   │        │    Upstash Redis     │   │  Dagshub  │
+│ PostgreSQL  │        │  Celery broker+cache │   │  MLflow   │
+│   Storage   │        │  (free permanente)   │   │  tracking │
+│ Auth + RLS  │        └─────────────────────-┘   └───────────┘
 └─────────────┘
 ```
 
@@ -124,7 +130,7 @@
 
 ## 📁 Estructura del proyecto
 
-```Plaintext
+```plaintext
 forecastiq/
 ├── backend/                    # Python — FastAPI + ML
 │   ├── pyproject.toml          # Dependencias con UV
@@ -132,7 +138,7 @@ forecastiq/
 │   └── app/
 │       ├── main.py             # FastAPI app factory
 │       ├── core/               # config, logging, dependencias
-│       ├── api/                # endpoints: datasets, forecast, chat
+│       ├── api/                # endpoints: datasets, forecast, chat, mlops
 │       ├── ml/
 │       │   ├── detector.py     # selección automática (FFT + Mann-Kendall)
 │       │   └── models/         # MA, Holt-Winters, SARIMA, LightGBM
@@ -151,11 +157,13 @@ forecastiq/
 │   ├── hooks/                  # useChat (SSE), useForecast, useDataset
 │   └── lib/                    # theme, API client, types, auth
 │
+├── infra/
+│   ├── aws/                    # setup EC2 + nginx + guía de deploy
+│   └── alloy/                  # Grafana Alloy config (observability)
 ├── .github/workflows/
 │   ├── ci.yml                  # lint + test en cada push
-│   └── deploy.yml              # deploy al mergear a main
-├── railway.toml                # configuración Railway (build + healthcheck)
-├── docker-compose.yml          # desarrollo local: backend + redis
+│   └── deploy.yml              # SSH deploy a EC2 al mergear a main
+├── docker-compose.yml          # dev local Y prod EC2: backend + worker + redis
 ├── .env.example
 ├── CLAUDE.md                   # Guía para desarrolladores IA
 └── TODO.md                     # seguimiento de fases
@@ -165,7 +173,7 @@ forecastiq/
 
 ## 🚀 Quick Start local
 
-> Levantá la app completa en ~5 minutos. No necesitás Vercel ni Railway.
+> Levantá la app completa en ~5 minutos. No necesitás AWS ni Railway.
 
 ```bash
 # 1. Clonar
@@ -191,6 +199,7 @@ npm install && npm run dev
 > **Variables mínimas:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`,
 > `JWT_SECRET_KEY` (cualquier string en local), `BETTER_AUTH_URL=http://localhost:3000`.
 > Sin `OPENROUTER_API_KEY` la app funciona pero el chat IA no responde.
+> `MLFLOW_TRACKING_URI=./mlruns` — MLflow escribe a disco local, sin servidor.
 
 ### Migraciones Supabase (una sola vez)
 
@@ -213,9 +222,7 @@ Ejecutar en orden en el **SQL Editor** del Dashboard de Supabase:
 
 ## 🌍 Variables de entorno
 
-Las variables están separadas por contexto de deploy:
-
-**`backend/.env`** (Railway / local):
+**`backend/.env`** (EC2 / local):
 
 ```bash
 # Supabase
@@ -224,28 +231,20 @@ SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_KEY=eyJ...
 DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:5432/postgres
 
-# Redis (Railway en prod, localhost en dev)
-UPSTASH_REDIS_URL=redis://...
+# Upstash Redis (free permanente)
+UPSTASH_REDIS_URL=rediss://...
 CELERY_TASK_ALWAYS_EAGER=True   # False en producción
 CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# MLflow — Dagshub en prod, filesystem en dev
+MLFLOW_TRACKING_URI=./mlruns                          # dev
+# MLFLOW_TRACKING_URI=https://dagshub.com/<user>/forecastiq.mlflow  # prod
 
 # LLM
 OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_MODEL=deepseek/deepseek-r1-0528:free
 
 # Auth
-JWT_SECRET_KEY=  # python -c "import secrets; print(secrets.token_hex(32))"
-BETTER_AUTH_URL=https://forecastiq.vercel.app
-```
-
-**`frontend/.env.local`** (Vercel / local):
-
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-BETTER_AUTH_SECRET=  # node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+JWT_SECRET_KEY=  # openssl rand -hex 32
 BETTER_AUTH_URL=https://forecastiq.vercel.app
 ```
 
@@ -254,8 +253,6 @@ BETTER_AUTH_URL=https://forecastiq.vercel.app
 ---
 
 ## 🤖 Modelos LLM soportados (gratis)
-
-Todos los modelos son seleccionables desde el chat del frontend:
 
 | Modelo            | Proveedor               |
 | ----------------- | ----------------------- |
@@ -271,8 +268,6 @@ Todos los modelos son seleccionables desde el chat del frontend:
 
 ## 📊 Lógica de selección de modelo ML
 
-forecastiq selecciona automáticamente el mejor modelo según las características de tus datos:
-
 ```plaintext
 n < 52 observaciones                        →  Moving Average (baseline robusto)
 n ≥ 52  + estacionalidad detectada (FFT)    →  Holt-Winters Triple Exponencial
@@ -280,7 +275,7 @@ n ≥ 104 + tendencia sin estacionalidad      →  SARIMA (statsmodels, CI rigur
 n ≥ 104 + alta volatilidad (CV > 1.0)      →  LightGBM + lags + Optuna HPO
 ```
 
-El pipeline de detección usa MAD para outliers, FFT para estacionalidad y Seasonal Mann-Kendall (pymannkendall) para tendencia. Winsorización p5/p95 se aplica antes de entrenar en Phase 2.
+Pipeline de detección: MAD (outliers) → FFT (estacionalidad) → Seasonal Mann-Kendall (tendencia) → Winsorización p5/p95.
 
 **Métricas de evaluación:** WAPE · MAE · BIAS · RMSE · MAPE
 
@@ -290,31 +285,57 @@ El pipeline de detección usa MAD para outliers, FFT para estacionalidad y Seaso
 
 ```bash
 cd backend
-uv run pytest                          # todos los tests
-uv run pytest tests/unit               # solo unit tests
-uv run pytest tests/unit/test_detector # módulo específico
+uv run pytest                              # todos los tests
+uv run pytest tests/unit                   # solo unit tests
 uv run pytest --cov=app --cov-report=html  # con cobertura
 ```
 
 ---
 
-## 🚢 Deploy
+## 🚢 Deploy en producción (AWS EC2)
 
 El deploy está completamente automatizado vía GitHub Actions:
 
-```Plaintext
+```plaintext
 git push main
   → CI: ruff + mypy + pytest (debe pasar)
   → Build imagen Docker → push a ghcr.io
-  → Railway: deploy automático del backend (API + Worker)
+  → SSH al EC2 → docker compose pull + up -d
   → Vercel: deploy automático del frontend (vía integración GitHub)
 ```
 
+Ver guía completa de setup en [`infra/aws/README.md`](infra/aws/README.md).
+
+**Secrets necesarios en GitHub Actions:**
+
+| Secret | Descripción |
+|--------|-------------|
+| `EC2_HOST` | IP pública del EC2 |
+| `EC2_USER` | `ec2-user` |
+| `EC2_SSH_KEY` | Contenido del archivo `.pem` |
+| `GHCR_TOKEN` | GitHub PAT (scopes: `read:packages`, `write:packages`) |
+
 **URLs de producción:**
 - Frontend: https://forecastiq.vercel.app
-- Backend API: https://forecastiq-api-production.up.railway.app
-- Health check: https://forecastiq-api-production.up.railway.app/health
-- API docs: https://forecastiq-api-production.up.railway.app/docs
+- Backend API: https://`<EC2_IP>` (actualizar cuando esté configurado)
+- Health check: https://`<EC2_IP>`/health
+- API docs: https://`<EC2_IP>`/docs
+- MLflow UI: https://dagshub.com/`<usuario>`/forecastiq/experiments
+
+---
+
+## 💰 Stack 100% gratuito (sin expiración)
+
+| Servicio | Proveedor | Free tier |
+|----------|-----------|-----------|
+| Frontend | Vercel | Permanente |
+| Backend + Worker | AWS EC2 t2.micro | 12 meses → luego ~$8/mes |
+| Base de datos | Supabase PostgreSQL | Permanente |
+| Storage | Supabase Storage (1 GB) | Permanente |
+| Redis | Upstash (10k req/día) | Permanente |
+| MLflow tracking | Dagshub | Permanente |
+| Observability | Grafana Cloud | Permanente |
+| CI/CD | GitHub Actions | Permanente |
 
 ---
 
@@ -330,29 +351,23 @@ Ver [`TODO.md`](TODO.md) para la lista completa de tareas fase por fase.
 - [x] **Fase 3** — Calendario de eventos
 - [x] **Fase 4** — Chat IA con streaming SSE
 - [x] **Fase 5** — Auth + persistencia (Google/GitHub OAuth, historial por usuario)
-- [x] **Fase 6** — Deploy completo a producción (Railway + Vercel + CI/CD)
-
+- [x] **Fase 6** — Deploy completo a producción (AWS EC2 + Vercel + CI/CD)
 - [x] **Fase 7** — Observability · structlog JSON + OTel traces → Grafana Cloud + [dashboard](https://nicobravo933.grafana.net/goto/shcs6k)
+- [x] **Fase 7.5** — UI Polish + Rate Limiting · split login · logo sidebar · tabs dataset
 
 ### 🔄 En curso
 
-- [ ] **Fase 7.5** — UI Polish + Rate Limiting · rediseño login/sidebar/dataset · protección Railway
+- [ ] **Fase 8** — MLOps · MLflow (Dagshub) + Evidently AI drift detection
 
-### ⏳ Roadmap Enterprise (Fases 8–14)
+### ⏳ Roadmap Enterprise (Fases 9–14)
 
-> Ver [`ROADMAP.md`](ROADMAP.md) para especificaciones técnicas y decisiones de arquitectura de cada fase.
+> Ver [`ROADMAP.md`](ROADMAP.md) para especificaciones técnicas y decisiones de arquitectura.
 
 ---
 
 ## 🤝 Contribuciones
 
 ¡Las contribuciones son bienvenidas! Por favor leé [`CLAUDE.md`](CLAUDE.md) para las convenciones de código antes de abrir un PR.
-
-```bash
-# Instalar pre-commit hooks
-pip install pre-commit
-pre-commit install
-```
 
 ---
 
@@ -374,5 +389,5 @@ MIT © [Nicolás Bravo](https://github.com/nicobravo)
 ---
 
 <p align="center">
-  <sub>Hecho con Python 🐍 · FastAPI · Next.js · MUI · Supabase · OpenRouter</sub>
+  <sub>Hecho con Python 🐍 · FastAPI · Next.js · MUI · Supabase · Upstash · AWS EC2 · Dagshub · OpenRouter</sub>
 </p>

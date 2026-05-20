@@ -1,34 +1,64 @@
+# docker-compose.yml
+# Dev local:  docker compose up          (levanta backend + worker + redis local)
+# Prod EC2:   docker compose up -d       (usa imagen ghcr.io + Upstash Redis externo)
+#
+# En producción la variable IMAGE se setea en /opt/forecastiq/.env del EC2:
+#   IMAGE=ghcr.io/nicobravo/forecastiq-backend:latest
+
 services:
   backend:
+    image: ${IMAGE:-forecastiq-backend-local}
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - ./backend/.env
     environment:
-      - ENVIRONMENT=development
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     volumes:
-      - ./backend:/app
+      - mlruns:/app/mlruns        # MLflow filesystem tracking (dev + prod)
     depends_on:
-      - redis
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      redis:
+        condition: service_healthy
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   celery_worker:
+    image: ${IMAGE:-forecastiq-backend-local}
     build:
       context: ./backend
       dockerfile: Dockerfile
     env_file:
-      - .env
+      - ./backend/.env
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     volumes:
-      - ./backend:/app
+      - mlruns:/app/mlruns        # mismo volumen — worker y API comparten mlruns
     depends_on:
-      - redis
-    command: uv run celery -A app.services.celery_app worker --loglevel=info
+      redis:
+        condition: service_healthy
+    command: uv run celery -A app.services.celery_app worker --loglevel=info --concurrency=2
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  mlruns:
+    driver: local
