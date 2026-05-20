@@ -98,7 +98,6 @@ frontend/lib/
 ## Fase 8 — MLOps (MLflow + Evidently AI)
 
 > **Objetivo:** Tracking reproducible de experimentos ML + detección automática de data drift.
-> Diferenciador técnico clave para el portfolio — muestra madurez de MLOps real.
 
 ### Stack decidido
 
