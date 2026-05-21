@@ -127,5 +127,10 @@ python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 
+[dependency-groups]
+dev = [
+    "python-dotenv>=1.2.2",
+]
+
 # ── UV scripts → usar directamente con: uv run uvicorn ... etc.
 # [tool.uv.scripts] no está soportado en esta versión de UV
