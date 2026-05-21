@@ -14,8 +14,8 @@
 | --------------------------------------------------- | ------------------------- | ------------ | ---------------- |
 | [7.5](#fase-75--ui-polish--rate-limiting)           | UI Polish + Rate Limiting | ✅ Completa  | —                |
 | [8](#fase-8--mlops-mlflow--evidently-ai)            | MLOps                     | ✅ Completa  | —                |
-| [9](#fase-9--scale-engine-nixtla--polars)           | Scale Engine              | ⏳ Pendiente | Alta             |
-| [10](#fase-10--dataset-sintético-masivo)            | Dataset Sintético         | ⏳ Pendiente | Media            |
+| [9](#fase-9--scale-engine-nixtla--polars)           | Scale Engine              | ✅ Completa  | —                |
+| [10](#fase-10--dataset-sintético-masivo)            | Dataset Sintético         | ✅ Completa  | —                |
 | [11](#fase-11--pyspark-local-docker)                | PySpark Local             | ⏳ Pendiente | Media            |
 | [12](#fase-12--airflow-orquestación-batch)          | Airflow                   | ⏳ Pendiente | Media            |
 | [13](#fase-13--data-warehouse-bigquery--dbt)        | Data Warehouse            | ⏳ Pendiente | Baja             |

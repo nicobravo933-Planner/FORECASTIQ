@@ -1,0 +1,111 @@
+# docker-compose.spark.yml — Fase 11: PySpark local
+#
+# Cluster Spark standalone para feature engineering y forecasting distribuido
+# sobre el dataset de 25k SKUs (~27M filas, 255 MB Parquet).
+#
+# Uso:
+#   docker compose -f docker-compose.spark.yml up -d
+#   docker compose -f docker-compose.spark.yml down
+#
+# UI disponibles una vez levantado:
+#   Spark Master Web UI: http://localhost:8080
+#   Spark Worker 1 UI:   http://localhost:8081
+#   Spark Worker 2 UI:   http://localhost:8082
+#   Jupyter Lab:         http://localhost:8888  (token: forecastiq)
+#
+# El directorio data/ y notebooks/ se montan como volúmenes read-write
+# para que el notebook pueda leer el Parquet y escribir resultados.
+
+services:
+
+  spark-master:
+    image: bitnami/spark:3.5
+    container_name: forecastiq-spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_MASTER_WEBUI_PORT=8080
+    ports:
+      - "8080:8080"   # Web UI
+      - "7077:7077"   # Spark master port (workers conectan acá)
+    volumes:
+      - ./data:/opt/bitnami/spark/data:ro          # Parquet dataset (read-only)
+      - spark_logs:/opt/bitnami/spark/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  spark-worker-1:
+    image: bitnami/spark:3.5
+    container_name: forecastiq-spark-worker-1
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_WORKER_WEBUI_PORT=8081
+    ports:
+      - "8081:8081"   # Worker 1 Web UI
+    volumes:
+      - ./data:/opt/bitnami/spark/data:ro
+      - spark_logs:/opt/bitnami/spark/logs
+    depends_on:
+      spark-master:
+        condition: service_healthy
+
+  spark-worker-2:
+    image: bitnami/spark:3.5
+    container_name: forecastiq-spark-worker-2
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_WORKER_WEBUI_PORT=8082
+    ports:
+      - "8082:8082"   # Worker 2 Web UI
+    volumes:
+      - ./data:/opt/bitnami/spark/data:ro
+      - spark_logs:/opt/bitnami/spark/logs
+    depends_on:
+      spark-master:
+        condition: service_healthy
+
+  jupyter:
+    image: jupyter/pyspark-notebook:spark-3.5.0
+    container_name: forecastiq-jupyter
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=forecastiq
+      - SPARK_MASTER=spark://spark-master:7077
+      # Python packages adicionales al arrancar
+      - PIP_PACKAGES=lightgbm polars pyarrow pandas matplotlib seaborn
+    ports:
+      - "8888:8888"   # Jupyter Lab UI
+    volumes:
+      - ./notebooks:/home/jovyan/work              # notebooks (read-write)
+      - ./data:/home/jovyan/data:ro                # Parquet dataset (read-only)
+      - ./scripts:/home/jovyan/scripts:ro          # scripts de referencia
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    command: >
+      bash -c "pip install lightgbm polars pyarrow --quiet &&
+               start-notebook.sh --NotebookApp.token='forecastiq'"
+
+volumes:
+  spark_logs:
+    driver: local

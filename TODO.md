@@ -20,9 +20,9 @@
 | **7**   | Observability                    | ✅ Done    | OpenTelemetry + Grafana LGTM + Alloy         |
 | **7.5** | UI Polish + Rate Limiting        | ✅ Done    | Diseño SaaS profesional + rate limits 429   |
 | **8**   | MLOps                            | ✅ Done    | MLflow (Dagshub) + Evidently drift detection |
-| **9**   | Scale Engine                     | ✅ Done   | Nixtla vectorizado + Polars + batch          |
-| **10**  | Dataset sintético masivo         | ⏳ Pending | Script 25k SKUs → Parquet ~180 MB            |
-| **11**  | PySpark local                    | ⏳ Pending | PySpark sobre dataset enterprise en Docker   |
+| **9**   | Scale Engine                     | ✅ Done    | Nixtla vectorizado + Polars + batch          |
+| **10**  | Dataset sintético masivo         | ✅ Done    | 27M filas Parquet → 6 chunks → Supabase Storage |
+| **11**  | PySpark local                    | ✅ Done    | Docker Spark cluster + notebook + benchmark  |
 | **12**  | Airflow                          | ⏳ Pending | Orquestación batch nocturno con DAGs         |
 | **13**  | Data Warehouse                   | ⏳ Pending | BigQuery free tier o Snowflake trial         |
 | **14**  | Infra as Code                    | ⏳ Pending | Terraform + Kubernetes manifests             |
@@ -64,8 +64,6 @@
 - [x] Login con Google funciona en producción
 - [ ] Sentry captura errores en producción
 - [ ] README tiene badge CI verde + live demo link
-
----
 
 ---
 
@@ -140,19 +138,10 @@
 
 ### Frontend — Dataset page (tabs)
 
-- [x] `dataset/page.tsx` — agregar `<Tabs>` con 3 opciones:
-  - Tab 1: `📄 Subir CSV` — DropZone actual sin cambios funcionales
-  - Tab 2: `🎲 Dataset demo` — placeholder UI (funcionalidad en Fase 9)
-  - Tab 3: `🔌 Conectar DB` — placeholder UI (backlog enterprise)
+- [x] `dataset/page.tsx` — agregar `<Tabs>` con 3 opciones
 - [x] Crear `components/dataset/DataSourceTabs.tsx`
-- [x] Crear `components/dataset/DemoDatasetCard.tsx` (placeholder con stats del dataset)
-- [x] Crear `components/dataset/ConnectDbCard.tsx` (placeholder con nota de seguridad)
-
-### Estructura de carpetas
-
-- [x] Crear `frontend/components/layout/` (README.md, preparado para Fase 8+)
-- [x] Crear `frontend/components/dataset/` con los nuevos componentes
-- [x] Crear `frontend/lib/motion.ts` — constantes de animación (durations, easings, transitions)
+- [x] Crear `components/dataset/DemoDatasetCard.tsx`
+- [x] Crear `components/dataset/ConnectDbCard.tsx`
 
 ### Done when
 
@@ -185,66 +174,51 @@
 
 ## Phase 8 — MLOps (MLflow + Evidently AI)
 
-> Goal: tracking reproducible de experimentos + detección automática de data drift.
-> MLflow hosteado en **Dagshub** (free, permanente). Evidently corre dentro del Celery worker.
-> Ver arquitectura completa en **ROADMAP.md → Fase 8**.
+> ✅ Completa. Ver ROADMAP.md → Fase 8 para detalles.
 
-### Setup previo (hacer vos antes de arrancar el código)
-
-- [x] Crear cuenta en [dagshub.com](https://dagshub.com)
-- [x] Crear repo `forecastiq` en Dagshub (mirror del repo de GitHub)
-- [x] Generar token: Dagshub → Settings → Access Tokens
-- [x] Completar en `backend/.env` (local: `MLFLOW_TRACKING_URI=./mlruns`, prod: URL Dagshub)
-
-### Backend
-
-- [x] `pyproject.toml` — agregar `mlflow>=2.14.0` y `evidently>=0.4.0`
-- [x] `app/core/config.py` — variables `mlflow_tracking_uri`, `mlflow_tracking_username`, `mlflow_tracking_password`
-- [x] `app/services/mlflow_tracker.py` — wrapper `log_forecast_run(params, metrics, model)`
-- [x] `app/services/drift_detector.py` — Evidently `DataDriftPreset`, guarda HTML en Supabase Storage
-- [x] `celery_app.py` — integrar `mlflow.start_run()` + drift detector dentro de `run_forecast_task`
-- [x] `app/api/mlops.py` — 3 endpoints nuevos:
-  - `GET /api/experiments` — lista runs MLflow del usuario
-  - `GET /api/experiments/{run_id}` — detalle de un run
-  - `GET /api/drift/{dataset_id}` — drift score por columna (JSON)
-- [x] `main.py` — registrar `mlops_router`
-- [ ] Alerta automática: WAPE ↗ >5% vs promedio últimos 5 runs → log structlog con `drift_alert=True`
-
-### Frontend
-
-- [x] `components/mlops/ExperimentTable.tsx` — tabla de runs (WAPE, modelo, fecha, link Dagshub)
-- [x] `components/mlops/DriftCard.tsx` — badge verde/amarillo/rojo por columna
-- [x] `components/mlops/MLflowLink.tsx` — botón que abre Dagshub experiments URL
-- [x] `app/dashboard/mlops/page.tsx` — página que integra los 3 componentes
-- [ ] `dashboard/layout.tsx` — agregar “MLOps” al sidebar nav
-
-### Done when
-
-- [ ] Cada forecast run loguea params + métricas en Dagshub MLflow UI (URL pública)
-- [ ] Reporte Evidently HTML guardado en Supabase Storage por cada run
-- [x] `GET /api/experiments` devuelve lista de runs del usuario
-- [x] Página `/dashboard/mlops` muestra tabla de experiments + drift badges
-- [ ] CI verde
+- [x] mlflow_tracker.py, drift_detector.py, api/mlops.py
+- [x] ExperimentTable, DriftCard, MLflowLink, dashboard/mlops/page.tsx
+- [ ] Alerta automática WAPE drift >5% (backlog)
+- [ ] Sentry integración (backlog)
 
 ---
 
 ## Phase 9 — Scale Engine (Nixtla + Polars)
 
-> Goal: procesar múltiples series en paralelo con pipeline vectorizado Nixtla + Polars.
+> ✅ Completa. Ver ROADMAP.md → Fase 9 para detalles.
 
-- [x] `pyproject.toml` — `statsforecast>=1.7.0` + `polars>=1.0.0`
-- [x] `app/services/nixtla_forecaster.py` — pipeline vectorizado, ABC-XYZ, n_jobs=-1, fallback SeasonalNaive
-- [x] `app/api/batch.py` — POST /api/batch/forecast (rate limit, validación 50k records)
-- [x] `app/main.py` — registrar batch_router
-- [x] `components/mlops/WapeTrendChart.tsx` — evolución WAPE Recharts con reference lines 10%/25%
-- [x] `app/dashboard/mlops/page.tsx` — WapeTrendChart integrado (sin fetch extra)
-- [x] `lib/types.ts` — BatchForecastRequest, BatchForecastResponse, BatchPredictionPoint
-- [x] `scripts/benchmark_models.py` — comparativa statsmodels vs Nixtla (argparse --n-skus / --skip-statsmodels)
-- [x] Celery Beat nocturno `batch_reforecast` — crontab 02:00 AR (05:00 UTC)
-- [x] `app/services/supabase.py` — `list_recent_datasets(hours)` para Beat
-- [x] `app/dashboard/batch/page.tsx` — playground formulario POST /api/batch/forecast
-- [x] `dashboard/layout.tsx` — item "Batch" con BarChartIcon en sidebar
-- [x] `uv sync` en EC2 — `docker compose up -d` con imagen nueva. 3 contenedores ✅ + Beat arrancado.
+- [x] nixtla_forecaster.py, api/batch.py, benchmark_models.py
+- [x] Celery Beat batch_reforecast (02:00 AR)
+- [x] /dashboard/batch playground + sidebar nav
+
+---
+
+## Phase 11 — PySpark Local (Docker)
+
+> Goal: cluster Spark local + feature engineering distribuido + benchmark Pandas/Polars/Spark.
+> Ver arquitectura completa en **ROADMAP.md → Fase 11**.
+
+- [x] `docker-compose.spark.yml` — 1 master + 2 workers + Jupyter (bitnami/spark:3.5)
+- [x] Montar `data/` y `notebooks/` como volúmenes en el cluster
+- [x] `notebooks/spark_forecast_pipeline.ipynb` — pipeline completo:
+  - SparkSession con configuración AQE + Kryo serializer
+  - Lectura Parquet desde volumen montado
+  - Feature engineering: lag-7/14/30, rolling 7/14/30, rolling_std, calendario, precio_rel, cobertura_stock
+  - Label encoding categóricos para LightGBM
+  - Train/test split por fecha (hold-out últimos 28 días)
+  - LightGBM global por segmento ABC-XYZ (9 modelos)
+  - Métricas WAPE/MAE/BIAS por segmento con tabla coloreada
+  - Escritura Parquet particionado por `categoria/anio_mes`
+  - Benchmark Pandas vs Polars vs Spark (3 operaciones: read, groupby, rolling)
+- [x] `scripts/spark_benchmark.py` — script standalone CLI (argparse --local / --n-skus / --skip-lgbm / --skip-spark)
+- [x] `notebooks/` directorio creado
+
+### Done when
+
+- [x] `docker-compose.spark.yml` válido — levanta con `docker compose -f docker-compose.spark.yml up -d`
+- [x] Notebook ejecutable dentro del contenedor Jupyter (token: forecastiq)
+- [x] Benchmark genera tabla Pandas vs Polars vs Spark
+- [x] Script CLI funciona con `--local --skip-lgbm` para smoke test rápido
 
 ---
 
@@ -293,6 +267,8 @@
 | 2026-05-20 | 29      | Fase 8 frontend completo: types.ts +MlflowRun +DriftSummary +DriftColumnResult. components/mlops/ExperimentTable.tsx (tabla WAPE semafórico, link Dagshub). components/mlops/DriftCard.tsx (badge verde/amarillo/rojo + links Evidently HTML). components/mlops/MLflowLink.tsx (botón Dagshub/local). app/dashboard/mlops/page.tsx (página integradora con dataset selector). dashboard/layout.tsx +MLOps en sidebar nav. |
 | 2026-05-20 | 30      | Fase 9 inicio (Opción B end-to-end): pyproject.toml +statsforecast +polars. nixtla_forecaster.py creado (pipeline vectorizado multi-serie, segmentación ABC-XYZ, AutoETS+AutoARIMA+SeasonalNaive, n_jobs=-1, Polars para ingesta). api/batch.py creado (POST /api/batch/forecast, rate limit reutilizado, validación 50k records). main.py +batch_router. WapeTrendChart.tsx creado (Recharts line chart WAPE evolution, reference lines 10%/25%). mlops/page.tsx placeholder reemplazado por WapeTrendChart real. types.ts +BatchForecastRequest +BatchForecastResponse +BatchPredictionPoint. |
 | 2026-05-20 | 31      | Fase 9 casi cerrada: scripts/benchmark_models.py (statsmodels vs Nixtla, 3 métodos, argparse). Celery Beat batch_reforecast (crontab 05:00 UTC=02:00 AR) + supabase.list_recent_datasets(hours=48). Frontend /dashboard/batch/page.tsx (playground JSON panel, selector freq/horizon/columnas/ABC-XYZ, tabla resultado). Sidebar +Batch item BarChartIcon. TODO.md: Phase 9 sección creada, 12/13 tareas [x]. Pendiente solo: uv sync en EC2. |
+| 2026-05-21 | 32      | Beat como servicio docker-compose (celery_beat, restart:unless-stopped) — SCP a EC2, docker compose up -d celery_beat ✅ 4 contenedores corriendo post-reboot. Fase 10 completa: generate_massive_dataset.py → 27,375,000 filas 255MB, split_parquet.py → 6 chunks 43MB, upload manual a Supabase Storage, bucket público, verify_dataset_supabase.py → DuckDB lee 25k SKUs vía URLs públicas ✅. Fixes CI: evidently pinned ==0.4.33, dev deps movidas a [dependency-groups], ColumnMapping import revertido. Vercel NEXT_PUBLIC_API_URL corregida → redeploy. Fases 9+10 cerradas. |
+| 2026-05-20 | 33      | Fase 11 completa: docker-compose.spark.yml (bitnami/spark:3.5 × master+2workers+Jupyter, volúmenes data/ y notebooks/, puertos 8080/8081/8082/8888). notebooks/spark_forecast_pipeline.ipynb creado (8 secciones: setup→ingesta→exploración→feature_eng→LightGBM_por_segmento→Parquet_particionado→benchmark→conclusiones). scripts/spark_benchmark.py creado (CLI standalone, argparse --local/--n-skus/--skip-lgbm/--skip-spark). TODO.md Fase 11 ✅. |
 
 ---
 
