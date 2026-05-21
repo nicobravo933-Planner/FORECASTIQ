@@ -18,6 +18,19 @@ export interface UploadResponse {
   columns: string[]
 }
 
+export interface DatasetListItem {
+  dataset_id: string
+  filename:   string
+  rows:       number | null
+  columns:    string[]
+  created_at: string
+}
+
+export interface DatasetListResponse {
+  datasets: DatasetListItem[]
+  total:    number
+}
+
 export interface DatasetColumn {
   name: string
   dtype: "datetime" | "numeric" | "text" | "unknown"

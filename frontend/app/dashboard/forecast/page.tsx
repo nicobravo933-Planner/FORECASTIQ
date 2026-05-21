@@ -1,8 +1,14 @@
 "use client"
 
 /**
- * Forecast page — Phase 2.
- * Flow: configure → run → polling progress → chart + metrics
+ * Forecast page — UX-3.
+ *
+ * Layout:
+ *   Desktop (md+): 2 columns — config panel (left) | chart + metrics (right)
+ *   Mobile (xs–sm): stacked
+ *
+ * Column selectors are driven by real preview data from the backend.
+ * Config state is managed locally and persisted to appStore on run.
  */
 
 import { useEffect, useRef, useState } from "react"
@@ -12,37 +18,22 @@ import Alert from "@mui/material/Alert"
 import Button from "@mui/material/Button"
 import LinearProgress from "@mui/material/LinearProgress"
 import Paper from "@mui/material/Paper"
-import TextField from "@mui/material/TextField"
-import MenuItem from "@mui/material/MenuItem"
-import Skeleton from "@mui/material/Skeleton"
 import Switch from "@mui/material/Switch"
 import FormControlLabel from "@mui/material/FormControlLabel"
 import Chip from "@mui/material/Chip"
+import Skeleton from "@mui/material/Skeleton"
+import Divider from "@mui/material/Divider"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import PlayArrowIcon from "@mui/icons-material/PlayArrow"
 import EventIcon from "@mui/icons-material/Event"
+import TuneIcon from "@mui/icons-material/Tune"
 import { useForecast } from "@/hooks/useForecast"
 import { appStore } from "@/lib/appStore"
-import { HorizonSelector } from "@/components/forecast/HorizonSelector"
+import { ForecastConfigPanel, type ForecastConfig } from "@/components/forecast/ForecastConfigPanel"
 import { ForecastChart } from "@/components/forecast/ForecastChart"
 import { MetricsCard } from "@/components/forecast/MetricsCard"
 import type { DataFreq, ModelName, PredictionPoint } from "@/lib/types"
 import { api } from "@/lib/api"
-
-const MODEL_OPTIONS: { value: ModelName | "auto"; label: string }[] = [
-  { value: "auto",          label: "Auto-detectar (recomendado)" },
-  { value: "moving_average", label: "Promedio Móvil" },
-  { value: "holt_winters",   label: "Holt-Winters" },
-  { value: "sarima",         label: "SARIMA" },
-  { value: "lightgbm",       label: "LightGBM" },
-]
-
-const FREQ_OPTIONS: { value: DataFreq; label: string }[] = [
-  { value: "D", label: "Diaria" },
-  { value: "W", label: "Semanal" },
-  { value: "M", label: "Mensual" },
-  { value: "Q", label: "Trimestral" },
-]
 
 const MODEL_LABELS: Record<ModelName, string> = {
   moving_average: "Promedio Móvil",
@@ -51,10 +42,25 @@ const MODEL_LABELS: Record<ModelName, string> = {
   lightgbm:       "LightGBM",
 }
 
+// ── Page ───────────────────────────────────────────────────────────────────────
+
 export default function ForecastPage() {
   const forecast = useForecast()
 
-  // Persist job_id to appStore so Chat can access forecast context
+  // Consolidated config state — driven by ForecastConfigPanel
+  const [config, setConfig] = useState<ForecastConfig>({
+    datasetId:     appStore.getActiveDatasetId()    ?? "",
+    dateCol:       appStore.getActiveDateCol()       ?? "",
+    targetCol:     appStore.getActiveTargetCol()     ?? "",
+    freq:          (appStore.getActiveFreq() as DataFreq) ?? "M",
+    horizon:       12,
+    modelOverride: "auto",
+  })
+
+  const patchConfig = (patch: Partial<ForecastConfig>) =>
+    setConfig((prev) => ({ ...prev, ...patch }))
+
+  // Persist job_id to appStore for Chat context
   const jobPersisted = useRef(false)
   useEffect(() => {
     if (forecast.stage === "done" && forecast.jobId && !jobPersisted.current) {
@@ -64,24 +70,16 @@ export default function ForecastPage() {
     if (forecast.stage === "idle") jobPersisted.current = false
   }, [forecast.stage, forecast.jobId])
 
-  // Form state — pre-filled from appStore if the user came from the Dataset page
-  const [datasetId,    setDatasetId]    = useState(() => appStore.getActiveDatasetId()    ?? "")
-  const [dateCol,      setDateCol]      = useState(() => appStore.getActiveDateCol()       ?? "")
-  const [targetCol,    setTargetCol]    = useState(() => appStore.getActiveTargetCol()     ?? "")
-  const [freq,         setFreq]         = useState<DataFreq>(() => (appStore.getActiveFreq() as DataFreq) ?? "M")
-  const [horizon,      setHorizon]      = useState(12)
-  const [modelOverride, setModelOverride] = useState<ModelName | "auto">("auto")
-
-  // Events toggle state
-  const [eventsOn, setEventsOn]       = useState(false)
-  const [compareData, setCompareData] = useState<PredictionPoint[] | null>(null)
-  const [eventsCount, setEventsCount] = useState(0)
+  // Events overlay
+  const [eventsOn, setEventsOn]           = useState(false)
+  const [compareData, setCompareData]     = useState<PredictionPoint[] | null>(null)
+  const [eventsCount, setEventsCount]     = useState(0)
   const [loadingCompare, setLoadingCompare] = useState(false)
 
   const handleEventsToggle = async (checked: boolean) => {
     setEventsOn(checked)
     if (!checked || !forecast.result) return
-    if (compareData) return // already fetched
+    if (compareData) return
     setLoadingCompare(true)
     try {
       const res = await api.get<{
@@ -89,13 +87,9 @@ export default function ForecastPage() {
         events_applied: number
       }>(`/api/forecast/${forecast.result.job_id}/compare`)
       setEventsCount(res.events_applied)
-      // Map compare points to PredictionPoint shape (using with_events as predicted)
       setCompareData(
         res.predictions.map((p) => ({
-          date:      p.date,
-          predicted: p.with_events,
-          lower:     p.lower,
-          upper:     p.upper,
+          date: p.date, predicted: p.with_events, lower: p.lower, upper: p.upper,
         }))
       )
     } catch {
@@ -106,28 +100,47 @@ export default function ForecastPage() {
   }
 
   const isRunning = forecast.stage === "submitting" || forecast.stage === "polling"
-  const canRun    = datasetId.trim() && dateCol.trim() && targetCol.trim() && !isRunning
+
+  const canRun =
+    config.datasetId.trim() !== "" &&
+    config.dateCol.trim()   !== "" &&
+    config.targetCol.trim() !== "" &&
+    config.dateCol          !== config.targetCol &&
+    !isRunning
 
   const handleRun = () => {
+    // Persist config to appStore before running
+    appStore.setActiveDataset(config.datasetId, config.dateCol, config.targetCol, config.freq)
     forecast.runForecast({
-      dataset_id:     datasetId.trim(),
-      date_column:    dateCol.trim(),
-      target_column:  targetCol.trim(),
-      freq,
-      horizon,
-      model_override: modelOverride === "auto" ? null : modelOverride,
+      dataset_id:     config.datasetId.trim(),
+      date_column:    config.dateCol.trim(),
+      target_column:  config.targetCol.trim(),
+      freq:           config.freq,
+      horizon:        config.horizon,
+      model_override: config.modelOverride === "auto" ? null : config.modelOverride,
     })
   }
 
+  const isDone    = forecast.stage === "done"
+  const isFailed  = forecast.stage === "failed"
+  const isIdle    = forecast.stage === "idle"
+
+  // Whether to show results panel alongside config
+  const showResults = isDone && forecast.result != null
+
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+
+      {/* ── Page header ──────────────────────────────────────────────────── */}
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <Box>
-          <Typography variant="h4" color="text.primary" fontWeight={700}>
-            Forecast
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: "0.25rem" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "0.625rem", mb: "0.25rem" }}>
+            <TuneIcon sx={{ color: "primary.main", fontSize: "1.5rem" }} />
+            <Typography variant="h4" color="text.primary" fontWeight={700}>
+              Forecast
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary">
             Configurá los parámetros y generá una proyección con intervalos de confianza.
           </Typography>
         </Box>
@@ -136,7 +149,7 @@ export default function ForecastPage() {
             variant="outlined"
             size="small"
             startIcon={<RestartAltIcon />}
-            onClick={forecast.reset}
+            onClick={() => { forecast.reset(); setEventsOn(false); setCompareData(null) }}
             color="inherit"
             disabled={isRunning}
           >
@@ -145,181 +158,205 @@ export default function ForecastPage() {
         )}
       </Box>
 
-      {/* Active dataset context banner */}
-      {datasetId && forecast.stage === "idle" && (
-        <Alert
-          severity="info"
-          sx={{ fontSize: "0.8125rem", py: "0.25rem" }}
-          action={
-            <Button
-              size="small"
-              color="inherit"
-              href="/dashboard/dataset"
-              sx={{ fontSize: "0.75rem", textTransform: "none" }}
-            >
-              Cambiar
-            </Button>
-          }
-        >
-          Dataset activo: <strong>{dateCol}</strong> · <strong>{targetCol}</strong>
-          {" "}&nbsp;·&nbsp; ID: <code style={{ fontSize: "0.7rem" }}>{datasetId.slice(0, 8)}…</code>
-        </Alert>
-      )}
+      {/* ── 2-column layout ──────────────────────────────────────────────── */}
+      <Box
+        sx={{
+          display: "grid",
+          // Left column fixed ~26rem, right takes remaining space
+          // On mobile: single column
+          gridTemplateColumns: { xs: "1fr", md: "26rem 1fr" },
+          gap: "1.5rem",
+          alignItems: "start",
+        }}
+      >
 
-      {/* Config panel */}
-      {(forecast.stage === "idle" || forecast.stage === "failed") && (
-        <Paper variant="outlined" sx={{ p: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
-            Parámetros del forecast
-          </Typography>
-
-          {/* Dataset ID + columns */}
-          <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <TextField
-              label="Dataset ID"
-              size="small"
-              value={datasetId}
-              onChange={(e) => setDatasetId(e.target.value)}
-              placeholder="UUID del dataset subido"
-              sx={{ flex: "1 1 14rem" }}
-              helperText={datasetId ? "Auto-completado desde Dataset" : "Subí un CSV en la página Dataset"}
-              color={datasetId ? "success" : "primary"}
-            />
-            <TextField
-              label="Columna fecha"
-              size="small"
-              value={dateCol}
-              onChange={(e) => setDateCol(e.target.value)}
-              placeholder="ej. fecha"
-              sx={{ flex: "1 1 8rem" }}
-            />
-            <TextField
-              label="Columna objetivo"
-              size="small"
-              value={targetCol}
-              onChange={(e) => setTargetCol(e.target.value)}
-              placeholder="ej. ventas_unidades"
-              sx={{ flex: "1 1 10rem" }}
-            />
-          </Box>
-
-          {/* Freq + model */}
-          <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <TextField
-              select
-              label="Frecuencia"
-              size="small"
-              value={freq}
-              onChange={(e) => setFreq(e.target.value as DataFreq)}
-              sx={{ width: "10rem" }}
-            >
-              {FREQ_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Modelo"
-              size="small"
-              value={modelOverride}
-              onChange={(e) => setModelOverride(e.target.value as ModelName | "auto")}
-              sx={{ width: "16rem" }}
-            >
-              {MODEL_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-              ))}
-            </TextField>
-          </Box>
-
-          {/* Horizon */}
-          <HorizonSelector value={horizon} onChange={setHorizon} />
-
-          {/* Run button */}
-          <Box>
-            <Button
-              variant="contained"
-              startIcon={<PlayArrowIcon />}
-              onClick={handleRun}
-              disabled={!canRun}
-              sx={{ px: "1.5rem" }}
-            >
-              Generar forecast
-            </Button>
-          </Box>
-        </Paper>
-      )}
-
-      {/* Error */}
-      {forecast.stage === "failed" && forecast.error && (
-        <Alert severity="error">{forecast.error}</Alert>
-      )}
-
-      {/* Progress bar while running */}
-      {isRunning && (
-        <Paper variant="outlined" sx={{ p: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Typography variant="body2" color="text.secondary">
-              {forecast.step || "Procesando..."}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {forecast.progressPct}%
-            </Typography>
-          </Box>
-          <LinearProgress
-            variant="determinate"
-            value={forecast.progressPct}
-            sx={{ borderRadius: "0.25rem", height: "0.5rem" }}
-          />
-        </Paper>
-      )}
-
-      {/* Skeleton while polling result */}
-      {forecast.stage === "polling" && forecast.progressPct >= 95 && (
+        {/* ── LEFT: config panel ──────────────────────────────────────────── */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <Skeleton variant="rounded" height={320} />
-          <Skeleton variant="rounded" height={80} />
-        </Box>
-      )}
+          {(isIdle || isFailed) && (
+            <Paper variant="outlined" sx={{ p: "1.5rem" }}>
+              <ForecastConfigPanel
+                config={config}
+                onChange={patchConfig}
+                disabled={isRunning}
+              />
 
-      {/* Results */}
-      {forecast.stage === "done" && forecast.result && (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Events toggle */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={eventsOn}
-                  onChange={(e) => handleEventsToggle(e.target.checked)}
-                  disabled={loadingCompare}
-                />
-              }
-              label={
-                <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <EventIcon fontSize="small" sx={{ color: "text.secondary" }} />
-                  <Typography variant="body2">Ver con eventos</Typography>
-                  {eventsOn && eventsCount > 0 && (
-                    <Chip label={`${eventsCount} evento${eventsCount > 1 ? "s" : ""} activo${eventsCount > 1 ? "s" : ""}`} size="small" color="primary" />
-                  )}
-                  {eventsOn && eventsCount === 0 && (
-                    <Chip label="Sin eventos con impacto" size="small" variant="outlined" />
-                  )}
-                </Box>
-              }
-            />
-          </Box>
+              <Divider sx={{ my: "1.25rem" }} />
 
-          <ForecastChart
-            historical={forecast.result.historical}
-            predictions={eventsOn && compareData ? compareData : forecast.result.predictions}
-            modelName={MODEL_LABELS[forecast.result.model_used]}
-          />
-          <MetricsCard
-            metrics={forecast.result.metrics}
-            modelUsed={forecast.result.model_used}
-          />
+              <Button
+                variant="contained"
+                startIcon={<PlayArrowIcon />}
+                onClick={handleRun}
+                disabled={!canRun}
+                fullWidth
+                sx={{ py: "0.625rem" }}
+              >
+                Generar forecast
+              </Button>
+            </Paper>
+          )}
+
+          {/* Progress — shown in left column while running */}
+          {isRunning && (
+            <Paper variant="outlined" sx={{ p: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+                Procesando…
+              </Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  {forecast.step || "Iniciando…"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {forecast.progressPct}%
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={forecast.progressPct}
+                sx={{ borderRadius: "0.25rem", height: "0.5rem" }}
+              />
+              {/* Summary of selected config */}
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", pt: "0.25rem" }}>
+                {[
+                  config.datasetId.slice(0, 8) + "…",
+                  config.dateCol,
+                  config.targetCol,
+                  config.freq,
+                  `+${config.horizon}p`,
+                ].map((label) => (
+                  <Chip
+                    key={label}
+                    label={label}
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontSize: "0.6875rem", height: "1.375rem", color: "text.disabled" }}
+                  />
+                ))}
+              </Box>
+            </Paper>
+          )}
+
+          {/* Config summary after done — compact re-run card */}
+          {isDone && (
+            <Paper variant="outlined" sx={{ p: "1.25rem", display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+              <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+                Configuración activa
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
+                {[
+                  { label: "Dataset", value: config.datasetId.slice(0, 8) + "…" },
+                  { label: "Fecha",   value: config.dateCol },
+                  { label: "Obj.",    value: config.targetCol },
+                  { label: "Freq",    value: config.freq },
+                  { label: "Horizon", value: `+${config.horizon}p` },
+                ].map(({ label, value }) => (
+                  <Box
+                    key={label}
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      bgcolor: "action.hover",
+                      borderRadius: "0.375rem",
+                      px: "0.625rem",
+                      py: "0.375rem",
+                      minWidth: "4rem",
+                    }}
+                  >
+                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.625rem" }}>
+                      {label}
+                    </Typography>
+                    <Typography variant="caption" fontWeight={600} color="text.primary" sx={{ fontSize: "0.75rem" }}>
+                      {value}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+
+              {/* Events toggle */}
+              <Divider />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={eventsOn}
+                    onChange={(e) => handleEventsToggle(e.target.checked)}
+                    disabled={loadingCompare}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <EventIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                    <Typography variant="body2">Ver con eventos</Typography>
+                    {eventsOn && eventsCount > 0 && (
+                      <Chip label={`${eventsCount} evento${eventsCount > 1 ? "s" : ""}`} size="small" color="primary" />
+                    )}
+                    {eventsOn && eventsCount === 0 && (
+                      <Chip label="Sin eventos" size="small" variant="outlined" />
+                    )}
+                  </Box>
+                }
+              />
+            </Paper>
+          )}
         </Box>
-      )}
+
+        {/* ── RIGHT: results panel ─────────────────────────────────────────── */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem", minWidth: 0 }}>
+
+          {/* Error */}
+          {isFailed && forecast.error && (
+            <Alert severity="error">{forecast.error}</Alert>
+          )}
+
+          {/* Skeleton while last polling */}
+          {isRunning && forecast.progressPct >= 80 && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <Skeleton variant="rounded" height={320} />
+              <Skeleton variant="rounded" height={80} />
+            </Box>
+          )}
+
+          {/* Idle placeholder */}
+          {isIdle && (
+            <Paper
+              variant="outlined"
+              sx={{
+                p: "3rem",
+                display: { xs: "none", md: "flex" },
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.75rem",
+                borderStyle: "dashed",
+                borderRadius: "0.75rem",
+              }}
+            >
+              <TuneIcon sx={{ fontSize: "3rem", color: "text.disabled" }} />
+              <Typography variant="h6" color="text.secondary">
+                Los resultados aparecen aquí
+              </Typography>
+              <Typography variant="body2" color="text.disabled" textAlign="center" maxWidth="22rem">
+                Configurá los parámetros a la izquierda y presioná&nbsp;
+                <strong>Generar forecast</strong>.
+              </Typography>
+            </Paper>
+          )}
+
+          {/* Results */}
+          {showResults && (
+            <>
+              <ForecastChart
+                historical={forecast.result!.historical}
+                predictions={eventsOn && compareData ? compareData : forecast.result!.predictions}
+                modelName={MODEL_LABELS[forecast.result!.model_used]}
+              />
+              <MetricsCard
+                metrics={forecast.result!.metrics}
+                modelUsed={forecast.result!.model_used}
+              />
+            </>
+          )}
+        </Box>
+
+      </Box>
     </Box>
   )
 }

@@ -64,3 +64,6 @@ desktop.ini
 # ─── Documentación personal (no subir) ───────────────────────
 EC2_MANUAL_OPERACIONES.md
 .gitignore_append.txt
+
+# ─── Carpeta de referencia IA (local only) ────────────────────
+frontend/public/ai_muestra/

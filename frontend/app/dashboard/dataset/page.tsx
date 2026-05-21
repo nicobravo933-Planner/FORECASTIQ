@@ -43,7 +43,7 @@ export default function DatasetPage() {
       persisted.current = true
     }
     if (dataset.stage === "idle") persisted.current = false
-  }, [dataset.stage, dataset.datasetId, dataset.detection])
+  }, [dataset.stage, dataset.datasetId, dataset.detection, dataset.selectedDateColumn, dataset.selectedTargetColumn, dataset.selectedFreq])
 
   // ── CSV upload flow (Tab 0 content) ─────────────────────────────────────────
   const csvFlow = (

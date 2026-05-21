@@ -17,7 +17,12 @@ from pydantic import BaseModel
 from app.core.dependencies import OptionalUser
 from app.ml.detector import DetectionResult, detect_best_model
 from app.services.redis_cache import check_upload_rate_limit
-from app.services.supabase import download_csv, register_dataset, upload_csv
+from app.services.supabase import (
+    download_csv,
+    list_user_datasets,
+    register_dataset,
+    upload_csv,
+)
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
@@ -26,6 +31,19 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 # ── Schemas de respuesta ───────────────────────────────────────────────────────
+
+
+class DatasetListItem(BaseModel):
+    dataset_id: str
+    filename: str
+    rows: int | None
+    columns: list[str]
+    created_at: str
+
+
+class DatasetListResponse(BaseModel):
+    datasets: list[DatasetListItem]
+    total: int
 
 
 class UploadResponse(BaseModel):
@@ -93,6 +111,35 @@ def _parse_csv(content: bytes) -> pd.DataFrame:
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
+
+# ── List ─────────────────────────────────────────────────────────────────────
+
+
+@router.get("/", response_model=DatasetListResponse)
+async def list_datasets(user: OptionalUser = None) -> DatasetListResponse:
+    """
+    Lista todos los datasets subidos por el usuario autenticado.
+    Requiere sesión activa — sin auth retorna lista vacía.
+    """
+    if not user:
+        return DatasetListResponse(datasets=[], total=0)
+
+    rows = list_user_datasets(user_id=str(user.user_id))
+    items = [
+        DatasetListItem(
+            dataset_id=r["dataset_id"],
+            filename=r["filename"],
+            rows=r.get("rows"),
+            columns=r.get("columns") or [],
+            created_at=r.get("created_at", ""),
+        )
+        for r in rows
+    ]
+    return DatasetListResponse(datasets=items, total=len(items))
+
+
+# ── Upload ────────────────────────────────────────────────────────────────────
 
 
 @router.post("/upload", response_model=UploadResponse, status_code=201)

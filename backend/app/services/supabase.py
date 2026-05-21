@@ -126,6 +126,25 @@ def get_forecast_history(user_id: str, page: int = 1, page_size: int = 20) -> li
     return [dict(row) for row in data if isinstance(row, dict)]
 
 
+def list_user_datasets(user_id: str) -> list[dict[str, Any]]:
+    """
+    Lista todos los datasets de un usuario, ordenados por fecha de creación DESC.
+    Usa service key (bypasea RLS) pero filtra manualmente por user_id.
+    """
+    client = get_supabase()
+    response = (
+        client.table("datasets")
+        .select("dataset_id, filename, rows, columns, created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    data = response.data
+    if not data or not isinstance(data, list):
+        return []
+    return [dict(row) for row in data if isinstance(row, dict)]
+
+
 def list_recent_datasets(hours: int = 48) -> list[dict[str, Any]]:
     """
     Lista los datasets registrados en las últimas `hours` horas.

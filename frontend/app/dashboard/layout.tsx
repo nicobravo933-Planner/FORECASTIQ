@@ -11,6 +11,7 @@ import ChatIcon from "@mui/icons-material/Chat";
 import ScienceIcon from "@mui/icons-material/Science";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
+import StorageIcon from "@mui/icons-material/Storage";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
@@ -31,19 +32,20 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { signOut, useSession } from "@/lib/auth-client";
 
-const SIDEBAR_WIDTH = "14rem";
+const SIDEBAR_WIDTH = "15rem";
 
 const NAV_ITEMS = [
-	{ label: "Dataset", href: "/dashboard/dataset", icon: <UploadFileIcon /> },
-	{ label: "Forecast", href: "/dashboard/forecast", icon: <ShowChartIcon /> },
+	{ label: "Mis Datasets", href: "/dashboard/datasets", icon: <StorageIcon /> },
+	{ label: "Subir CSV",    href: "/dashboard/dataset",  icon: <UploadFileIcon /> },
+	{ label: "Forecast",    href: "/dashboard/forecast", icon: <ShowChartIcon /> },
 	{
 		label: "Calendario",
 		href: "/dashboard/calendar",
 		icon: <CalendarMonthIcon />,
 	},
-	{ label: "Chat IA", href: "/dashboard/chat", icon: <ChatIcon /> },
-	{ label: "MLOps", href: "/dashboard/mlops", icon: <ScienceIcon /> },
-	{ label: "Batch", href: "/dashboard/batch", icon: <BarChartIcon /> },
+	{ label: "Chat IA", href: "/dashboard/chat",     icon: <ChatIcon /> },
+	{ label: "MLOps",   href: "/dashboard/mlops",    icon: <ScienceIcon /> },
+	{ label: "Batch",   href: "/dashboard/batch",    icon: <BarChartIcon /> },
 	{ label: "Ajustes", href: "/dashboard/settings", icon: <SettingsIcon /> },
 ];
 
@@ -99,21 +101,22 @@ export default function DashboardLayout({
 				}}
 			>
 				{/* Logo */}
+				{/* Logo — single source, vertically centered, fixed height */}
 				<Box
 					sx={{
 						px: "1.25rem",
-						py: "1.25rem",
+						height: "3.5rem",
 						display: "flex",
 						alignItems: "center",
-						gap: "0.5rem",
+						flexShrink: 0,
 					}}
 				>
 					<Image
 						src="/logo_rectangular.png"
 						alt="forecastiq"
-						width={182}
-						height={42}
-						style={{ objectFit: "contain", objectPosition: "left" }}
+						width={148}
+						height={32}
+						style={{ objectFit: "contain", objectPosition: "left", maxWidth: "100%" }}
 						priority
 					/>
 				</Box>
@@ -123,7 +126,12 @@ export default function DashboardLayout({
 				{/* Nav */}
 				<List sx={{ px: "0.5rem", pt: "0.75rem", flex: 1 }}>
 					{NAV_ITEMS.map((item) => {
-						const active = pathname.startsWith(item.href);
+						// Exact match for dataset routes to avoid overlap between
+						// /dashboard/datasets and /dashboard/dataset
+						const active =
+							item.href === "/dashboard/dataset" || item.href === "/dashboard/datasets"
+								? pathname === item.href || pathname.startsWith(item.href + "/")
+								: pathname.startsWith(item.href);
 						return (
 							<ListItemButton
 								key={item.href}
@@ -242,14 +250,15 @@ export default function DashboardLayout({
 				</Menu>
 			</Drawer>
 
-			{/* Main content */}
+			{/* Main content — full width, no artificial cap */}
 			<Box
 				component="main"
 				sx={{
 					flex: 1,
-					p: "2rem",
+					minWidth: 0,
 					overflow: "auto",
-					maxWidth: "64rem",
+					px: { xs: "1rem", sm: "1.5rem", md: "2rem", lg: "2.5rem" },
+					py: "2rem",
 				}}
 			>
 				{children}
