@@ -10,16 +10,16 @@
 
 ## Índice
 
-| Fase                                                | Nombre                    | Estado       | Prioridad        |
-| --------------------------------------------------- | ------------------------- | ------------ | ---------------- |
-| [7.5](#fase-75--ui-polish--rate-limiting)           | UI Polish + Rate Limiting | ✅ Completa  | —                |
-| [8](#fase-8--mlops-mlflow--evidently-ai)            | MLOps                     | ✅ Completa  | —                |
-| [9](#fase-9--scale-engine-nixtla--polars)           | Scale Engine              | ✅ Completa  | —                |
-| [10](#fase-10--dataset-sintético-masivo)            | Dataset Sintético         | ✅ Completa  | —                |
-| [11](#fase-11--pyspark-local-docker)                | PySpark Local             | ⏳ Pendiente | Media            |
-| [12](#fase-12--airflow-orquestación-batch)          | Airflow                   | ⏳ Pendiente | Media            |
-| [13](#fase-13--data-warehouse-bigquery--dbt)        | Data Warehouse            | ⏳ Pendiente | Baja             |
-| [14](#fase-14--infra-as-code-terraform--kubernetes) | Infra as Code             | ⏳ Pendiente | Baja             |
+| Fase                                                | Nombre                    | Estado       | Prioridad |
+| --------------------------------------------------- | ------------------------- | ------------ | --------- |
+| [7.5](#fase-75--ui-polish--rate-limiting)           | UI Polish + Rate Limiting | ✅ Completa  | —         |
+| [8](#fase-8--mlops-mlflow--evidently-ai)            | MLOps                     | ✅ Completa  | —         |
+| [9](#fase-9--scale-engine-nixtla--polars)           | Scale Engine              | ✅ Completa  | —         |
+| [10](#fase-10--dataset-sintético-masivo)            | Dataset Sintético         | ✅ Completa  | —         |
+| [11](#fase-11--pyspark-local-docker)                | PySpark Local             | ⏳ Pendiente | Media     |
+| [12](#fase-12--airflow-orquestación-batch)          | Airflow                   | ⏳ Pendiente | Media     |
+| [13](#fase-13--data-warehouse-bigquery--dbt)        | Data Warehouse            | ⏳ Pendiente | Baja      |
+| [14](#fase-14--infra-as-code-terraform--kubernetes) | Infra as Code             | ⏳ Pendiente | Baja      |
 
 ---
 
@@ -52,6 +52,7 @@ frontend/lib/
 ```
 
 **Páginas rediseñadas:**
+
 - Login — split layout desktop / mobile-only panel derecho
 - Sidebar — logo PNG en lugar de texto
 - Dataset — 3 tabs: Subir CSV / Dataset demo (placeholder) / Conectar DB (placeholder)
@@ -101,6 +102,7 @@ GET  /api/drift/{dataset_id}       → drift score por columna (JSON)
 ### Alerta automática de drift
 
 Si WAPE del forecast más reciente sube >5% respecto al promedio de los últimos 5 runs:
+
 1. Log estructurado con `structlog` (campo `drift_alert=True`)
 2. (Futuro) Email al usuario via Resend/SendGrid
 
@@ -180,6 +182,7 @@ CELERYBEAT_SCHEDULE = {
 ### Benchmark
 
 Script `scripts/benchmark_models.py` — compara sobre 1k SKUs:
+
 - `statsmodels` (loop)
 - `StatsForecast` (Nixtla vectorizado)
 - `MLForecast` + LightGBM (modelo global)
@@ -277,6 +280,7 @@ services:
 ### Notebook
 
 `notebooks/spark_forecast_pipeline.ipynb`:
+
 1. Leer Parquet desde Supabase Storage (o local)
 2. Feature engineering: lag-7, lag-30, rolling mean 7/30, day_of_week, month
 3. Forecast por partición (`mapPartitions` sobre `unique_id`) con LightGBM local
@@ -321,11 +325,11 @@ mlflow_cleanup_monthly  (cron: 0 0 1 * *)
 
 ### Comparativa de orquestadores
 
-| Orquestador | Cuándo usarlo                                  | Ventaja                    | Desventaja                           |
-| ----------- | ---------------------------------------------- | -------------------------- | ------------------------------------ |
-| Celery Beat | Jobs simples, misma codebase                   | Sin overhead adicional     | Sin UI, difícil de monitorear        |
-| Airflow     | Pipelines complejos, dependencias entre tareas | UI, retry, SLA, sensors    | Pesado (PostgreSQL + Redis + workers)|
-| Prefect     | Python-native, equipos modernos                | UI cloud, fácil de operar  | Vendor lock-in en cloud              |
+| Orquestador | Cuándo usarlo                                  | Ventaja                   | Desventaja                            |
+| ----------- | ---------------------------------------------- | ------------------------- | ------------------------------------- |
+| Celery Beat | Jobs simples, misma codebase                   | Sin overhead adicional    | Sin UI, difícil de monitorear         |
+| Airflow     | Pipelines complejos, dependencias entre tareas | UI, retry, SLA, sensors   | Pesado (PostgreSQL + Redis + workers) |
+| Prefect     | Python-native, equipos modernos                | UI cloud, fácil de operar | Vendor lock-in en cloud               |
 
 ---
 

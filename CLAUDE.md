@@ -675,6 +675,7 @@ Escalado: EC2 t2.micro (hoy) → K8s en GKE/EKS cuando se necesite >10 req/s sos
 ## 🧠 ML Decisions (closed — do not re-discuss)
 
 ### Models in scope
+
 ```
 moving_average   → baseline, series < 52 obs
 holt_winters     → trend + clear seasonality (workhorse)
@@ -684,6 +685,7 @@ prophet          → BACKLOG only (bad reputation, C deps)
 ```
 
 ### Evaluation metrics (Phase 2 evaluator.py)
+
 ```
 WAPE   → primary metric, industry standard (robust to zeros)
 MAE    → interpretable in business units
@@ -693,6 +695,7 @@ MAPE   → included with warning when zeros present
 ```
 
 ### Outlier strategy
+
 ```
 Phase 1 (detector.py): MAD detection only (threshold=3.0, modified Z-score)
 Phase 2 (before fit): Winsorization p5/p95
@@ -700,6 +703,7 @@ Never Z-score: assumes normality, bad for seasonal demand series
 ```
 
 ### Detector pipeline order
+
 ```
 1. MAD outlier detection
 2. FFT seasonality (numpy, candidate periods by freq)
