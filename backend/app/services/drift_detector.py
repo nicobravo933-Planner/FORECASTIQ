@@ -21,8 +21,8 @@ from typing import Any
 
 import pandas as pd
 import structlog
+from evidently import ColumnMapping
 from evidently.metrics import DataDriftTable
-from evidently.pipeline.column_mapping import ColumnMapping
 from evidently.report import Report
 
 from app.services.supabase import get_supabase

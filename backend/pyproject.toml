@@ -58,7 +58,7 @@ dependencies = [
     "opentelemetry-instrumentation-httpx>=0.46b0",     # traza llamadas LLM (httpx)
     # ── MLOps (Fase 8) ────────────────────────────────────────
     "mlflow>=2.14.0",                  # experiment tracking → Dagshub
-    "evidently>=0.4.30",               # data drift detection
+    "evidently==0.4.33",               # data drift detection — API fijada (v0.6+ rompe imports)
     "joblib>=1.4.0",                   # serialización de modelos ML
     # ── Scale Engine (Fase 9) ─────────────────────────────────
     "statsforecast>=1.7.0",            # Nixtla — vectorized multi-series forecasting
