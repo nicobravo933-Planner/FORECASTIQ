@@ -113,10 +113,10 @@ jobs:
             # Pull latest image
             docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
 
-            # Restart services with new image (zero-downtime swap)
+            # Restart services — prod override: solo backend + redis (sin worker pesado)
             cd /opt/forecastiq
-            docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 
             # Clean up old images
             docker image prune -f

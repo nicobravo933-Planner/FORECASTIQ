@@ -1,0 +1,18 @@
+# docker-compose.prod.yml — override para EC2 (solo API liviana)
+#
+# Uso en EC2:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Qué hace este override:
+#   - Deshabilita celery_worker y celery_beat en producción
+#   - El worker pesado (Nixtla, MLflow, Evidently, LightGBM) corre solo en local
+#   - EC2 queda con: backend (FastAPI) + redis únicamente
+
+services:
+  celery_worker:
+    deploy:
+      replicas: 0
+
+  celery_beat:
+    deploy:
+      replicas: 0
