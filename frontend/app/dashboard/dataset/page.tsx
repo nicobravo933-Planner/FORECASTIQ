@@ -29,15 +29,21 @@ import { ModelRecommendation } from "@/components/upload/ModelRecommendation"
 export default function DatasetPage() {
   const dataset = useDataset()
 
-  // Persist active dataset_id to appStore once detection is complete
+  // Persist active dataset context to appStore once detection is complete.
+  // This pre-fills the Forecast page so the user never has to copy-paste the dataset ID.
   const persisted = useRef(false)
   useEffect(() => {
-    if (dataset.stage === "done" && dataset.datasetId && !persisted.current) {
-      appStore.setActiveDataset(dataset.datasetId, "", "", "M")
+    if (dataset.stage === "done" && dataset.datasetId && dataset.detection && !persisted.current) {
+      appStore.setActiveDataset(
+        dataset.datasetId,
+        dataset.selectedDateColumn ?? "",
+        dataset.selectedTargetColumn ?? "",
+        dataset.selectedFreq ?? "M",
+      )
       persisted.current = true
     }
     if (dataset.stage === "idle") persisted.current = false
-  }, [dataset.stage, dataset.datasetId])
+  }, [dataset.stage, dataset.datasetId, dataset.detection])
 
   // ── CSV upload flow (Tab 0 content) ─────────────────────────────────────────
   const csvFlow = (

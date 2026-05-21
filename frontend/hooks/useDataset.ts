@@ -21,6 +21,10 @@ interface DatasetState {
   preview: DatasetPreview | null
   detection: DetectionResult | null
   error: string | null
+  // Saved when user runs detection — needed to pre-fill the Forecast page
+  selectedDateColumn: string | null
+  selectedTargetColumn: string | null
+  selectedFreq: DataFreq | null
 }
 
 const INITIAL: DatasetState = {
@@ -31,6 +35,9 @@ const INITIAL: DatasetState = {
   preview: null,
   detection: null,
   error: null,
+  selectedDateColumn: null,
+  selectedTargetColumn: null,
+  selectedFreq: null,
 }
 
 export function useDataset() {
@@ -107,7 +114,14 @@ export function useDataset() {
           `/api/datasets/${state.datasetId}/detect`,
           { date_column: dateColumn, target_column: targetColumn, freq },
         )
-        patch({ detection: result, stage: "done" })
+        // Save selected columns + freq so dataset/page can forward them to appStore
+        patch({
+          detection: result,
+          stage: "done",
+          selectedDateColumn: dateColumn,
+          selectedTargetColumn: targetColumn,
+          selectedFreq: freq,
+        })
       } catch (err) {
         patch({
           stage: "error",

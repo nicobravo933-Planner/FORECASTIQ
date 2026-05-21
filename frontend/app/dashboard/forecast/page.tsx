@@ -64,11 +64,11 @@ export default function ForecastPage() {
     if (forecast.stage === "idle") jobPersisted.current = false
   }, [forecast.stage, forecast.jobId])
 
-  // Form state
-  const [datasetId,    setDatasetId]    = useState("")
-  const [dateCol,      setDateCol]      = useState("")
-  const [targetCol,    setTargetCol]    = useState("")
-  const [freq,         setFreq]         = useState<DataFreq>("M")
+  // Form state — pre-filled from appStore if the user came from the Dataset page
+  const [datasetId,    setDatasetId]    = useState(() => appStore.getActiveDatasetId()    ?? "")
+  const [dateCol,      setDateCol]      = useState(() => appStore.getActiveDateCol()       ?? "")
+  const [targetCol,    setTargetCol]    = useState(() => appStore.getActiveTargetCol()     ?? "")
+  const [freq,         setFreq]         = useState<DataFreq>(() => (appStore.getActiveFreq() as DataFreq) ?? "M")
   const [horizon,      setHorizon]      = useState(12)
   const [modelOverride, setModelOverride] = useState<ModelName | "auto">("auto")
 
@@ -145,6 +145,27 @@ export default function ForecastPage() {
         )}
       </Box>
 
+      {/* Active dataset context banner */}
+      {datasetId && forecast.stage === "idle" && (
+        <Alert
+          severity="info"
+          sx={{ fontSize: "0.8125rem", py: "0.25rem" }}
+          action={
+            <Button
+              size="small"
+              color="inherit"
+              href="/dashboard/dataset"
+              sx={{ fontSize: "0.75rem", textTransform: "none" }}
+            >
+              Cambiar
+            </Button>
+          }
+        >
+          Dataset activo: <strong>{dateCol}</strong> · <strong>{targetCol}</strong>
+          {" "}&nbsp;·&nbsp; ID: <code style={{ fontSize: "0.7rem" }}>{datasetId.slice(0, 8)}…</code>
+        </Alert>
+      )}
+
       {/* Config panel */}
       {(forecast.stage === "idle" || forecast.stage === "failed") && (
         <Paper variant="outlined" sx={{ p: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -161,7 +182,8 @@ export default function ForecastPage() {
               onChange={(e) => setDatasetId(e.target.value)}
               placeholder="UUID del dataset subido"
               sx={{ flex: "1 1 14rem" }}
-              helperText="Copialo desde la página Dataset"
+              helperText={datasetId ? "Auto-completado desde Dataset" : "Subí un CSV en la página Dataset"}
+              color={datasetId ? "success" : "primary"}
             />
             <TextField
               label="Columna fecha"
