@@ -272,6 +272,7 @@
 | 2026-05-21 | 35      | Fix EC2 CELERY_TASK_ALWAYS_EAGER (env corrompido detectado, fix sed + force-recreate). docker-compose.prod.yml creado en EC2. UX fix forecast page: useDataset guarda selectedDateColumn/targetCol/Freq, dataset/page.tsx persiste a appStore con valores reales, forecast/page.tsx pre-llena form desde appStore + banner dataset activo. Fase UX-1: layout.tsx — maxWidth eliminado, padding responsivo (xs→lg), sidebar 15rem, logo rectangular 148×32 altura fija 3.5rem. |
 | 2026-05-21 | 36      | UX-3 completa: hooks/useColumnPreview.ts (carga columnas desde /api/datasets/{id}/preview, cancellable effect). components/forecast/ForecastConfigPanel.tsx (dropdowns con tipos por columna, chips datetime/numeric/text, validación inline ✅/⚠️, fallback a TextFields sin dataset, auto-selección: primera datetime → fecha, primer numeric → objetivo). forecast/page.tsx reescrito: layout 2 columnas md+ / apilado mobile, config panel izquierda, gráfico + métricas derecha, config summary compacto post-run. |
 | 2026-05-21 | 37      | .gitignore +frontend/public/ai_muestra/ (carpeta referencia IA, local only). Commit general UX-1→UX-3: dataset manager, forecast 2 columnas, layout full-width, dropdowns con tipos de columna. |
+| 2026-05-21 | 38      | UX-4a completa: FloatingChat.tsx (FAB + Drawer 22rem, reutiliza useChat+ChatBox+QuickQuestions, badge contador mensajes, contexto appStore, se oculta en /dashboard/chat). layout.tsx +FloatingChat montado una sola vez para toda la app. |
 
 ---
 

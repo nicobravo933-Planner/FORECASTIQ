@@ -30,7 +30,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { signOut, useSession } from "@/lib/auth-client";
+import { signOut, useSession } from "@/lib/auth-client"
+import { FloatingChat } from "@/components/chat/FloatingChat";
 
 const SIDEBAR_WIDTH = "15rem";
 
@@ -263,6 +264,9 @@ export default function DashboardLayout({
 			>
 				{children}
 			</Box>
+
+			{/* Floating chat — visible in all dashboard routes except /dashboard/chat */}
+			<FloatingChat />
 		</Box>
 	);
 }
