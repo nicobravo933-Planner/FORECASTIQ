@@ -102,28 +102,36 @@
 ┌──────────────────────────────────────────────────────────────┐
 │                     Navegador del usuario                     │
 │              Next.js 14 + MUI v6 + TypeScript                │
-│          (Vercel — deploy automático en git push)             │
+│     (Vercel — deploy automático + proxy HTTPS → EC2)         │
 └─────────────────────────┬────────────────────────────────────┘
-                          │  REST + SSE
+                          │  REST + SSE (via Vercel proxy)
 ┌─────────────────────────▼────────────────────────────────────┐
-│                     Backend FastAPI                           │
+│                  Backend FastAPI (liviano)                    │
 │              Python 3.12 · UV · pydantic-settings            │
-│        (AWS EC2 t2.micro — Docker Compose, auto-deploy)      │
+│           (AWS EC2 t3.micro — solo API + Redis)              │
 │                                                              │
-│   ┌──────────────┐  ┌────────────────┐  ┌────────────────┐  │
-│   │  Motor ML    │  │  Router LLM    │  │  Celery Worker │  │
-│   │  detector.py │  │  OpenRouter    │  │  background    │  │
-│   │  Holt-Winters│  │  SSE streaming │  │  jobs ML       │  │
-│   │  LightGBM    │  │  multi-model   │  │  + MLflow      │  │
-│   └──────────────┘  └────────────────┘  └────────────────┘  │
-└──────┬──────────────────────────┬───────────────────────────-┘
+│        ┌──────────────┐        ┌────────────────┐           │
+│        │  Motor ML    │        │  Router LLM    │           │
+│        │  detector.py │        │  OpenRouter    │           │
+│        │  Holt-Winters│        │  SSE streaming │           │
+│        │  SARIMA      │        │  multi-model   │           │
+│        └──────────────┘        └────────────────┘           │
+└──────┬──────────────────────────┬───────────────────────────┘
        │                          │
-┌──────▼──────┐        ┌──────────▼──────────┐   ┌───────────┐
-│  Supabase   │        │    Upstash Redis     │   │  Dagshub  │
-│ PostgreSQL  │        │  Celery broker+cache │   │  MLflow   │
-│   Storage   │        │  (free permanente)   │   │  tracking │
-│ Auth + RLS  │        └─────────────────────-┘   └───────────┘
+┌──────▼──────┐        ┌──────────▼──────────┐
+│  Supabase   │        │    Upstash Redis     │
+│ PostgreSQL  │        │    cache + rate      │
+│   Storage   │        │    limiting          │
+│ Auth + RLS  │        └─────────────────────┘
 └─────────────┘
+
+── Pipeline ML Enterprise (corre en PC local / notebooks) ─────
+┌─────────────────────────────────────────────────────────────┐
+│  Nixtla StatsForecast · PySpark · MLflow → Dagshub          │
+│  Evidently drift · Airflow DAGs · LightGBM + Optuna HPO     │
+│  Dataset 25k SKUs × 3 años (27M filas) en Supabase Storage  │
+│  Resultados → Supabase → visibles en la app en producción   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
