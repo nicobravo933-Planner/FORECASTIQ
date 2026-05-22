@@ -36,36 +36,25 @@ const DRAWER_WIDTH = "22rem"
 export function FloatingChat() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const [model, setModel] = useState<LlmModelId>(FREE_MODELS[5].id) // DeepSeek V4 Flash
+  const [model, setModel] = useState<LlmModelId>(FREE_MODELS[5].id)
   const [input, setInput] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Read context from appStore (set by Dataset + Forecast pages)
   const [datasetId, setDatasetId] = useState<string | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
 
-  // Refresh context each time the drawer opens
   useEffect(() => {
     if (open) {
       const ctx = appStore.getChatContext()
       setDatasetId(ctx.datasetId)
       setJobId(ctx.jobId)
-      // Focus input after drawer animation settles
       setTimeout(() => inputRef.current?.focus(), 300)
     }
   }, [open])
 
-  const {
-    messages,
-    suggestions,
-    isStreaming,
-    activeToolCall,
-    error,
-    sendMessage,
-    clearMessages,
-  } = useChat({ datasetId, jobId })
+  const { messages, suggestions, isStreaming, activeToolCall, error, sendMessage, clearMessages } =
+    useChat({ datasetId, jobId })
 
-  // Hide FAB and drawer on the full chat page — redundant there
   if (pathname === "/dashboard/chat") return null
 
   const handleSend = async (text?: string) => {
@@ -123,7 +112,7 @@ export function FloatingChat() {
         open={open}
         onClose={handleClose}
         variant="temporary"
-        ModalProps={{ keepMounted: true }} // keep chat state while navigating
+        ModalProps={{ keepMounted: true }}
         sx={{
           "& .MuiDrawer-paper": {
             width: DRAWER_WIDTH,
@@ -140,36 +129,21 @@ export function FloatingChat() {
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          sx={{
-            px: "1rem",
-            py: "0.625rem",
-            borderBottom: "1px solid",
-            borderColor: "divider",
-            flexShrink: 0,
-          }}
+          sx={{ px: "1rem", py: "0.625rem", borderBottom: "1px solid", borderColor: "divider", flexShrink: 0 }}
         >
           <Stack direction="row" alignItems="center" spacing="0.5rem">
             <ChatIcon sx={{ fontSize: "1.125rem", color: "primary.main" }} />
             <Typography fontWeight={600} sx={{ fontSize: "0.9375rem" }}>
               Chat IA
             </Typography>
-            {/* Context indicator */}
             {datasetId && (
-              <Box
-                sx={{
-                  bgcolor: "success.main",
-                  borderRadius: "0.75rem",
-                  px: "0.5rem",
-                  py: "0.125rem",
-                }}
-              >
+              <Box sx={{ bgcolor: "success.main", borderRadius: "0.75rem", px: "0.5rem", py: "0.125rem" }}>
                 <Typography sx={{ fontSize: "0.625rem", color: "success.contrastText", fontWeight: 600 }}>
                   dataset activo
                 </Typography>
               </Box>
             )}
           </Stack>
-
           <Stack direction="row" alignItems="center" spacing="0.25rem">
             <Tooltip title="Limpiar conversación">
               <span>
@@ -197,27 +171,32 @@ export function FloatingChat() {
         </Box>
 
         {/* ── Messages ────────────────────────────────────────── */}
-        <ChatBox messages={messages} activeToolCall={activeToolCall} />
+        <ChatBox
+          messages={messages}
+          activeToolCall={activeToolCall}
+          isStreaming={isStreaming}
+          onQuickSelect={(q) => void handleSend(q)}
+        />
 
         {/* ── Error ───────────────────────────────────────────── */}
         {error && (
           <Box sx={{ px: "1rem", pb: "0.5rem", flexShrink: 0 }}>
-            <Typography color="error" sx={{ fontSize: "0.8125rem" }}>
-              ⚠️ {error}
-            </Typography>
+            <Typography color="error" sx={{ fontSize: "0.8125rem" }}>⚠️ {error}</Typography>
           </Box>
         )}
 
         <Divider />
 
-        {/* ── Quick questions ─────────────────────────────────── */}
-        <Box sx={{ px: "1rem", pt: "0.625rem", pb: "0.25rem", flexShrink: 0 }}>
-          <QuickQuestions
-            suggestions={suggestions.length > 0 ? suggestions : undefined}
-            onSelect={(q) => void handleSend(q)}
-            disabled={isStreaming}
-          />
-        </Box>
+        {/* ── Follow-up chips ─────────────────────────────────── */}
+        {suggestions.length > 0 && (
+          <Box sx={{ px: "1rem", pt: "0.625rem", pb: "0.25rem", flexShrink: 0 }}>
+            <QuickQuestions
+              suggestions={suggestions}
+              onSelect={(q) => void handleSend(q)}
+              disabled={isStreaming}
+            />
+          </Box>
+        )}
 
         {/* ── Input bar ───────────────────────────────────────── */}
         <Stack
@@ -237,12 +216,7 @@ export function FloatingChat() {
             onKeyDown={handleKeyDown}
             disabled={isStreaming}
             size="small"
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: "0.75rem",
-                fontSize: "0.875rem",
-              },
-            }}
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "0.75rem", fontSize: "0.875rem" } }}
           />
           <Tooltip title={isStreaming ? "Procesando…" : "Enviar (Enter)"}>
             <span>

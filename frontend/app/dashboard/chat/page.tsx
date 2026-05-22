@@ -1,12 +1,21 @@
 "use client"
 
 /**
- * Chat page — AI assistant with SSE streaming.
+ * Chat page — full-height AI assistant.
  *
- * Layout: top bar (title + model selector) | chat area | input bar + suggestions
+ * Layout (mirrors chat.html reference):
+ *   ┌─ header: avatar + title + context chips + model selector + clear ─┐
+ *   │  messages (flex:1, scrollable)                                     │
+ *   │  follow-up chips (when present)                                    │
+ *   └─ input bar ────────────────────────────────────────────────────────┘
  */
 
 import { useEffect, useRef, useState } from "react"
+import AutoGraphIcon from "@mui/icons-material/AutoGraph"
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
+import SendIcon from "@mui/icons-material/Send"
+import StorageIcon from "@mui/icons-material/Storage"
+import TimelineIcon from "@mui/icons-material/Timeline"
 import Alert from "@mui/material/Alert"
 import Box from "@mui/material/Box"
 import Chip from "@mui/material/Chip"
@@ -16,10 +25,6 @@ import Stack from "@mui/material/Stack"
 import TextField from "@mui/material/TextField"
 import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
-import SendIcon from "@mui/icons-material/Send"
-import StorageIcon from "@mui/icons-material/Storage"
-import TimelineIcon from "@mui/icons-material/Timeline"
 import { ChatBox } from "@/components/chat/ChatBox"
 import { ModelSelector } from "@/components/chat/ModelSelector"
 import { QuickQuestions } from "@/components/chat/QuickQuestions"
@@ -28,11 +33,10 @@ import { appStore } from "@/lib/appStore"
 import { FREE_MODELS, type LlmModelId } from "@/lib/types"
 
 export default function ChatPage() {
-  const [model, setModel] = useState<LlmModelId>(FREE_MODELS[5].id) // DeepSeek V4 Flash default
+  const [model, setModel] = useState<LlmModelId>(FREE_MODELS[5].id)
   const [input, setInput] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Read active dataset + job from appStore (set by Dataset + Forecast pages)
   const [datasetId, setDatasetId] = useState<string | null>(null)
   const [jobId, setJobId]         = useState<string | null>(null)
 
@@ -65,48 +69,76 @@ export default function ChatPage() {
       sx={{
         display: "flex",
         flexDirection: "column",
-        height: "calc(100vh - 4rem)", // full height minus topbar
+        // Full viewport height minus dashboard layout padding (py: 2rem = 32px top + 32px bottom)
+        height: "calc(100vh - 4rem)",
         bgcolor: "background.default",
+        borderRadius: "0.75rem",
+        overflow: "hidden",
+        border: "1px solid",
+        borderColor: "divider",
       }}
     >
-      {/* ── Top bar ──────────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────── */}
       <Stack
         direction="row"
         alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: "1.5rem", py: "0.75rem", borderBottom: 1, borderColor: "divider" }}
+        gap="0.75rem"
+        sx={{
+          px: "1rem",
+          py: "0.625rem",
+          bgcolor: "background.paper",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          flexShrink: 0,
+          boxShadow: 1,
+        }}
       >
-        <Stack>
-          <Typography variant="h6" fontWeight={700} sx={{ fontSize: "1.125rem" }}>
+        {/* Avatar */}
+        <Box
+          sx={{
+            width: "2rem",
+            height: "2rem",
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            boxShadow: "0 0.125rem 0.5rem rgba(99,102,241,0.35)",
+          }}
+        >
+          <AutoGraphIcon sx={{ fontSize: "1.125rem", color: "white" }} />
+        </Box>
+
+        {/* Title + context chips */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography fontWeight={600} sx={{ fontSize: "0.9375rem", lineHeight: 1.2 }}>
             AI Assistant
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
-            Ask questions about your data and forecast
-          </Typography>
-          {/* Context status chips */}
-          <Stack direction="row" spacing="0.375rem" sx={{ mt: "0.375rem" }}>
+          <Stack direction="row" spacing="0.375rem" sx={{ mt: "0.25rem" }}>
             <Chip
-              icon={<StorageIcon sx={{ fontSize: "0.875rem !important" }} />}
-              label={datasetId ? "Dataset cargado" : "Sin dataset"}
+              icon={<StorageIcon sx={{ fontSize: "0.75rem !important" }} />}
+              label={datasetId ? "Dataset activo" : "Sin dataset"}
               size="small"
               color={datasetId ? "success" : "default"}
               variant={datasetId ? "filled" : "outlined"}
-              sx={{ fontSize: "0.6875rem", height: "1.375rem" }}
+              sx={{ fontSize: "0.625rem", height: "1.25rem" }}
             />
             <Chip
-              icon={<TimelineIcon sx={{ fontSize: "0.875rem !important" }} />}
+              icon={<TimelineIcon sx={{ fontSize: "0.75rem !important" }} />}
               label={jobId ? "Forecast activo" : "Sin forecast"}
               size="small"
               color={jobId ? "success" : "default"}
               variant={jobId ? "filled" : "outlined"}
-              sx={{ fontSize: "0.6875rem", height: "1.375rem" }}
+              sx={{ fontSize: "0.625rem", height: "1.25rem" }}
             />
           </Stack>
-        </Stack>
+        </Box>
 
-        <Stack direction="row" alignItems="center" spacing="0.75rem">
+        {/* Controls */}
+        <Stack direction="row" alignItems="center" spacing="0.5rem" sx={{ flexShrink: 0 }}>
           <ModelSelector value={model} onChange={setModel} disabled={isStreaming} />
-          <Tooltip title="Clear conversation">
+          <Tooltip title="Limpiar conversación">
             <span>
               <IconButton
                 size="small"
@@ -114,70 +146,94 @@ export default function ChatPage() {
                 disabled={isStreaming || messages.length === 0}
                 sx={{ color: "text.secondary" }}
               >
-                <DeleteOutlineIcon fontSize="small" />
+                <DeleteOutlineIcon sx={{ fontSize: "1.125rem" }} />
               </IconButton>
             </span>
           </Tooltip>
         </Stack>
       </Stack>
 
-      {/* ── Error banner ─────────────────────────────────────── */}
+      {/* ── Error banner ─────────────────────────────────────────── */}
       {error && (
-        <Alert severity="error" sx={{ mx: "1.5rem", mt: "0.75rem", fontSize: "0.875rem" }}>
+        <Alert severity="error" sx={{ mx: "1rem", mt: "0.625rem", fontSize: "0.875rem", flexShrink: 0 }}>
           {error}
         </Alert>
       )}
 
-      {/* ── Messages ─────────────────────────────────────────── */}
-      <ChatBox messages={messages} activeToolCall={activeToolCall} />
+      {/* ── Messages ─────────────────────────────────────────────── */}
+      <ChatBox
+        messages={messages}
+        activeToolCall={activeToolCall}
+        isStreaming={isStreaming}
+        onQuickSelect={(q) => void handleSend(q)}
+      />
 
       <Divider />
 
-      {/* ── Quick questions ───────────────────────────────────── */}
-      <Box sx={{ px: "1.5rem", pt: "0.75rem", pb: "0.25rem" }}>
-        <QuickQuestions
-          suggestions={suggestions.length > 0 ? suggestions : undefined}
-          onSelect={(q) => void handleSend(q)}
-          disabled={isStreaming}
-        />
-      </Box>
+      {/* ── Follow-up chips ───────────────────────────────────────── */}
+      {suggestions.length > 0 && (
+        <Box sx={{ px: "1rem", pt: "0.625rem", pb: "0.25rem", flexShrink: 0 }}>
+          <QuickQuestions
+            suggestions={suggestions}
+            onSelect={(q) => void handleSend(q)}
+            disabled={isStreaming}
+          />
+        </Box>
+      )}
 
-      {/* ── Input bar ────────────────────────────────────────── */}
+      {/* ── Input bar ────────────────────────────────────────────── */}
       <Stack
         direction="row"
         alignItems="flex-end"
-        spacing="0.75rem"
-        sx={{ px: "1.5rem", py: "1rem" }}
+        spacing="0.5rem"
+        sx={{
+          px: "1rem",
+          py: "0.75rem",
+          bgcolor: "background.paper",
+          flexShrink: 0,
+        }}
       >
         <TextField
           inputRef={inputRef}
           fullWidth
           multiline
           maxRows={5}
-          placeholder="Ask about your data, forecast accuracy, seasonality…"
+          placeholder="Preguntá sobre tus datos, el forecast, la estacionalidad…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isStreaming}
           size="small"
           sx={{
-            "& .MuiOutlinedInput-root": { borderRadius: "0.75rem", fontSize: "0.9375rem" },
+            "& .MuiOutlinedInput-root": {
+              borderRadius: "0.625rem",
+              fontSize: "0.9375rem",
+              bgcolor: "background.default",
+            },
           }}
         />
-        <Tooltip title={isStreaming ? "Streaming…" : "Send (Enter)"}>
+        <Tooltip title={isStreaming ? "Procesando…" : "Enviar (Enter)"}>
           <span>
             <IconButton
               color="primary"
               disabled={!input.trim() || isStreaming}
               onClick={() => void handleSend()}
               sx={{
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
+                background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+                color: "white",
                 width: "2.5rem",
                 height: "2.5rem",
-                borderRadius: "0.75rem",
-                "&:hover": { bgcolor: "primary.dark" },
-                "&.Mui-disabled": { bgcolor: "action.disabledBackground" },
+                borderRadius: "0.625rem",
+                flexShrink: 0,
+                boxShadow: "0 0.125rem 0.5rem rgba(99,102,241,0.3)",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)",
+                  boxShadow: "0 0.25rem 0.75rem rgba(99,102,241,0.4)",
+                },
+                "&.Mui-disabled": {
+                  background: "action.disabledBackground",
+                  boxShadow: "none",
+                },
               }}
             >
               <SendIcon sx={{ fontSize: "1.125rem" }} />

@@ -1,22 +1,17 @@
 "use client"
 
 /**
- * QuickQuestions — chips for suggested follow-up questions.
- * Shows default suggestions when chat is empty,
- * and LLM-extracted suggestions after each response.
+ * QuickQuestions — follow-up suggestion chips.
+ *
+ * When suggestions come from the LLM: accent-colored pill chips with bolt icon,
+ * hover lift effect — mirrors .fu-chip from chat.html reference.
+ * When no suggestions: hidden (welcome screen handles the empty state).
  */
 
-import Chip from "@mui/material/Chip"
+import BoltIcon from "@mui/icons-material/Bolt"
+import Box from "@mui/material/Box"
 import Stack from "@mui/material/Stack"
 import Typography from "@mui/material/Typography"
-
-const DEFAULT_QUESTIONS = [
-  "¿Cuál fue el mes con mayor venta?",
-  "¿Cuánto error tiene el forecast actual?",
-  "¿Hay estacionalidad en los datos?",
-  "¿Qué modelo ML se usó y por qué?",
-  "¿Qué eventos impactan el forecast?",
-]
 
 interface QuickQuestionsProps {
   suggestions?: string[]
@@ -24,41 +19,63 @@ interface QuickQuestionsProps {
   disabled?: boolean
 }
 
-export function QuickQuestions({
-  suggestions,
-  onSelect,
-  disabled,
-}: QuickQuestionsProps) {
-  const items = suggestions && suggestions.length > 0 ? suggestions : DEFAULT_QUESTIONS
+export function QuickQuestions({ suggestions, onSelect, disabled }: QuickQuestionsProps) {
+  // Only render when there are LLM-generated suggestions
+  if (!suggestions || suggestions.length === 0) return null
 
   return (
-    <Stack spacing="0.5rem">
-      {suggestions && suggestions.length > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
-          Suggested follow-ups:
-        </Typography>
-      )}
-      <Stack direction="row" flexWrap="wrap" gap="0.5rem">
-        {items.map((q) => (
-          <Chip
+    <Stack spacing="0.375rem">
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ fontSize: "0.6875rem", display: "flex", alignItems: "center", gap: "0.25rem" }}
+      >
+        <BoltIcon sx={{ fontSize: "0.75rem", color: "primary.main" }} />
+        Sugerencias
+      </Typography>
+
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
+        {suggestions.map((q) => (
+          <Box
             key={q}
-            label={q}
-            size="small"
-            variant="outlined"
-            clickable
+            component="button"
             disabled={disabled}
             onClick={() => onSelect(q)}
             sx={{
-              fontSize: "0.8125rem",
-              height: "auto",
-              py: "0.25rem",
-              "& .MuiChip-label": { whiteSpace: "normal", textAlign: "left" },
-              maxWidth: "20rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.3125rem",
+              bgcolor: "rgba(99,102,241,0.08)",
+              border: "0.5px solid rgba(99,102,241,0.28)",
+              borderRadius: "999px",
+              px: "0.75rem",
+              py: "0.3125rem",
+              fontSize: "0.75rem",
+              color: "primary.main",
               cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.15s ease",
+              whiteSpace: "nowrap",
+              maxWidth: "22rem",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              "&:hover:not(:disabled)": {
+                bgcolor: "rgba(99,102,241,0.16)",
+                borderColor: "rgba(99,102,241,0.55)",
+                transform: "translateY(-0.0625rem)",
+                boxShadow: "0 0.125rem 0.5rem rgba(99,102,241,0.2)",
+              },
+              "&:disabled": {
+                opacity: 0.45,
+                cursor: "not-allowed",
+              },
             }}
-          />
+          >
+            <BoltIcon sx={{ fontSize: "0.6875rem", flexShrink: 0 }} />
+            {q}
+          </Box>
         ))}
-      </Stack>
+      </Box>
     </Stack>
   )
 }
