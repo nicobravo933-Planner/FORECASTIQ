@@ -23,8 +23,8 @@ export function RobotAvatar({ size = 40, pulse = false }: RobotAvatarProps) {
 
     async function load() {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const lottie = require("lottie-web") as typeof import("lottie-web")
+        const lottieModule = await import("lottie-web")
+        const lottie = ((lottieModule as Record<string, unknown>).default ?? lottieModule) as { loadAnimation: (params: unknown) => { destroy: () => void } }
         const data   = await fetch("/robot.json").then((r) => {
           if (!r.ok) throw new Error("robot.json not found")
           return r.json()
