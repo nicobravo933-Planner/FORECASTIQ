@@ -71,8 +71,8 @@ export default function ChatPage() {
       sx={{
         display: "flex",
         flexDirection: "column",
-        // Full viewport height minus dashboard layout padding (py: 2rem = 32px top + 32px bottom)
-        height: "calc(100vh - 4rem)",
+        // Full height = viewport - header (3.5rem) - page padding top+bottom (4rem)
+        height: "calc(100vh - 7.5rem)",
         bgcolor: "background.default",
         borderRadius: "0.75rem",
         overflow: "hidden",

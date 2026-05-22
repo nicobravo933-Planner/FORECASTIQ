@@ -10,11 +10,12 @@ import AutoGraphIcon from "@mui/icons-material/AutoGraph"
 import Box from "@mui/material/Box"
 
 interface RobotAvatarProps {
-  size?: number   // px — default 40
-  pulse?: boolean // adds glow pulse animation
+  size?: number
+  pulse?: boolean
+  transparent?: boolean  // sin fondo circular — para FAB y header
 }
 
-export function RobotAvatar({ size = 40, pulse = false }: RobotAvatarProps) {
+export function RobotAvatar({ size = 40, pulse = false, transparent = false }: RobotAvatarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const animRef      = useRef<unknown>(null)
 
@@ -81,23 +82,23 @@ export function RobotAvatar({ size = 40, pulse = false }: RobotAvatarProps) {
         }}
       />
 
-      {/* Fallback gradient circle — shown if Lottie container is empty */}
-      <Box
-        sx={{
-          position:        "absolute",
-          inset:           0,
-          borderRadius:    "50%",
-          background:      "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-          display:         "flex",
-          alignItems:      "center",
-          justifyContent:  "center",
-          // Hide once lottie renders (lottie adds an SVG child)
-          "& .lottie-loaded &": { display: "none" },
-          zIndex:          -1,
-        }}
-      >
-        <AutoGraphIcon sx={{ fontSize: `${size * 0.45}px`, color: "white" }} />
-      </Box>
+      {/* Fallback gradient circle — hidden when transparent prop or when lottie loads */}
+      {!transparent && (
+        <Box
+          sx={{
+            position:        "absolute",
+            inset:           0,
+            borderRadius:    "50%",
+            background:      "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+            display:         "flex",
+            alignItems:      "center",
+            justifyContent:  "center",
+            zIndex:          -1,
+          }}
+        >
+          <AutoGraphIcon sx={{ fontSize: `${size * 0.45}px`, color: "white" }} />
+        </Box>
+      )}
     </Box>
   )
 }

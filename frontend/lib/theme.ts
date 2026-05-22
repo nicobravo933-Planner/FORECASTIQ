@@ -33,13 +33,13 @@ export const theme = createTheme({
       contrastText: "#ffffff",
     },
     background: {
-      default: "#070d1b",  // deepest navy — page bg
-      paper:   "#0d1625",  // cards, sidebar, modals
+      default: "#0b1120",  // navy menos negro
+      paper:   "#111827",  // cards, sidebar
     },
     text: {
-      primary:   "#e2e8f0",  // slate-200
-      secondary: "#64748b",  // slate-500
-      disabled:  "#334155",  // slate-700
+      primary:   "#e2e8f0",
+      secondary: "#7c8fa8",
+      disabled:  "#3d5068",
     },
     divider: "rgba(59,130,246,0.12)",  // blue-tinted separator
     error:   { main: "#ef4444", light: "#fca5a5" },
@@ -98,7 +98,7 @@ export const theme = createTheme({
         root: {
           borderRadius: "0.875rem",
           backgroundImage: "none",
-          background: "rgba(13,22,53,0.6)",
+          background: "rgba(17,24,39,0.6)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
           border: "1px solid rgba(59,130,246,0.15)",
@@ -117,7 +117,7 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: "none",
-          background: "rgba(13,22,53,0.55)",
+          background: "rgba(11,17,32,0.55)",
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
           border: "1px solid rgba(59,130,246,0.12)",
@@ -135,7 +135,7 @@ export const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          background: "rgba(7,13,27,0.8)",
+          background: "rgba(7,11,20,0.8)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
           borderBottom: "1px solid rgba(59,130,246,0.12)",
@@ -148,7 +148,7 @@ export const theme = createTheme({
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          background: "rgba(7,13,27,0.85)",
+          background: "rgba(7,11,20,0.85)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
           borderRight: "1px solid rgba(59,130,246,0.12)",
@@ -161,7 +161,7 @@ export const theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          background: "rgba(13,22,53,0.4)",
+          background: "rgba(17,24,39,0.4)",
           backdropFilter: "blur(8px)",
           "& fieldset": {
             borderColor: "rgba(59,130,246,0.2)",
@@ -305,7 +305,7 @@ export const theme = createTheme({
     MuiMenu: {
       styleOverrides: {
         paper: {
-          background: "rgba(7,13,27,0.95)",
+          background: "rgba(7,11,20,0.95)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
           border: "1px solid rgba(59,130,246,0.2)",
