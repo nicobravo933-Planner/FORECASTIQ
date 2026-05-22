@@ -274,6 +274,7 @@
 | 2026-05-21 | 37      | .gitignore +frontend/public/ai_muestra/ (carpeta referencia IA, local only). Commit general UX-1→UX-3: dataset manager, forecast 2 columnas, layout full-width, dropdowns con tipos de columna. |
 | 2026-05-21 | 38      | UX-4a completa: FloatingChat.tsx (FAB + Drawer 22rem, reutiliza useChat+ChatBox+QuickQuestions, badge contador mensajes, contexto appStore, se oculta en /dashboard/chat). layout.tsx +FloatingChat montado una sola vez para toda la app. |
 | 2026-05-21 | 39      | UX-4b completa: WelcomeScreen.tsx (grid 2×2 quick-cards con íconos y animación fadeInUp). MessageBubble.tsx rediseñado (avatar gradiente, animaciones msgInUser/msgInAi, burbuja IA fit-content, burbuja user gradiente primary). ChatBox.tsx rediseñado (WelcomeScreen integrado, ThinkingIndicator con dots animados → BoltIcon cuando hay toolCall). QuickQuestions.tsx rediseñado (chips accent pill con BoltIcon, solo visible con sugerencias LLM). chat/page.tsx rediseñado (layout full-height con borde, header compacto con avatar, input bar con gradiente). FloatingChat actualizado (ChatBox new interface). |
+| 2026-05-22 | 40      | Bugs UX: (1) getPreferredModel() lee localStorage — modelo de Settings se aplica al Chat. (2) FloatingChat: Drawer→Popper+Grow burbuja ecommerce, botón OpenInFull. (3) RobotAvatar.tsx: Lottie robot.json con fallback gradiente. (4) MLOps maxHeight 20rem. (5) ModelSelector prop compact. ChatBox prop compact. |
 
 ---
 

@@ -28,12 +28,14 @@ import Typography from "@mui/material/Typography"
 import { ChatBox } from "@/components/chat/ChatBox"
 import { ModelSelector } from "@/components/chat/ModelSelector"
 import { QuickQuestions } from "@/components/chat/QuickQuestions"
+import { RobotAvatar } from "@/components/chat/RobotAvatar"
 import { useChat } from "@/hooks/useChat"
 import { appStore } from "@/lib/appStore"
 import { FREE_MODELS, type LlmModelId } from "@/lib/types"
+import { getPreferredModel } from "@/lib/preferredModel"
 
 export default function ChatPage() {
-  const [model, setModel] = useState<LlmModelId>(FREE_MODELS[5].id)
+  const [model, setModel] = useState<LlmModelId>(getPreferredModel)
   const [input, setInput] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -94,21 +96,7 @@ export default function ChatPage() {
         }}
       >
         {/* Avatar */}
-        <Box
-          sx={{
-            width: "2rem",
-            height: "2rem",
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            boxShadow: "0 0.125rem 0.5rem rgba(99,102,241,0.35)",
-          }}
-        >
-          <AutoGraphIcon sx={{ fontSize: "1.125rem", color: "white" }} />
-        </Box>
+        <RobotAvatar size={32} />
 
         {/* Title + context chips */}
         <Box sx={{ flex: 1, minWidth: 0 }}>

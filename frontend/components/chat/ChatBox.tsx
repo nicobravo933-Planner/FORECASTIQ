@@ -16,6 +16,7 @@ import BoltIcon from "@mui/icons-material/Bolt"
 import type { ChatMessage } from "@/lib/types"
 import { MessageBubble } from "./MessageBubble"
 import { WelcomeScreen } from "./WelcomeScreen"
+import { RobotAvatar } from "./RobotAvatar"
 
 // ── Tool → human-readable step label ────────────────────────────────────
 const TOOL_LABELS: Record<string, string> = {
@@ -70,32 +71,7 @@ function ThinkingIndicator({ toolCall }: { toolCall: string | null }) {
       }}
     >
       {/* Avatar */}
-      <Box
-        sx={{
-          width: "2.125rem",
-          height: "2.125rem",
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          mt: "0.125rem",
-          boxShadow: "0 0.125rem 0.5rem rgba(99,102,241,0.3)",
-        }}
-      >
-        <BoltIcon
-          sx={{
-            fontSize: "1.125rem",
-            color: "white",
-            animation: hasToolCall ? "zapPulse 1.2s ease-in-out infinite" : "none",
-            "@keyframes zapPulse": {
-              "0%, 100%": { opacity: 1, transform: "scale(1)" },
-              "50%":      { opacity: 0.6, transform: "scale(0.85)" },
-            },
-          }}
-        />
-      </Box>
+      <RobotAvatar size={34} />
 
       {/* Bubble */}
       <Box
@@ -132,9 +108,10 @@ interface ChatBoxProps {
   activeToolCall: string | null
   isStreaming?: boolean
   onQuickSelect?: (prompt: string) => void
+  compact?: boolean  // tighter padding for FloatingChat bubble
 }
 
-export function ChatBox({ messages, activeToolCall, isStreaming, onQuickSelect }: ChatBoxProps) {
+export function ChatBox({ messages, activeToolCall, isStreaming, onQuickSelect, compact }: ChatBoxProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -146,7 +123,7 @@ export function ChatBox({ messages, activeToolCall, isStreaming, onQuickSelect }
       sx={{
         flex: 1,
         overflowY: "auto",
-        py: "1rem",
+        py: compact ? "0.5rem" : "1rem",
         display: "flex",
         flexDirection: "column",
         gap: "0.75rem",

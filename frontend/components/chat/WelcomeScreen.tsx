@@ -3,15 +3,16 @@
 /**
  * WelcomeScreen — shown when chat has no messages.
  * 2×2 grid of quick-action cards, each with icon + title + description.
- * Mirrors the quick-grid pattern from the reference chat.html.
+ * Uses RobotAvatar (Lottie) instead of static gradient circle.
  */
 
-import Box from "@mui/material/Box"
-import Typography from "@mui/material/Typography"
 import AutoGraphIcon from "@mui/icons-material/AutoGraph"
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
 import QueryStatsIcon from "@mui/icons-material/QueryStats"
 import TuneIcon from "@mui/icons-material/Tune"
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
+import Box from "@mui/material/Box"
+import Typography from "@mui/material/Typography"
+import { RobotAvatar } from "./RobotAvatar"
 
 interface QuickCard {
   icon: React.ReactNode
@@ -70,11 +71,10 @@ export function WelcomeScreen({ onSelect }: WelcomeScreenProps) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: "1.5rem",
+        gap: "1.25rem",
         px: "1.5rem",
         py: "2rem",
         textAlign: "center",
-        // Fade-in on mount
         animation: "fadeInUp 0.3s ease",
         "@keyframes fadeInUp": {
           from: { opacity: 0, transform: "translateY(0.75rem)" },
@@ -82,22 +82,8 @@ export function WelcomeScreen({ onSelect }: WelcomeScreenProps) {
         },
       }}
     >
-      {/* Robot avatar */}
-      <Box
-        sx={{
-          width: "4rem",
-          height: "4rem",
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 0.5rem 1.5rem rgba(99,102,241,0.35)",
-          flexShrink: 0,
-        }}
-      >
-        <AutoGraphIcon sx={{ fontSize: "1.75rem", color: "white" }} />
-      </Box>
+      {/* Lottie robot avatar */}
+      <RobotAvatar size={72} pulse />
 
       <Box>
         <Typography variant="h6" fontWeight={700} sx={{ fontSize: "1.125rem", mb: "0.25rem" }}>

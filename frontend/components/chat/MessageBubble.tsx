@@ -18,6 +18,7 @@ import Tooltip from "@mui/material/Tooltip"
 import type { ChatMessage } from "@/lib/types"
 import { InlineChart, parseChartSpec } from "./InlineChart"
 import { StreamingCursor } from "./StreamingCursor"
+import { RobotAvatar } from "./RobotAvatar"
 
 // ── Animations (keyframes defined once, referenced by name) ─────────────
 const ANIM_USER = {
@@ -38,24 +39,7 @@ const ANIM_AI = {
 
 // ── Assistant avatar ─────────────────────────────────────────────────────
 function AssistantAvatar() {
-  return (
-    <Box
-      sx={{
-        width: "2.125rem",
-        height: "2.125rem",
-        borderRadius: "50%",
-        background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        boxShadow: "0 0.125rem 0.5rem rgba(99,102,241,0.3)",
-        mt: "0.125rem",
-      }}
-    >
-      <AutoGraphIcon sx={{ fontSize: "1.125rem", color: "white" }} />
-    </Box>
-  )
+  return <RobotAvatar size={34} />
 }
 
 // ── Markdown renderer (same as before, untouched) ────────────────────────

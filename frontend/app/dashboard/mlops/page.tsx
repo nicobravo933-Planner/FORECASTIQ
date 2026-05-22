@@ -178,14 +178,18 @@ export default function MlopsPage() {
               borderColor: "divider",
               borderRadius: "0.75rem",
               p: "1.25rem",
-              height: "100%",
-              minHeight: "16rem",
+              height: "20rem",
+              maxHeight: "20rem",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: "0.75rem" }}>
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: "0.75rem", flexShrink: 0 }}>
               Evolución WAPE por run
             </Typography>
-            <WapeTrendChart runs={runs} />
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <WapeTrendChart runs={runs} />
+            </Box>
           </Box>
         </Grid>
       </Grid>

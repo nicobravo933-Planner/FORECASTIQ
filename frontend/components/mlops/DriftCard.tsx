@@ -67,7 +67,7 @@ export function DriftCard({ summary, loading, error }: DriftCardProps) {
   const status = driftStatus(summary);
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: "0.75rem", height: "100%" }}>
+    <Card variant="outlined" sx={{ borderRadius: "0.75rem", height: "20rem", maxHeight: "20rem", overflow: "auto" }}>
       <CardContent sx={{ p: "1.25rem" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", mb: "0.75rem" }}>
           <AssessmentIcon color="primary" />

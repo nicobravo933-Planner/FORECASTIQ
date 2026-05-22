@@ -18,9 +18,10 @@ interface ModelSelectorProps {
   value: LlmModelId
   onChange: (model: LlmModelId) => void
   disabled?: boolean
+  compact?: boolean  // smaller width for FloatingChat bubble
 }
 
-export function ModelSelector({ value, onChange, disabled }: ModelSelectorProps) {
+export function ModelSelector({ value, onChange, disabled, compact }: ModelSelectorProps) {
   const [models, setModels] = useState<LlmModel[]>(FREE_MODELS)
   const [loading, setLoading] = useState(true)
 
@@ -36,10 +37,10 @@ export function ModelSelector({ value, onChange, disabled }: ModelSelectorProps)
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <Skeleton variant="rounded" width="12rem" height="2.5rem" />
+  if (loading) return <Skeleton variant="rounded" width={compact ? "8rem" : "12rem"} height="2rem" />
 
   return (
-    <FormControl size="small" sx={{ minWidth: "12rem" }}>
+    <FormControl size="small" sx={{ minWidth: compact ? "8rem" : "12rem" }}>
       <InputLabel id="model-select-label" sx={{ fontSize: "0.875rem" }}>
         Model
       </InputLabel>
