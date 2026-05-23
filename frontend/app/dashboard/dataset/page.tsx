@@ -11,8 +11,9 @@
  *   3. Dataset demo  → 25k SKUs en Supabase Storage vía DuckDB
  */
 
-import { useEffect, useRef } from "react"
+import { Suspense, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import CircularProgress from "@mui/material/CircularProgress"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Alert from "@mui/material/Alert"
@@ -149,13 +150,15 @@ export default function DatasetPage() {
       </Box>
 
       {/* Tabs */}
-      <DataSourceTabs
-        caps={caps}
-        csvContent={csvFlow}
-        dbContent={<ConnectDbCard />}
-        demoContent={<DemoDatasetCard />}
-        cloudContent={<CloudDataCard />}
-      />
+      <Suspense fallback={<Box sx={{ display:"flex", justifyContent:"center", mt:"2rem" }}><CircularProgress /></Box>}>
+        <DataSourceTabs
+          caps={caps}
+          csvContent={csvFlow}
+          dbContent={<ConnectDbCard />}
+          demoContent={<DemoDatasetCard />}
+          cloudContent={<CloudDataCard />}
+        />
+      </Suspense>
     </Box>
   )
 }

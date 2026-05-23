@@ -7,8 +7,9 @@
  * Panel derecho:   tabla paginada + búsqueda de registros + diagrama de relaciones FK
  */
 
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import CircularProgress from "@mui/material/CircularProgress"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Paper from "@mui/material/Paper"
@@ -182,7 +183,7 @@ function RelationDiagram({ tables, focusTable }: { tables: TableMeta[]; focusTab
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function ExplorerPage() {
+function ExplorerPageInner() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const source    = searchParams.get("source") ?? "demo"
@@ -594,5 +595,13 @@ export default function ExplorerPage() {
         </Box>
       </Box>
     </Box>
+  )
+}
+
+export default function ExplorerPage() {
+  return (
+    <Suspense fallback={<Box sx={{ display:"flex", justifyContent:"center", mt:"4rem" }}><CircularProgress /></Box>}>
+      <ExplorerPageInner />
+    </Suspense>
   )
 }

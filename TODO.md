@@ -280,7 +280,8 @@
 | 2026-05-23 | 49      | Fix mypy residual datasets.py: reemplazado `_seg_acc dict[str,object]` por dos dicts paralelos `_seg_wapes: dict[str,list[float]]` + `_seg_counts: dict[str,int]` (elimina 4 errores de `int(object)` y `np.mean(object)`). `rows to_dict` con `# type: ignore[assignment]` correcto. 6 errores → 0. |
 | 2026-05-23 | 50      | Fix bug categoría con tilde en `demo/analyze-category`: normalización via `_CATEGORIAS_DISPLAY.get()` antes de validar y pasar a DuckDB (igual que `demo/skus`). 3 cambios quirúrgicos en datasets.py. |
 | 2026-05-23 | 51      | Browser tab: layout.tsx title → "ForecastIQ", icons metadata apunta a /logo.png (icon + shortcut + apple). Sin dependencias extra, sin conversión necesaria. |
-| 2026-05-23 | 52      | Fix 422 analyze-category: `@router.post` → `@router.get` en datasets.py (endpoint sólo lee datos, no cuerpo). `api.post({})` → `api.get()` en DemoDatasetCard.tsx. 2 cambios quirúrgicos. |
+| 2026-05-23 | 55      | Fix frecuencia mensual + horizonte libre: (1) backend `_freq_alias["M"] = "MS"` (Month Start, alinea con DuckDB date_trunc que retorna primer día del mes), `"Q" = "QS"`. (2) frontend: horizonte mínimo 1 (antes bloqueado en 4), máximo dinámico 24 para mensual / 52 para semanal, reset automático al cambiar frecuencia. |
+| 2026-05-23 | 55      | Fix Vercel build error: `useSearchParams()` sin Suspense boundary en 3 páginas. `/dashboard/data/page.tsx`: componente renombrado a `DataPageInner`, export default wrappea con `<Suspense>`. `/dashboard/explorer/page.tsx`: mismo patrón con `ExplorerPageInner`. `/dashboard/dataset/page.tsx`: `<DataSourceTabs>` (que internamente usa `useSearchParams`) wrappado con `<Suspense>` en el render. 6 ediciones quirúrgicas, sin reescribir archivos. |
 
 ---
 

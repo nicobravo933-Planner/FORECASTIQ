@@ -65,6 +65,10 @@ export const theme = createTheme({
           borderRadius: "0.5rem",
           padding: "0.5rem 1.125rem",
           transition: "all 0.15s ease",
+          // Disabled state: keep text visible (white on dark blue) instead of MUI default gray
+          "&.Mui-disabled": {
+            color: "rgba(255,255,255,0.6)",
+          },
         },
         containedPrimary: {
           background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
@@ -73,6 +77,11 @@ export const theme = createTheme({
             background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
             boxShadow: "0 0.25rem 0.75rem rgba(59,130,246,0.45)",
             transform: "translateY(-0.0625rem)",
+          },
+          // Loading/disabled state keeps blue bg + white text
+          "&.Mui-disabled": {
+            background: "linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%)",
+            color: "#ffffff",
           },
         },
         outlinedPrimary: {

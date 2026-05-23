@@ -202,14 +202,23 @@ export function DemoDatasetCard() {
         </FormControl>
         <FormControl size="small" sx={{ width: "8rem" }}>
           <InputLabel>Frecuencia</InputLabel>
-          <Select value={freq} label="Frecuencia" onChange={(e) => setFreq(e.target.value)}>
+          <Select value={freq} label="Frecuencia" onChange={(e) => {
+            const newFreq = e.target.value
+            setFreq(newFreq)
+            // Ajustar horizonte si supera el nuevo máximo
+            if (newFreq === "M" && horizon > 24) setHorizon(12)
+          }}>
             {FREQS.map((f) => <MenuItem key={f.v} value={f.v}>{f.l}</MenuItem>)}
           </Select>
         </FormControl>
         <TextField
           size="small" type="number" label="Horizonte" value={horizon}
-          onChange={(e) => setHorizon(Math.max(4, Math.min(52, +e.target.value)))}
-          sx={{ width: "7rem" }} inputProps={{ min: 4, max: 52 }}
+          onChange={(e) => {
+            // Min depende de la freq: al menos 1 período, máximo 52 semanas / 24 meses
+            const maxH = freq === "M" ? 24 : 52
+            setHorizon(Math.max(1, Math.min(maxH, +e.target.value)))
+          }}
+          sx={{ width: "7rem" }} inputProps={{ min: 1, max: freq === "M" ? 24 : 52 }}
         />
       </Box>
 
@@ -287,13 +296,20 @@ export function DemoDatasetCard() {
               variant="contained"
               startIcon={analyzing ? <CircularProgress size="1rem" color="inherit" /> : <BarChartIcon />}
               onClick={handleAnalyze} disabled={analyzing}
-              sx={{ textTransform: "none", fontWeight: 600 }}
+              sx={{
+                textTransform: "none",
+                fontWeight: 600,
+                // Force white text even in disabled/loading state
+                "&.Mui-disabled": { color: "rgba(255,255,255,0.75)", bgcolor: "primary.dark" },
+              }}
             >
               {analyzing ? "Analizando… (puede tardar ~30s)" : `Analizar ${categoria}`}
             </Button>
-            {analyzing && <Typography variant="caption" color="text.secondary">
-              StatsForecast AutoETS vectorizado sobre 200 SKUs con hold-out {horizon} períodos
-            </Typography>}
+            {analyzing && (
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                StatsForecast AutoETS vectorizado sobre 200 SKUs con hold-out {horizon} períodos
+              </Typography>
+            )}
           </Box>
 
           {analyzing && <LinearProgress sx={{ borderRadius: "0.25rem" }} />}

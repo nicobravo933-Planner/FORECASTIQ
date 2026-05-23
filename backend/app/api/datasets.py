@@ -545,10 +545,11 @@ async def demo_list_skus(
         con = duckdb.connect()
         con.execute("INSTALL httpfs; LOAD httpfs;")
         con.execute("SET enable_progress_bar = false;")
-        search_clause = "AND sku_id LIKE ?" if search else ""
+        search_clause = "AND sku_id ILIKE ?" if search else ""
         params: list[str] = [cat_real]
         if search:
-            params.append(f"{search.upper()}%")
+            # ILIKE para búsqueda case-insensitive (sin forzar upper)
+            params.append(f"%{search}%")
         result = con.execute(
             f"""
             SELECT DISTINCT sku_id
@@ -777,11 +778,22 @@ async def demo_analyze_category(
     panel = pd.concat(panel_list, ignore_index=True)
     test_df = pd.concat(test_list, ignore_index=True)
 
+    # Asegurar tipos consistentes para el merge posterior
+    panel["unique_id"] = panel["unique_id"].astype(str)
+    test_df["unique_id"] = test_df["unique_id"].astype(str)
+    panel["ds"] = pd.to_datetime(panel["ds"]).dt.normalize()   # strip hora
+    test_df["ds"] = pd.to_datetime(test_df["ds"]).dt.normalize()  # strip hora
+
     # ── 3. StatsForecast vectorizado ───────────────────────────────────────────────────
     season_len = {"D": 7, "W": 52, "M": 12, "Q": 4}.get(freq, 52)
+    # Mapeo freq → alias pandas aceptado por StatsForecast.
+    # IMPORTANTE: DuckDB date_trunc('week')  → LUNES (ISO 8601)  → usar W-MON
+    #             DuckDB date_trunc('month') → primer día del mes  → usar MS (Month Start)
+    #             "ME" (Month End) genera el último día del mes → mismatch garantizado
+    _freq_alias = {"D": "D", "W": "W-MON", "M": "MS", "Q": "QS"}
     sf = StatsForecast(
         models=[AutoETS(season_length=season_len)],
-        freq=freq if freq in ("D", "W") else ("ME" if freq == "M" else "QE"),
+        freq=_freq_alias.get(freq, "W"),
         n_jobs=-1,
         fallback_model=SeasonalNaive(season_length=season_len),
     )
@@ -794,6 +806,9 @@ async def demo_analyze_category(
     pred_col = [c for c in fc.columns if c not in ("unique_id", "ds")][0]
     fc = fc.rename(columns={pred_col: "predicted"})
     fc["predicted"] = fc["predicted"].clip(lower=0)
+    # Normalizar tipos del forecast para merge seguro con test_df
+    fc["unique_id"] = fc["unique_id"].astype(str)
+    fc["ds"] = pd.to_datetime(fc["ds"]).dt.normalize()  # strip hora, queda solo DATE
 
     # ── 4. Métricas por SKU ────────────────────────────────────────────────────────────
     merged = test_df.merge(

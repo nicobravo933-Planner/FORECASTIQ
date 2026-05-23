@@ -10,8 +10,9 @@
  *  4. Estado persistente — no recarga al abrir/cerrar el drawer
  */
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import CircularProgress from "@mui/material/CircularProgress"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Paper from "@mui/material/Paper"
@@ -189,7 +190,7 @@ function RelationDiagram({ tables, focus }: { tables: TableMeta[]; focus: TableM
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function DataPage() {
+function DataPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -808,5 +809,13 @@ export default function DataPage() {
         </DialogActions>
       </Dialog>
     </Box>
+  )
+}
+
+export default function DataPage() {
+  return (
+    <Suspense fallback={<Box sx={{ display:"flex", justifyContent:"center", mt:"4rem" }}><CircularProgress /></Box>}>
+      <DataPageInner />
+    </Suspense>
   )
 }
