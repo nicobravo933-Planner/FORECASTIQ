@@ -7,6 +7,7 @@ Endpoints de datasets — Phase 1 + Conectar Datos + Data Explorer.
   POST /api/datasets/connect-db          → conexión DB efímera: SELECT → dataset_id
   GET  /api/datasets/demo/skus           → lista SKUs del dataset sintético por categoría
   POST /api/datasets/demo/load           → carga una serie de un SKU via DuckDB → dataset_id
+  GET  /api/datasets/demo/analyze-category → análisis vectorizado de categoría completa (StatsForecast)
   POST /api/datasets/explore/db/schema   → introspecciona esquemas/tablas/columnas/PKs/FKs de una DB
   POST /api/datasets/explore/db/query    → ejecuta SELECT paginado sobre una tabla de la DB
   GET  /api/datasets/explore/demo        → paginación sobre el Parquet demo con filtros
@@ -665,7 +666,7 @@ class CategoryAnalysisResponse(BaseModel):
     best_skus: list[SkuMetrics]
 
 
-@router.post("/demo/analyze-category", response_model=CategoryAnalysisResponse)
+@router.get("/demo/analyze-category", response_model=CategoryAnalysisResponse)
 async def demo_analyze_category(
     categoria: str = "Electrónica",
     freq: str = "W",  # agrupamos a semanal para hacer más rápido el forecast

@@ -149,9 +149,8 @@ export function DemoDatasetCard() {
   const handleAnalyze = async () => {
     setAnalyzing(true); setError(null); setAnalysis(null)
     try {
-      const res = await api.post<CategoryAnalysisResponse>(
-        `/api/datasets/demo/analyze-category?categoria=${encodeURIComponent(categoria)}&freq=${freq}&horizon=${horizon}&max_skus=200`,
-        {}
+      const res = await api.get<CategoryAnalysisResponse>(
+        `/api/datasets/demo/analyze-category?categoria=${encodeURIComponent(categoria)}&freq=${freq}&horizon=${horizon}&max_skus=200`
       )
       setAnalysis(res)
     } catch (e) {

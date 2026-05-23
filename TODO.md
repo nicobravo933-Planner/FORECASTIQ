@@ -280,6 +280,7 @@
 | 2026-05-23 | 49      | Fix mypy residual datasets.py: reemplazado `_seg_acc dict[str,object]` por dos dicts paralelos `_seg_wapes: dict[str,list[float]]` + `_seg_counts: dict[str,int]` (elimina 4 errores de `int(object)` y `np.mean(object)`). `rows to_dict` con `# type: ignore[assignment]` correcto. 6 errores → 0. |
 | 2026-05-23 | 50      | Fix bug categoría con tilde en `demo/analyze-category`: normalización via `_CATEGORIAS_DISPLAY.get()` antes de validar y pasar a DuckDB (igual que `demo/skus`). 3 cambios quirúrgicos en datasets.py. |
 | 2026-05-23 | 51      | Browser tab: layout.tsx title → "ForecastIQ", icons metadata apunta a /logo.png (icon + shortcut + apple). Sin dependencias extra, sin conversión necesaria. |
+| 2026-05-23 | 52      | Fix 422 analyze-category: `@router.post` → `@router.get` en datasets.py (endpoint sólo lee datos, no cuerpo). `api.post({})` → `api.get()` en DemoDatasetCard.tsx. 2 cambios quirúrgicos. |
 
 ---
 

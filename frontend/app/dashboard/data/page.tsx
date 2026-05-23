@@ -449,7 +449,7 @@ export default function DataPage() {
           <List dense disablePadding sx={{ pl:"1rem" }}>
             {myDatasets.length === 0 && (
               <Typography variant="caption" color="text.disabled" sx={{ px:"0.5rem", py:"0.25rem", display:"block" }}>
-                Sin archivos. Usá "Conectar nueva fuente".
+                Sin archivos. Usá &quot;Conectar nueva fuente&quot;.
               </Typography>
             )}
             {myDatasets.map(ds => (
@@ -760,7 +760,7 @@ export default function DataPage() {
               <Paper variant="outlined" sx={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"0.5rem", borderRadius:"0.75rem" }}>
                 <SearchIcon sx={{ fontSize:"2.5rem", color:"text.disabled" }}/>
                 <Typography variant="body2" color="text.secondary">
-                  {searchText ? `Sin resultados para "${searchText}" en ${searchColumn}` : "Sin datos"}
+                  {searchText ? <>Sin resultados para &quot;{searchText}&quot; en {searchColumn}</> : "Sin datos"}
                 </Typography>
                 {searchText && <Button size="small" variant="text" onClick={clearSearch}>Limpiar búsqueda</Button>}
               </Paper>
