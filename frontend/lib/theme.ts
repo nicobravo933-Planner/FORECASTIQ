@@ -100,13 +100,16 @@ export const theme = createTheme({
         root: {
           borderRadius: "0.75rem",
           backgroundImage: "none",
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
-          boxShadow: "0 0.0625rem 0.1875rem rgba(0,0,0,0.06), 0 0.0625rem 0.125rem rgba(0,0,0,0.04)",
-          transition: "box-shadow 0.2s ease, border-color 0.2s ease",
+          background: "rgba(255,255,255,0.82)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          border: "1px solid rgba(219,234,254,0.7)",
+          boxShadow: "0 0.0625rem 0.25rem rgba(59,130,246,0.06), 0 0.25rem 1rem rgba(59,130,246,0.08)",
+          transition: "box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease",
           "&:hover": {
             borderColor: "#bfdbfe",
-            boxShadow: "0 0.25rem 0.75rem rgba(59,130,246,0.12)",
+            background: "rgba(255,255,255,0.93)",
+            boxShadow: "0 0.25rem 0.75rem rgba(59,130,246,0.14)",
           },
         },
       },
@@ -117,8 +120,10 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: "none",
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
+          background: "rgba(255,255,255,0.88)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(229,231,235,0.8)",
         },
         elevation1: { boxShadow: "0 0.0625rem 0.1875rem rgba(0,0,0,0.06), 0 0.0625rem 0.125rem rgba(0,0,0,0.04)" },
         elevation8: { boxShadow: "0 0.25rem 1.5rem rgba(0,0,0,0.12), 0 0.0625rem 0.25rem rgba(0,0,0,0.08)" },
@@ -139,9 +144,11 @@ export const theme = createTheme({
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          background: "#ffffff",
-          borderRight: "1px solid #e5e7eb",
-          boxShadow: "0.125rem 0 0.5rem rgba(0,0,0,0.06)",
+          background: "rgba(255,255,255,0.92)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderRight: "1px solid rgba(219,234,254,0.6)",
+          boxShadow: "0.125rem 0 1rem rgba(59,130,246,0.07)",
         },
       },
     },

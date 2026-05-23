@@ -160,7 +160,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden", bgcolor: "background.default" }}>
+    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden", background: "linear-gradient(155deg, #c7dcff 0%, #dbeafe 18%, #e8f2ff 42%, #f0f4fb 68%, #eef2ff 100%)", backgroundAttachment: "fixed" }}>
 
       {/* ── Sidebar ────────────────────────────────────────────────────── */}
       <Box
@@ -385,7 +385,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             mt: HEADER_HEIGHT,
             px: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
             py: "1.75rem",
-            bgcolor: "background.default",
+            background: "transparent",
           }}
         >
           {children}

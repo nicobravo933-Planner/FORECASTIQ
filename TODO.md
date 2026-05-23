@@ -283,6 +283,8 @@
 | 2026-05-23 | 55      | Fix frecuencia mensual + horizonte libre: (1) backend `_freq_alias["M"] = "MS"` (Month Start, alinea con DuckDB date_trunc que retorna primer día del mes), `"Q" = "QS"`. (2) frontend: horizonte mínimo 1 (antes bloqueado en 4), máximo dinámico 24 para mensual / 52 para semanal, reset automático al cambiar frecuencia. |
 | 2026-05-23 | 61      | Fix chip tier header: (1) useCapabilities.ts — agrega NEXT_PUBLIC_SERVER_TIER como fallback de tercer nivel (backend → env var → cloud). capsFromTier() centraliza la construcción de caps desde un string. (2) layout.tsx — chip siempre visible (quita !collapsed), label=undefined cuando colapsado (solo ícono), color forzado #ffffff !important en label+icon via "& .MuiChip-icon" y "& .MuiChip-label", ancho compacto en modo colapsado. (3) .env.example frontend: NEXT_PUBLIC_SERVER_TIER=local documentado. |
 
+| 2026-05-23 | 62      | NavyPro glass effect: layout.tsx fondo degradado `linear-gradient(155deg, #c7dcff→#eef2ff)` con `backgroundAttachment:fixed`, main transparente. theme.ts — Card: glass `rgba(255,255,255,0.82)` + `backdropFilter:blur(10px)` + borde `rgba(219,234,254,0.7)`, hover opacifica a 0.93. Paper: `rgba(255,255,255,0.88)` + `blur(12px)`. Drawer/sidebar: `rgba(255,255,255,0.92)` + `blur(16px)` + borde azulado. Todos los elementos transicionan bien con el fondo degradado. |
+
 ---
 
 _Update this file after every work session. Mark tasks `[x]` as completed._

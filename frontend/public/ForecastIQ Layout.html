@@ -34,9 +34,20 @@ const THEMES = {
     sidebarText: "#374151",
     sidebarBorder: "1px solid #e5e7eb",
     sidebarShadow: "2px 0 8px rgba(0,0,0,0.06)",
-    bodyBg: "#f0f4f8",
+    bodyBg: "linear-gradient(155deg, #c7dcff 0%, #dbeafe 18%, #e8f2ff 42%, #f0f4fb 68%, #eef2ff 100%)",
     logoFilter: "none",
     logoOnHeader: true,
+    darkSidebar: false,
+    accent: "#3b82f6",
+    accentDark: "#2563eb",
+    accentBg: "rgba(59,130,246,0.08)",
+    accentShadow: "rgba(59,130,246,0.35)",
+    pageTitle: "#0f172a",
+    pageSubtitle: "#475569",
+    pageMeta: "#94a3b8",
+    calBorder: "#dbeafe",
+    calBg: "rgba(255,255,255,0.85)",
+    calHeaderBg: "rgba(239,246,255,0.7)",
   },
   blueMui: {
     label: "Blue MUI",
@@ -51,6 +62,17 @@ const THEMES = {
     bodyBg: "#f5f7fa",
     logoFilter: "none",
     logoOnHeader: true,
+    darkSidebar: false,
+    accent: "#1976D2",
+    accentDark: "#1565C0",
+    accentBg: "rgba(25,118,210,0.08)",
+    accentShadow: "rgba(25,118,210,0.35)",
+    pageTitle: "#111827",
+    pageSubtitle: "#6b7280",
+    pageMeta: "#9ca3af",
+    calBorder: "#e5e7eb",
+    calBg: "#ffffff",
+    calHeaderBg: "#fafafa",
   },
   slateSidebar: {
     label: "Slate Sidebar",
@@ -63,8 +85,119 @@ const THEMES = {
     sidebarBorder: "none",
     sidebarShadow: "2px 0 12px rgba(0,0,0,0.2)",
     bodyBg: "#f4f6f8",
-    logoFilter: "brightness(0) invert(0.2) sepia(1) saturate(5) hue-rotate(190deg)",
+    logoFilter: "none",
     logoOnHeader: false,
+    darkSidebar: true,
+    accent: "#38bdf8",
+    accentDark: "#0ea5e9",
+    accentBg: "rgba(56,189,248,0.12)",
+    accentShadow: "rgba(56,189,248,0.3)",
+    pageTitle: "#111827",
+    pageSubtitle: "#6b7280",
+    pageMeta: "#9ca3af",
+    calBorder: "#e5e7eb",
+    calBg: "#ffffff",
+    calHeaderBg: "#fafafa",
+  },
+  violetAI: {
+    label: "Violet AI",
+    headerBg: "linear-gradient(135deg, #2d1b69 0%, #4c1d95 60%, #5b21b6 100%)",
+    headerText: "#ffffff",
+    headerBorder: "none",
+    headerShadow: "0 2px 16px rgba(76,29,149,0.4)",
+    sidebarBg: "#ffffff",
+    sidebarText: "#374151",
+    sidebarBorder: "1px solid #ede9fe",
+    sidebarShadow: "2px 0 8px rgba(109,40,217,0.08)",
+    bodyBg: "#faf7ff",
+    logoFilter: "none",
+    logoOnHeader: true,
+    darkSidebar: false,
+    accent: "#7c3aed",
+    accentDark: "#6d28d9",
+    accentBg: "rgba(124,58,237,0.07)",
+    accentShadow: "rgba(124,58,237,0.35)",
+    pageTitle: "#1a1033",
+    pageSubtitle: "#6b7280",
+    pageMeta: "#9ca3af",
+    calBorder: "#ede9fe",
+    calBg: "#ffffff",
+    calHeaderBg: "#fdf8ff",
+  },
+  emeraldData: {
+    label: "Emerald Data",
+    headerBg: "linear-gradient(135deg, #064e3b 0%, #065f46 70%, #047857 100%)",
+    headerText: "#ffffff",
+    headerBorder: "none",
+    headerShadow: "0 2px 14px rgba(6,78,59,0.4)",
+    sidebarBg: "#ffffff",
+    sidebarText: "#374151",
+    sidebarBorder: "1px solid #d1fae5",
+    sidebarShadow: "2px 0 8px rgba(4,120,87,0.08)",
+    bodyBg: "#f0fdf8",
+    logoFilter: "none",
+    logoOnHeader: true,
+    darkSidebar: false,
+    accent: "#059669",
+    accentDark: "#047857",
+    accentBg: "rgba(5,150,105,0.07)",
+    accentShadow: "rgba(5,150,105,0.35)",
+    pageTitle: "#052e16",
+    pageSubtitle: "#6b7280",
+    pageMeta: "#9ca3af",
+    calBorder: "#d1fae5",
+    calBg: "#ffffff",
+    calHeaderBg: "#f0fdf4",
+  },
+  graphiteDark: {
+    label: "Graphite Dark",
+    headerBg: "#18181b",
+    headerText: "#f4f4f5",
+    headerBorder: "1px solid #27272a",
+    headerShadow: "0 1px 0 rgba(255,255,255,0.04)",
+    sidebarBg: "#1c1c1f",
+    sidebarText: "#a1a1aa",
+    sidebarBorder: "1px solid #27272a",
+    sidebarShadow: "none",
+    bodyBg: "#09090b",
+    logoFilter: "none",
+    logoOnHeader: true,
+    darkSidebar: true,
+    accent: "#6366f1",
+    accentDark: "#4f46e5",
+    accentBg: "rgba(99,102,241,0.14)",
+    accentShadow: "rgba(99,102,241,0.4)",
+    pageTitle: "#fafafa",
+    pageSubtitle: "#a1a1aa",
+    pageMeta: "#71717a",
+    calBorder: "#27272a",
+    calBg: "#18181b",
+    calHeaderBg: "#1c1c1f",
+  },
+  indigoLinear: {
+    label: "Indigo Linear",
+    headerBg: "#ffffff",
+    headerText: "#111827",
+    headerBorder: "1px solid #e5e7eb",
+    headerShadow: "0 1px 4px rgba(0,0,0,0.06)",
+    sidebarBg: "#1e1b4b",
+    sidebarText: "#c7d2fe",
+    sidebarBorder: "none",
+    sidebarShadow: "2px 0 16px rgba(30,27,75,0.3)",
+    bodyBg: "#f5f5ff",
+    logoFilter: "none",
+    logoOnHeader: false,
+    darkSidebar: true,
+    accent: "#6366f1",
+    accentDark: "#4f46e5",
+    accentBg: "rgba(99,102,241,0.14)",
+    accentShadow: "rgba(99,102,241,0.35)",
+    pageTitle: "#111827",
+    pageSubtitle: "#6b7280",
+    pageMeta: "#9ca3af",
+    calBorder: "#e5e7eb",
+    calBg: "#ffffff",
+    calHeaderBg: "#fafafa",
   },
 };
 
@@ -186,26 +319,28 @@ function AppHeader({ theme, t, sidebarOpen, setSidebarOpen }) {
 function NavItem({ item, active, collapsed, theme }) {
   const [hovered, setHovered] = useState(false);
   const th = THEMES[theme];
-  const isDarkSidebar = theme === "slateSidebar";
+  const isDark = th.darkSidebar;
   const isActive = active;
 
-  const activeStyle = isDarkSidebar
-    ? { background:"rgba(59,130,246,0.18)", color:"#60a5fa", borderLeft:"3px solid #3b82f6" }
-    : { background:"rgba(59,130,246,0.08)", color:"#2563eb", borderLeft:"3px solid #3b82f6" };
-
-  const hoverStyle = isDarkSidebar
-    ? { background:"rgba(255,255,255,0.06)" }
-    : { background:"rgba(59,130,246,0.04)" };
+  const activeStyle = {
+    background: th.accentBg,
+    color: th.accent,
+    borderLeft: `3px solid ${th.accent}`,
+    fontWeight: 600,
+  };
+  const hoverStyle = {
+    background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.03)",
+  };
 
   const baseStyle = {
     display:"flex", alignItems:"center", gap:12,
     padding: collapsed ? "11px 0" : "10px 12px",
     justifyContent: collapsed ? "center" : "flex-start",
-    borderRadius: collapsed ? "10px" : "8px",
-    margin: collapsed ? "2px 8px" : "1px 8px",
+    borderRadius: "8px",
+    margin: "1px 8px",
     cursor:"pointer", transition:"all 0.15s ease",
     borderLeft: isActive ? undefined : "3px solid transparent",
-    color: isActive ? undefined : (isDarkSidebar ? "#94a3b8" : "#6b7280"),
+    color: isActive ? th.accent : (isDark ? "#94a3b8" : "#6b7280"),
     fontSize:14, fontWeight: isActive ? 600 : 400,
     userSelect:"none",
     ...(isActive ? activeStyle : (hovered ? hoverStyle : {})),
@@ -217,7 +352,7 @@ function NavItem({ item, active, collapsed, theme }) {
       onMouseLeave={() => setHovered(false)}
     >
       <Icon name={item.icon} size={20} style={{ flexShrink:0,
-        color: isActive ? (isDarkSidebar ? "#60a5fa" : "#2563eb") : (isDarkSidebar ? "#94a3b8" : "#9ca3af")
+        color: isActive ? th.accent : (isDark ? "#64748b" : "#9ca3af")
       }} />
       {!collapsed && <span>{item.label}</span>}
     </div>
@@ -226,8 +361,9 @@ function NavItem({ item, active, collapsed, theme }) {
 
 function Sidebar({ theme, t, open, activeNav, setActiveNav }) {
   const th = THEMES[theme];
-  const isDarkSidebar = theme === "slateSidebar";
+  const isDark = th.darkSidebar;
   const collapsed = !open;
+  const divider = isDark ? "rgba(255,255,255,0.06)" : "#f3f4f6";
 
   return (
     <aside style={{
@@ -242,16 +378,16 @@ function Sidebar({ theme, t, open, activeNav, setActiveNav }) {
       position:"fixed", top:64, left:0, bottom:0, zIndex:1100,
     }}>
 
-      {/* Sidebar logo (slate variant) */}
-      {isDarkSidebar && !collapsed && (
-        <div style={{ padding:"16px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-          <img src="logo_rectangular.png" alt="ForecastIQ"
-            style={{ height:32, objectFit:"contain", width:"100%", objectPosition:"left" }} />
+      {/* Sidebar logo (dark sidebar variants) */}
+      {isDark && !collapsed && (
+        <div style={{ padding:"16px 16px 12px", borderBottom:`1px solid ${divider}` }}>
+          <img src="ForecastIQ.png" alt="ForecastIQ"
+            style={{ height:30, objectFit:"contain", width:"100%", objectPosition:"left" }} />
         </div>
       )}
 
       {/* Nav items top */}
-      <nav style={{ flex:1, padding: "8px 0", overflowY:"auto", overflowX:"hidden" }}>
+      <nav style={{ flex:1, padding:"8px 0", overflowY:"auto", overflowX:"hidden" }}>
         {NAV_ITEMS.map(item => (
           <div key={item.id} onClick={() => setActiveNav(item.id)}>
             <NavItem item={item} active={activeNav === item.id} collapsed={collapsed} theme={theme} />
@@ -260,7 +396,7 @@ function Sidebar({ theme, t, open, activeNav, setActiveNav }) {
       </nav>
 
       {/* Divider */}
-      <div style={{ height:1, background: isDarkSidebar ? "rgba(255,255,255,0.06)" : "#f3f4f6", margin:"0 8px" }} />
+      <div style={{ height:1, background: divider, margin:"0 8px" }} />
 
       {/* Bottom nav */}
       <div style={{ padding:"8px 0" }}>
@@ -274,20 +410,22 @@ function Sidebar({ theme, t, open, activeNav, setActiveNav }) {
       {/* User profile */}
       {!collapsed && (
         <div style={{
-          padding:"12px 16px", borderTop: isDarkSidebar ? "1px solid rgba(255,255,255,0.06)" : "1px solid #f3f4f6",
+          padding:"12px 16px", borderTop:`1px solid ${divider}`,
           display:"flex", alignItems:"center", gap:10, cursor:"pointer",
         }}>
           <Avatar name="NB" size={34} />
           <div style={{ overflow:"hidden" }}>
-            <div style={{ fontSize:13, fontWeight:600, color: isDarkSidebar ? "#e2e8f0" : "#111827",
+            <div style={{ fontSize:13, fontWeight:600,
+              color: isDark ? "#e2e8f0" : "#111827",
               whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>Nicolás Bravo</div>
-            <div style={{ fontSize:11, color: isDarkSidebar ? "#64748b" : "#9ca3af", marginTop:1 }}>Ver perfil</div>
+            <div style={{ fontSize:11, color: isDark ? "#64748b" : "#9ca3af", marginTop:1 }}>Ver perfil</div>
           </div>
-          <Icon name="chevron_right" size={16} style={{ marginLeft:"auto", color: isDarkSidebar ? "#475569" : "#d1d5db", flexShrink:0 }} />
+          <Icon name="chevron_right" size={16}
+            style={{ marginLeft:"auto", color: isDark ? "#475569" : "#d1d5db", flexShrink:0 }} />
         </div>
       )}
       {collapsed && (
-        <div style={{ padding:"12px 0", display:"flex", justifyContent:"center", borderTop: isDarkSidebar ? "1px solid rgba(255,255,255,0.06)" : "1px solid #f3f4f6" }}>
+        <div style={{ padding:"12px 0", display:"flex", justifyContent:"center", borderTop:`1px solid ${divider}` }}>
           <Avatar name="NB" size={32} />
         </div>
       )}
@@ -296,9 +434,10 @@ function Sidebar({ theme, t, open, activeNav, setActiveNav }) {
 }
 
 // ─── Calendar View ────────────────────────────────────────────────────────────
-function CalendarView({ t }) {
+function CalendarView({ theme }) {
+  const th = THEMES[theme];
   const [year, setYear] = useState(2026);
-  const [month, setMonth] = useState(4); // Mayo = index 4
+  const [month, setMonth] = useState(4);
   const today = new Date(2026, 4, 23);
 
   const daysInMonth = getDaysInMonth(year, month);
@@ -311,45 +450,44 @@ function CalendarView({ t }) {
   for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, cur: true });
   while (cells.length % 7 !== 0) { cells.push({ day: cells.length - daysInMonth - firstDay + 1, cur: false }); }
 
+  const btnStyle = {
+    background:"none", border:`1px solid ${th.calBorder}`, cursor:"pointer",
+    borderRadius:8, padding:"6px 10px", display:"flex",
+    color: th.pageTitle, transition:"border-color 0.15s", fontSize:20, lineHeight:1,
+  };
+
   return (
     <div style={{ display:"flex", gap:20, height:"100%" }}>
       {/* Main calendar */}
       <div style={{ flex:1, minWidth:0 }}>
-        {/* Month nav */}
         <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:20 }}>
           <button onClick={() => { if(month===0){setMonth(11);setYear(y=>y-1)}else setMonth(m=>m-1); }}
-            style={{ background:"none", border:"1px solid #e5e7eb", cursor:"pointer",
-              borderRadius:8, padding:"6px 10px", display:"flex", color:"#374151",
-              transition:"border-color 0.15s", fontSize:20, lineHeight:1, }}
-            onMouseEnter={e=>e.currentTarget.style.borderColor="#3b82f6"}
-            onMouseLeave={e=>e.currentTarget.style.borderColor="#e5e7eb"}
+            style={btnStyle}
+            onMouseEnter={e=>e.currentTarget.style.borderColor=th.accent}
+            onMouseLeave={e=>e.currentTarget.style.borderColor=th.calBorder}
           >‹</button>
-          <h2 style={{ fontSize:18, fontWeight:600, color:"#111827", minWidth:160, textAlign:"center" }}>
+          <h2 style={{ fontSize:18, fontWeight:600, color:th.pageTitle, minWidth:160, textAlign:"center" }}>
             {MONTHS_ES[month]} {year}
           </h2>
           <button onClick={() => { if(month===11){setMonth(0);setYear(y=>y+1)}else setMonth(m=>m+1); }}
-            style={{ background:"none", border:"1px solid #e5e7eb", cursor:"pointer",
-              borderRadius:8, padding:"6px 10px", display:"flex", color:"#374151",
-              transition:"border-color 0.15s", fontSize:20, lineHeight:1, }}
-            onMouseEnter={e=>e.currentTarget.style.borderColor="#3b82f6"}
-            onMouseLeave={e=>e.currentTarget.style.borderColor="#e5e7eb"}
+            style={btnStyle}
+            onMouseEnter={e=>e.currentTarget.style.borderColor=th.accent}
+            onMouseLeave={e=>e.currentTarget.style.borderColor=th.calBorder}
           >›</button>
         </div>
 
         {/* Grid */}
-        <div style={{ background:"#fff", borderRadius:12, border:"1px solid #e5e7eb",
-          boxShadow:"0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)", overflow:"hidden" }}>
-          {/* Header row */}
+        <div style={{ background:th.calBg, borderRadius:12, border:`1px solid ${th.calBorder}`,
+          boxShadow:"0 1px 3px rgba(0,0,0,0.06)", overflow:"hidden" }}>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)",
-            borderBottom:"1px solid #f3f4f6", background:"#fafafa" }}>
+            borderBottom:`1px solid ${th.calBorder}`, background:th.calHeaderBg }}>
             {DAYS_ES.map(d => (
               <div key={d} style={{ padding:"10px 0", textAlign:"center",
-                fontSize:12, fontWeight:600, color:"#9ca3af", letterSpacing:"0.04em" }}>
+                fontSize:12, fontWeight:600, color:th.pageMeta, letterSpacing:"0.04em" }}>
                 {d.toUpperCase()}
               </div>
             ))}
           </div>
-          {/* Cells */}
           {Array.from({ length: cells.length / 7 }).map((_, row) => (
             <div key={row} style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)" }}>
               {cells.slice(row*7, row*7+7).map((cell, col) => {
@@ -358,31 +496,30 @@ function CalendarView({ t }) {
                   : null;
                 const evs = dateKey && EVENTS[dateKey] || [];
                 const isToday = cell.cur && year===today.getFullYear() && month===today.getMonth() && cell.day===today.getDate();
+                const todayBg = th.accentBg;
                 return (
                   <div key={col} style={{
                     minHeight:88, padding:"8px 8px 4px",
-                    borderRight: col<6 ? "1px solid #f3f4f6" : "none",
-                    borderBottom: row < cells.length/7-1 ? "1px solid #f3f4f6" : "none",
-                    background: isToday ? "rgba(59,130,246,0.04)" : "transparent",
-                    transition:"background 0.15s",
-                    cursor:"pointer",
+                    borderRight: col<6 ? `1px solid ${th.calBorder}` : "none",
+                    borderBottom: row < cells.length/7-1 ? `1px solid ${th.calBorder}` : "none",
+                    background: isToday ? todayBg : "transparent",
+                    transition:"background 0.15s", cursor:"pointer",
                   }}
-                    onMouseEnter={e => { if(!isToday) e.currentTarget.style.background="rgba(0,0,0,0.015)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = isToday ? "rgba(59,130,246,0.04)" : "transparent"; }}
+                    onMouseEnter={e => { if(!isToday) e.currentTarget.style.background=th.calHeaderBg; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = isToday ? todayBg : "transparent"; }}
                   >
                     <div style={{
                       width:26, height:26, display:"flex", alignItems:"center", justifyContent:"center",
                       borderRadius:"50%", fontSize:13, fontWeight: isToday ? 700 : 400,
-                      color: isToday ? "#fff" : cell.cur ? "#374151" : "#d1d5db",
-                      background: isToday ? "#3b82f6" : "transparent",
+                      color: isToday ? "#fff" : cell.cur ? th.pageTitle : th.pageMeta,
+                      background: isToday ? th.accent : "transparent",
                       marginBottom:4,
                     }}>{cell.day}</div>
                     {evs.map((ev, i) => (
                       <div key={i} style={{
-                        fontSize:11, background: "#dbeafe", color:"#1d4ed8",
+                        fontSize:11, background: th.accentBg, color: th.accent,
                         borderRadius:4, padding:"2px 6px", marginBottom:2,
-                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
-                        fontWeight:500,
+                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", fontWeight:500,
                       }}>{ev.label}</div>
                     ))}
                   </div>
@@ -395,32 +532,32 @@ function CalendarView({ t }) {
 
       {/* Events panel */}
       <div style={{ width:240, flexShrink:0 }}>
-        <div style={{ fontSize:13, fontWeight:600, color:"#374151", marginBottom:12 }}>
+        <div style={{ fontSize:13, fontWeight:600, color:th.pageSubtitle, marginBottom:12 }}>
           Eventos del mes ({monthEvents.length})
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {monthEvents.map(([date, evs]) => evs.map((ev, i) => (
             <div key={date+i} style={{
-              background:"#fff", borderRadius:10, padding:"12px 14px",
-              border:"1px solid #e5e7eb",
+              background:th.calBg, borderRadius:10, padding:"12px 14px",
+              border:`1px solid ${th.calBorder}`,
               boxShadow:"0 1px 3px rgba(0,0,0,0.04)",
             }}>
-              <div style={{ fontSize:13, fontWeight:600, color:"#111827", marginBottom:6 }}>{ev.label}</div>
+              <div style={{ fontSize:13, fontWeight:600, color:th.pageTitle, marginBottom:6 }}>{ev.label}</div>
               <div style={{ display:"flex", gap:6, marginBottom:8 }}>
                 <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20,
-                  background:"#eff6ff", color:"#3b82f6", border:"1px solid #bfdbfe", fontWeight:500 }}>
+                  background:th.accentBg, color:th.accent, fontWeight:500 }}>
                   {ev.type}
                 </span>
                 <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20,
-                  background:"#f0fdf4", color:"#16a34a", border:"1px solid #bbf7d0", fontWeight:500 }}>
+                  background:"#f0fdf4", color:"#16a34a", fontWeight:500 }}>
                   {ev.scope}
                 </span>
               </div>
-              <div style={{ fontSize:11, color:"#9ca3af" }}>{date}</div>
+              <div style={{ fontSize:11, color:th.pageMeta }}>{date}</div>
             </div>
           )))}
           {monthEvents.length === 0 && (
-            <div style={{ fontSize:13, color:"#9ca3af", padding:"20px 0", textAlign:"center" }}>
+            <div style={{ fontSize:13, color:th.pageMeta, padding:"20px 0", textAlign:"center" }}>
               Sin eventos este mes
             </div>
           )}
@@ -465,45 +602,49 @@ function App() {
         {/* Page header */}
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:24 }}>
           <div>
-            <div style={{ fontSize:11, fontWeight:500, color:"#9ca3af", letterSpacing:"0.06em",
+            <div style={{ fontSize:11, fontWeight:500, color:th.pageMeta, letterSpacing:"0.06em",
               textTransform:"uppercase", marginBottom:4 }}>
               Sábado, 23 de Mayo
             </div>
-            <h1 style={{ fontSize:22, fontWeight:700, color:"#111827", letterSpacing:"-0.3px" }}>
+            <h1 style={{ fontSize:22, fontWeight:700, color:th.pageTitle, letterSpacing:"-0.3px" }}>
               Calendario de eventos
             </h1>
-            <p style={{ fontSize:13, color:"#6b7280", marginTop:4, maxWidth:540 }}>
+            <p style={{ fontSize:13, color:th.pageSubtitle, marginTop:4, maxWidth:540 }}>
               Agregá promociones, feriados y eventos que impactan tus ventas. Los feriados nacionales AR se cargan automáticamente.
             </p>
           </div>
           <button style={{
             display:"flex", alignItems:"center", gap:8,
-            background:"linear-gradient(135deg,#3b82f6,#2563eb)",
+            background:`linear-gradient(135deg, ${th.accent}, ${th.accentDark})`,
             color:"#fff", border:"none", borderRadius:8, padding:"10px 18px",
             fontSize:13, fontWeight:600, cursor:"pointer",
-            boxShadow:"0 2px 8px rgba(59,130,246,0.35)",
+            boxShadow:`0 2px 8px ${th.accentShadow}`,
             transition:"box-shadow 0.15s, transform 0.15s",
             whiteSpace:"nowrap", flexShrink:0,
           }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow="0 4px 16px rgba(59,130,246,0.45)"; e.currentTarget.style.transform="translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow="0 2px 8px rgba(59,130,246,0.35)"; e.currentTarget.style.transform="none"; }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 4px 16px ${th.accentShadow}`; e.currentTarget.style.transform="translateY(-1px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 2px 8px ${th.accentShadow}`; e.currentTarget.style.transform="none"; }}
           >
             <Icon name="add" size={18} />
             Nuevo evento
           </button>
         </div>
 
-        <CalendarView t={t} />
+        <CalendarView theme={theme} />
       </main>
 
       {/* Tweaks Panel */}
       <TweaksPanel>
-        <TweakSection title="Tema">
+        <TweakSection title="Tema de color">
           <TweakSelect id="theme" label="Variante"
             options={[
-              { value:"navyPro",      label:"Navy Pro" },
-              { value:"blueMui",      label:"Blue MUI" },
-              { value:"slateSidebar", label:"Slate Sidebar" },
+              { value:"navyPro",       label:"🌊 Navy Pro" },
+              { value:"blueMui",       label:"🔵 Blue MUI" },
+              { value:"slateSidebar",  label:"🪨 Slate Sidebar" },
+              { value:"violetAI",      label:"🟣 Violet AI" },
+              { value:"emeraldData",   label:"🟢 Emerald Data" },
+              { value:"graphiteDark",  label:"⚫ Graphite Dark" },
+              { value:"indigoLinear",  label:"💜 Indigo Linear" },
             ]}
             value={t.theme} onChange={v => setTweak("theme", v)}
           />
@@ -512,8 +653,8 @@ function App() {
           <TweakSlider id="sidebarWidth" label="Ancho" min={200} max={300} step={10}
             value={t.sidebarWidth} onChange={v => setTweak("sidebarWidth", v)} />
         </TweakSection>
-        <TweakSection title="Header logo">
-          <TweakRadio id="logoSize" label="Tamaño logo"
+        <TweakSection title="Logo">
+          <TweakRadio id="logoSize" label="Tamaño"
             options={[{value:"sm",label:"S"},{value:"md",label:"M"},{value:"lg",label:"L"}]}
             value={t.logoSize} onChange={v => setTweak("logoSize", v)}
           />
