@@ -781,7 +781,7 @@ async def demo_analyze_category(
     # Asegurar tipos consistentes para el merge posterior
     panel["unique_id"] = panel["unique_id"].astype(str)
     test_df["unique_id"] = test_df["unique_id"].astype(str)
-    panel["ds"] = pd.to_datetime(panel["ds"]).dt.normalize()   # strip hora
+    panel["ds"] = pd.to_datetime(panel["ds"]).dt.normalize()  # strip hora
     test_df["ds"] = pd.to_datetime(test_df["ds"]).dt.normalize()  # strip hora
 
     # ── 3. StatsForecast vectorizado ───────────────────────────────────────────────────

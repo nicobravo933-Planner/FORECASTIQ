@@ -56,8 +56,14 @@ const NAV_BOTTOM = [
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// Sub-routes that belong to a nav item but live under a different path
+const SUB_ROUTES: Record<string, string[]> = {
+  "/dashboard/data": ["/dashboard/dataset", "/dashboard/datasets", "/dashboard/explorer"],
+}
+
 function isActive(href: string, pathname: string): boolean {
-  return pathname === href || pathname.startsWith(href + "/")
+  if (pathname === href || pathname.startsWith(href + "/")) return true
+  return (SUB_ROUTES[href] ?? []).some((sub) => pathname === sub || pathname.startsWith(sub + "/"))
 }
 
 // ── NavItem component ─────────────────────────────────────────────────────────

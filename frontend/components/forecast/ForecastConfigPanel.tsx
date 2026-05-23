@@ -8,6 +8,7 @@
  *   - Shows Select dropdowns for date column and target column
  *   - Validates column types and shows inline warnings
  *
+ * Model selector shows lock icon for models unavailable in cloud tier.
  * When no dataset_id is present, falls back to free-text TextFields.
  */
 
@@ -23,11 +24,13 @@ import Skeleton from "@mui/material/Skeleton"
 import Chip from "@mui/material/Chip"
 import Tooltip from "@mui/material/Tooltip"
 import Alert from "@mui/material/Alert"
+import LockIcon from "@mui/icons-material/Lock"
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline"
 import WarningAmberIcon from "@mui/icons-material/WarningAmber"
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined"
 import { useEffect } from "react"
 import { useColumnPreview } from "@/hooks/useColumnPreview"
+import { useCapabilities } from "@/hooks/useCapabilities"
 import { HorizonSelector } from "@/components/forecast/HorizonSelector"
 import type { DataFreq, ModelName, DatasetColumn } from "@/lib/types"
 
@@ -50,12 +53,12 @@ interface ForecastConfigPanelProps {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const MODEL_OPTIONS: { value: ModelName | "auto"; label: string }[] = [
-  { value: "auto",           label: "Auto-detectar (recomendado)" },
-  { value: "moving_average", label: "Promedio Móvil" },
-  { value: "holt_winters",   label: "Holt-Winters" },
-  { value: "sarima",         label: "SARIMA" },
-  { value: "lightgbm",       label: "LightGBM" },
+const ALL_MODEL_OPTIONS: { value: ModelName | "auto"; label: string; requiresLocal: boolean }[] = [
+  { value: "auto",           label: "Auto-detectar (recomendado)", requiresLocal: false },
+  { value: "moving_average", label: "Promedio Móvil",               requiresLocal: false },
+  { value: "holt_winters",   label: "Holt-Winters",                 requiresLocal: false },
+  { value: "sarima",         label: "SARIMA",                       requiresLocal: false },
+  { value: "lightgbm",       label: "LightGBM",                     requiresLocal: true  },
 ]
 
 const FREQ_OPTIONS: { value: DataFreq; label: string }[] = [
@@ -131,9 +134,12 @@ function DtypeChip({ dtype }: { dtype: string }) {
 
 export function ForecastConfigPanel({ config, onChange, disabled = false }: ForecastConfigPanelProps) {
   const preview = useColumnPreview(config.datasetId || null)
+  const { caps } = useCapabilities()
+
+  // Determine which models are available based on server tier
+  const isLocal = caps.tier === "local"
 
   // Auto-select best columns when preview loads and fields are still empty.
-  // Priority: first datetime → date col, first numeric (excluding the date) → target col.
   useEffect(() => {
     if (preview.status !== "ready") return
     const cols = preview.columns
@@ -153,7 +159,7 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview.status])
 
-  const columns = preview.status === "ready" ? preview.columns : []
+  const columns    = preview.status === "ready" ? preview.columns : []
   const hasColumns = columns.length > 0
 
   const dateColMeta   = columns.find((c) => c.name === config.dateCol)
@@ -170,7 +176,7 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
         Parámetros del forecast
       </Typography>
 
-      {/* Dataset ID row — always text field */}
+      {/* Dataset ID */}
       <TextField
         label="Dataset ID"
         size="small"
@@ -204,11 +210,8 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
         ) : hasColumns ? (
           <FormControl size="small" sx={{ flex: "1 1 11rem" }} disabled={disabled}>
             <InputLabel>Columna fecha</InputLabel>
-            <Select
-              value={config.dateCol}
-              label="Columna fecha"
-              onChange={(e) => onChange({ dateCol: e.target.value })}
-            >
+            <Select value={config.dateCol} label="Columna fecha"
+              onChange={(e) => onChange({ dateCol: e.target.value })}>
               {columns.map((col) => (
                 <MenuItem key={col.name} value={col.name}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
@@ -219,24 +222,16 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
               ))}
             </Select>
             {config.dateCol && (
-              <FormHelperText
-                sx={{ color: dateValidation.status === "ok" ? "success.main" : "warning.main", display: "flex", alignItems: "center", gap: "0.25rem" }}
-              >
+              <FormHelperText sx={{ color: dateValidation.status === "ok" ? "success.main" : "warning.main", display: "flex", alignItems: "center", gap: "0.25rem" }}>
                 <ColIcon validation={dateValidation} />
                 {dateValidation.message}
               </FormHelperText>
             )}
           </FormControl>
         ) : (
-          <TextField
-            label="Columna fecha"
-            size="small"
-            value={config.dateCol}
+          <TextField label="Columna fecha" size="small" value={config.dateCol}
             onChange={(e) => onChange({ dateCol: e.target.value })}
-            placeholder="ej. fecha"
-            disabled={disabled}
-            sx={{ flex: "1 1 8rem" }}
-          />
+            placeholder="ej. fecha" disabled={disabled} sx={{ flex: "1 1 8rem" }} />
         )}
 
         {/* Target column */}
@@ -245,11 +240,8 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
         ) : hasColumns ? (
           <FormControl size="small" sx={{ flex: "1 1 13rem" }} disabled={disabled}>
             <InputLabel>Columna objetivo</InputLabel>
-            <Select
-              value={config.targetCol}
-              label="Columna objetivo"
-              onChange={(e) => onChange({ targetCol: e.target.value })}
-            >
+            <Select value={config.targetCol} label="Columna objetivo"
+              onChange={(e) => onChange({ targetCol: e.target.value })}>
               {columns.map((col) => (
                 <MenuItem key={col.name} value={col.name}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
@@ -260,63 +252,64 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
               ))}
             </Select>
             {config.targetCol && (
-              <FormHelperText
-                sx={{ color: targetValidation.status === "ok" ? "success.main" : "warning.main", display: "flex", alignItems: "center", gap: "0.25rem" }}
-              >
+              <FormHelperText sx={{ color: targetValidation.status === "ok" ? "success.main" : "warning.main", display: "flex", alignItems: "center", gap: "0.25rem" }}>
                 <ColIcon validation={targetValidation} />
                 {targetValidation.message}
               </FormHelperText>
             )}
           </FormControl>
         ) : (
-          <TextField
-            label="Columna objetivo"
-            size="small"
-            value={config.targetCol}
+          <TextField label="Columna objetivo" size="small" value={config.targetCol}
             onChange={(e) => onChange({ targetCol: e.target.value })}
-            placeholder="ej. ventas_unidades"
-            disabled={disabled}
-            sx={{ flex: "1 1 10rem" }}
-          />
+            placeholder="ej. ventas_unidades" disabled={disabled} sx={{ flex: "1 1 10rem" }} />
         )}
       </Box>
 
-      {/* Type conflict warning: both columns selected but same name */}
+      {/* Same column warning */}
       {config.dateCol && config.targetCol && config.dateCol === config.targetCol && (
         <Alert severity="warning" sx={{ fontSize: "0.8125rem", py: "0.25rem" }}>
           La columna de fecha y la columna objetivo no pueden ser la misma.
         </Alert>
       )}
 
-      {/* Freq + model row */}
+      {/* Freq + model */}
       <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <TextField
-          select
-          label="Frecuencia"
-          size="small"
-          value={config.freq}
+        <TextField select label="Frecuencia" size="small" value={config.freq}
           onChange={(e) => onChange({ freq: e.target.value as DataFreq })}
-          disabled={disabled}
-          sx={{ width: "10rem" }}
-        >
+          disabled={disabled} sx={{ width: "10rem" }}>
           {FREQ_OPTIONS.map((o) => (
             <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
           ))}
         </TextField>
 
-        <TextField
-          select
-          label="Modelo"
-          size="small"
-          value={config.modelOverride}
-          onChange={(e) => onChange({ modelOverride: e.target.value as ModelName | "auto" })}
-          disabled={disabled}
-          sx={{ flex: "1 1 14rem", maxWidth: "18rem" }}
-        >
-          {MODEL_OPTIONS.map((o) => (
-            <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-          ))}
-        </TextField>
+        {/* Model selector with tier-based lock */}
+        <FormControl size="small" sx={{ flex: "1 1 14rem", maxWidth: "18rem" }} disabled={disabled}>
+          <InputLabel>Modelo</InputLabel>
+          <Select value={config.modelOverride} label="Modelo"
+            onChange={(e) => onChange({ modelOverride: e.target.value as ModelName | "auto" })}>
+            {ALL_MODEL_OPTIONS.map((o) => {
+              const locked = o.requiresLocal && !isLocal
+              return (
+                <MenuItem key={o.value} value={o.value} disabled={locked}
+                  sx={{ opacity: locked ? 0.5 : 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
+                    <span style={{ flex: 1 }}>{o.label}</span>
+                    {locked && (
+                      <Tooltip title="Requiere backend local (EC2). No disponible en modo cloud." placement="right">
+                        <LockIcon sx={{ fontSize: "0.875rem", color: "text.disabled" }} />
+                      </Tooltip>
+                    )}
+                  </Box>
+                </MenuItem>
+              )
+            })}
+          </Select>
+          {!isLocal && (
+            <FormHelperText sx={{ fontSize: "0.6875rem" }}>
+              LightGBM requiere backend local
+            </FormHelperText>
+          )}
+        </FormControl>
       </Box>
 
       {/* Horizon */}

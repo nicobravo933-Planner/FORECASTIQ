@@ -63,6 +63,11 @@ import AccountTreeIcon from "@mui/icons-material/AccountTree"
 import ClearIcon from "@mui/icons-material/Clear"
 import FolderIcon from "@mui/icons-material/Folder"
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
+import ShowChartIcon from "@mui/icons-material/ShowChart"
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartTooltip, ResponsiveContainer,
+} from "recharts"
 import { api, ApiError } from "@/lib/api"
 import { appStore } from "@/lib/appStore"
 import { getSessionIds, removeSessionId } from "@/lib/sessionDatasets"
@@ -199,6 +204,32 @@ function DataPageInner() {
   const [csvDatasetId, setCsvDatasetId] = useState(searchParams.get("dsId") ?? "")
   const [demoCategoria, setDemoCategoria] = useState("Electrónica")
   const [demoSkuId, setDemoSkuId]       = useState("")
+
+  // Mini-chart: serie histórica del SKU activo en modo demo
+  interface SkuPoint { fecha: string; ventas: number }
+  const [skuSeries, setSkuSeries]           = useState<SkuPoint[]>([])
+  const [loadingSkuChart, setLoadingSkuChart] = useState(false)
+  const [skuChartDatasetId, setSkuChartDatasetId] = useState<string | null>(null)
+
+  // Carga la serie del SKU cuando el usuario busca por SKU-id en el demo
+  const loadSkuChart = useCallback(async (skuId: string, cat: string) => {
+    if (!skuId) { setSkuSeries([]); return }
+    setLoadingSkuChart(true)
+    try {
+      const res = await api.post<{ dataset_id: string; rows: number }>("/api/datasets/demo/load", { sku_id: skuId, categoria: cat, freq: "D" })
+      setSkuChartDatasetId(res.dataset_id)
+      // Cargar todas las filas de la serie para el chart (limit alto)
+      const page = await api.get<{ columns: string[]; rows: Record<string,string>[] }>(
+        `/api/datasets/${res.dataset_id}/page?page=1&page_size=1200`
+      )
+      const pts = page.rows
+        .map(r => ({ fecha: String(r["fecha"] ?? ""), ventas: parseFloat(String(r["ventas"] ?? "0")) }))
+        .filter(r => r.fecha && !isNaN(r.ventas))
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))
+      setSkuSeries(pts)
+    } catch { setSkuSeries([]) }
+    finally { setLoadingSkuChart(false) }
+  }, [])
 
   // Drawer "Conectar nueva fuente" — eliminado, ahora navega a /dashboard/dataset
 
@@ -424,11 +455,28 @@ function DataPageInner() {
           <Box sx={{ pl:"1.75rem", pb:"0.5rem" }}>
             {CATEGORIAS.map(cat => (
               <ListItemButton key={cat} dense selected={demoCategoria===cat}
-                onClick={() => { setDemoCategoria(cat); selectDemo(cat) }}
+                onClick={() => { setDemoCategoria(cat); setDemoSkuId(""); setSkuSeries([]); selectDemo(cat) }}
                 sx={{ borderRadius:"0.25rem", py:"0.125rem" }}>
                 <ListItemText primary={cat} primaryTypographyProps={{ fontSize:"0.75rem" }}/>
               </ListItemButton>
             ))}
+            {/* SKU search for mini-chart */}
+            <Box sx={{ mt:"0.375rem", pr:"0.25rem" }}>
+              <TextField
+                size="small" fullWidth
+                placeholder="Buscar SKU para ver serie…"
+                value={demoSkuId}
+                onChange={(e) => {
+                  const v = e.target.value.trim()
+                  setDemoSkuId(v)
+                  if (v.length >= 5) loadSkuChart(v, demoCategoria)
+                  else setSkuSeries([])
+                }}
+                InputProps={{ startAdornment: <InputAdornment position="start"><ShowChartIcon sx={{ fontSize:"0.75rem", color:"text.disabled" }}/></InputAdornment> }}
+                sx={{ "& .MuiInputBase-input": { fontSize:"0.6875rem", py:"0.3rem" } }}
+              />
+              {loadingSkuChart && <LinearProgress sx={{ mt:"0.25rem", borderRadius:"0.25rem" }}/>}
+            </Box>
           </Box>
         )}
 
@@ -631,13 +679,14 @@ function DataPageInner() {
         {/* Panel derecho */}
         <Box sx={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:"0.5rem" }}>
 
-          {/* Tabs FK (solo DB) */}
-          {showDiagram && (
+          {/* Tabs: Tabla | Diagrama FK | Serie SKU */}
+          {(showDiagram || skuSeries.length > 0) && (
             <Tabs value={rightTab} onChange={(_, v) => setRightTab(v)}
               sx={{ flexShrink:0, minHeight:"2.25rem", borderBottom:"1px solid", borderColor:"divider",
                 "& .MuiTab-root": { textTransform:"none", minHeight:"2.25rem", fontSize:"0.8125rem" } }}>
               <Tab label="Tabla" />
-              <Tab icon={<AccountTreeIcon sx={{ fontSize:"0.875rem" }}/>} iconPosition="start" label="Diagrama FK" />
+              {showDiagram && <Tab icon={<AccountTreeIcon sx={{ fontSize:"0.875rem" }}/>} iconPosition="start" label="Diagrama FK" />}
+              {skuSeries.length > 0 && <Tab icon={<ShowChartIcon sx={{ fontSize:"0.875rem" }}/>} iconPosition="start" label={`Serie: ${demoSkuId}`} />}
             </Tabs>
           )}
 
@@ -782,9 +831,65 @@ function DataPageInner() {
           {rightTab===1 && showDiagram && (
             <Paper variant="outlined" sx={{ flex:1, p:"1.25rem", overflow:"auto", borderRadius:"0.75rem", display:"flex", flexDirection:"column" }}>
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb:"0.75rem", flexShrink:0 }}>
-                {selectedTable ? `Relaciones de ${selectedTable.schema_name}.${selectedTable.table_name}` : "Elegí una tabla"}
+                {selectedTable ? `Relaciones de ${selectedTable.schema_name}.${selectedTable.table_name}` : "Elegi una tabla"}
               </Typography>
               <RelationDiagram tables={schema!.tables} focus={selectedTable}/>
+            </Paper>
+          )}
+
+          {/* Mini-chart: serie histórica del SKU demo */}
+          {skuSeries.length > 0 && rightTab === (showDiagram ? 2 : 1) && (
+            <Paper variant="outlined" sx={{ flex:1, p:"1.25rem", borderRadius:"0.75rem", display:"flex", flexDirection:"column", gap:"0.875rem" }}>
+              <Box sx={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:"0.5rem" }}>
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    {demoSkuId} — Serie histórica diaria
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {skuSeries.length.toLocaleString("es-AR")} observaciones
+                    {" · "}
+                    {skuSeries[0]?.fecha} a {skuSeries[skuSeries.length-1]?.fecha}
+                  </Typography>
+                </Box>
+                <Button size="small" variant="contained"
+                  onClick={() => {
+                    if (skuChartDatasetId) {
+                      appStore.setActiveDataset(skuChartDatasetId, "fecha", "ventas", "D")
+                    }
+                    router.push("/dashboard/forecast")
+                  }}
+                  sx={{ textTransform:"none", fontWeight:600 }}>
+                  Ir a Forecast →
+                </Button>
+              </Box>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={skuSeries} margin={{ top:4, right:8, bottom:4, left:0 }}>
+                  <defs>
+                    <linearGradient id="skuGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)"/>
+                  <XAxis dataKey="fecha"
+                    tick={{ fontSize:10 }}
+                    tickFormatter={(v: string) => v.slice(0,7)}
+                    interval={Math.floor(skuSeries.length / 8)}
+                  />
+                  <YAxis tick={{ fontSize:10 }} width={40}/>
+                  <RechartTooltip
+                    contentStyle={{ fontSize:"0.75rem" }}
+                    formatter={(v: number) => [v.toLocaleString("es-AR"), "Ventas"]}
+                  />
+                  <Area type="monotone" dataKey="ventas"
+                    stroke="#6366f1" strokeWidth={1.5}
+                    fill="url(#skuGrad)" dot={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+              <Typography variant="caption" color="text.disabled">
+                Serie cruda sin suavizar · ideal para detectar estacionalidad y outliers antes del forecast
+              </Typography>
             </Paper>
           )}
         </Box>

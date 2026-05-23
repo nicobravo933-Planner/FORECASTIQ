@@ -56,6 +56,8 @@ desktop.ini
 *.h5
 *.parquet
 /data/
+mlruns/
+backend/mlruns/
 
 # ─── Misc ──────────────────────────────────────────────────────
 *.csv

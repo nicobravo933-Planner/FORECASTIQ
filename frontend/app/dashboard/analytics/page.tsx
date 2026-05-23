@@ -1,13 +1,10 @@
 "use client"
 
 /**
- * /dashboard/analytics — Dashboard de métricas agregadas de demand planning.
+ * /dashboard/analytics — Forecast accuracy agregada por categoría y segmento ABC-XYZ.
  *
- * Opción B: visualización profesional con:
- *   - WAPE por categoría/segmento (bar chart)
- *   - Distribución de BIAS (scatter WAPE vs BIAS)
- *   - Comparativa multi-categoría
- *   - Drill-down al Dataset demo
+ * Drill-down: click en un SKU → carga la serie → navega a /forecast con appStore precargado.
+ * Una sola operación ML, no tres.
  */
 
 import { useState } from "react"
@@ -24,21 +21,34 @@ import FormControl from "@mui/material/FormControl"
 import InputLabel from "@mui/material/InputLabel"
 import LinearProgress from "@mui/material/LinearProgress"
 import Divider from "@mui/material/Divider"
+import Chip from "@mui/material/Chip"
+import Table from "@mui/material/Table"
+import TableBody from "@mui/material/TableBody"
+import TableCell from "@mui/material/TableCell"
+import TableContainer from "@mui/material/TableContainer"
+import TableHead from "@mui/material/TableHead"
+import TableRow from "@mui/material/TableRow"
+import Tab from "@mui/material/Tab"
+import Tabs from "@mui/material/Tabs"
+import Tooltip from "@mui/material/Tooltip"
 import InsightsIcon from "@mui/icons-material/Insights"
 import BarChartIcon from "@mui/icons-material/BarChart"
 import PlayArrowIcon from "@mui/icons-material/PlayArrow"
+import ShowChartIcon from "@mui/icons-material/ShowChart"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartTooltip, ResponsiveContainer,
   ReferenceLine, Cell, ScatterChart, Scatter, Legend,
 } from "recharts"
 import { api, ApiError } from "@/lib/api"
+import { appStore } from "@/lib/appStore"
+import { addSessionDataset } from "@/lib/sessionDatasets"
 
 const CATEGORIAS = ["Electrónica", "Alimentos", "Indumentaria", "Hogar", "Deportes"]
 
 interface SkuMetrics {
-  sku_id: string; wape: number | null; bias: number | null
-  cluster_abc: string | null; cluster_xyz: string | null
+  sku_id: string; wape: number | null; bias: number | null; mae: number | null
+  model: string; n_obs: number; cluster_abc: string | null; cluster_xyz: string | null
 }
 interface CategoryAnalysisResponse {
   categoria: string; n_skus: number; freq: string; horizon: number; duration_s: number
@@ -53,27 +63,60 @@ function wapeColor(v: number): string {
   return "#ef4444"
 }
 
+function WapeBadge({ v }: { v: number | null }) {
+  if (v === null) return <Typography variant="caption" color="text.disabled">—</Typography>
+  const color = v < 0.15 ? "success" : v < 0.30 ? "warning" : "error"
+  return <Chip label={(v * 100).toFixed(1) + "%"} size="small" color={color} variant="outlined"
+    sx={{ height: "1.25rem", fontSize: "0.6875rem", fontFamily: "monospace" }} />
+}
+
+function BiasBadge({ v }: { v: number | null }) {
+  if (v === null) return <Typography variant="caption" color="text.disabled">—</Typography>
+  const color = Math.abs(v) < 0.05 ? "success" : Math.abs(v) < 0.15 ? "warning" : "error"
+  const label = (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%"
+  return <Chip label={label} size="small" color={color} variant="outlined"
+    sx={{ height: "1.25rem", fontSize: "0.6875rem", fontFamily: "monospace" }} />
+}
+
 export default function AnalyticsPage() {
   const router = useRouter()
-  const [categoria, setCategoria] = useState("Electrónica")
-  const [freq, setFreq]           = useState("W")
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState<string | null>(null)
-  const [result, setResult]       = useState<CategoryAnalysisResponse | null>(null)
+  const [categoria, setCategoria]   = useState("Electrónica")
+  const [freq, setFreq]             = useState("W")
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+  const [result, setResult]         = useState<CategoryAnalysisResponse | null>(null)
   const [allResults, setAllResults] = useState<CategoryAnalysisResponse[]>([])
+  const [activeTable, setActiveTable] = useState<"worst" | "best">("worst")
+  const [drillLoading, setDrillLoading] = useState<string | null>(null)  // sku_id being loaded
 
   const handleAnalyze = async () => {
     setLoading(true); setError(null)
     try {
-      const res = await api.post<CategoryAnalysisResponse>(
-        `/api/datasets/demo/analyze-category?categoria=${encodeURIComponent(categoria)}&freq=${freq}&horizon=12&max_skus=200`,
-        {}
+      const res = await api.get<CategoryAnalysisResponse>(
+        `/api/datasets/demo/analyze-category?categoria=${encodeURIComponent(categoria)}&freq=${freq}&horizon=12&max_skus=200`
       )
       setResult(res)
       setAllResults((prev) => [...prev.filter((r) => r.categoria !== res.categoria), res])
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Error en el análisis.")
     } finally { setLoading(false) }
+  }
+
+  // Drill-down: carga la serie del SKU y navega a /forecast con appStore precargado
+  // Un solo paso — no hay análisis adicional en /forecast porque ya tenemos el dataset_id
+  const handleDrillDown = async (skuId: string) => {
+    setDrillLoading(skuId)
+    try {
+      const res = await api.post<{ dataset_id: string; sku_id: string; rows: number }>(
+        "/api/datasets/demo/load",
+        { sku_id: skuId, categoria, freq: "D" }
+      )
+      addSessionDataset({ dataset_id: res.dataset_id, filename: `demo_${res.sku_id}`, created_at: new Date().toISOString() })
+      appStore.setActiveDataset(res.dataset_id, "fecha", "ventas", freq)
+      router.push("/dashboard/forecast")
+    } catch {
+      setError("Error al cargar el SKU. Intentá de nuevo.")
+    } finally { setDrillLoading(null) }
   }
 
   const segmentData = result
@@ -117,7 +160,7 @@ export default function AnalyticsPage() {
       <Paper variant="outlined" sx={{ p: "1.25rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-end", borderRadius: "0.75rem" }}>
         <FormControl size="small" sx={{ minWidth: "11rem" }}>
           <InputLabel>Categoría</InputLabel>
-          <Select value={categoria} label="Categoría" onChange={(e) => setCategoria(e.target.value)}>
+          <Select value={categoria} label="Categoría" onChange={(e) => { setCategoria(e.target.value); setResult(null) }}>
             {CATEGORIAS.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
           </Select>
         </FormControl>
@@ -136,7 +179,7 @@ export default function AnalyticsPage() {
         </Button>
         {allResults.length > 0 && (
           <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
-            {allResults.length} categoría{allResults.length > 1 ? "s" : ""} analizadas · acumuladas para comparar
+            {allResults.length} categoría{allResults.length > 1 ? "s" : ""} acumuladas
           </Typography>
         )}
       </Paper>
@@ -151,7 +194,7 @@ export default function AnalyticsPage() {
           <Typography variant="h6" color="text.secondary">Seleccioná una categoría y analizá</Typography>
           <Typography variant="body2" color="text.disabled" textAlign="center" maxWidth="28rem">
             StatsForecast AutoETS vectorizado sobre 200 SKUs con hold-out 12 períodos.
-            Verás WAPE/BIAS por segmento ABC-XYZ y scatter de excepciones para drill-down.
+            Verás WAPE/BIAS por segmento ABC-XYZ. Click en un SKU → navega directo a Forecast.
           </Typography>
         </Paper>
       )}
@@ -251,11 +294,68 @@ export default function AnalyticsPage() {
           )}
 
           <Divider />
-          <Button variant="outlined" startIcon={<BarChartIcon />}
-            onClick={() => router.push("/dashboard/dataset?tab=2")}
-            sx={{ textTransform: "none", alignSelf: "flex-start" }}>
-            Drill-down por SKU →
-          </Button>
+
+          {/* Tabla SKUs drill-down */}
+          <Paper variant="outlined" sx={{ p: "1.25rem", borderRadius: "0.75rem" }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
+              <Typography variant="subtitle2" fontWeight={600}>
+                Drill-down por SKU
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Click en una fila → carga la serie → navega a Forecast (1 paso, no 3)
+              </Typography>
+            </Box>
+
+            <Tabs value={activeTable} onChange={(_, v) => setActiveTable(v)}
+              sx={{ mb: "0.75rem", minHeight: "2.25rem",
+                "& .MuiTab-root": { textTransform: "none", fontSize: "0.8125rem", minHeight: "2.25rem" } }}>
+              <Tab value="worst" label="Peor WAPE (top 20)" />
+              <Tab value="best"  label="Mejor WAPE (top 20)" />
+            </Tabs>
+
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "background.default" }}>
+                    {["SKU", "WAPE", "BIAS", "Segmento", "Obs.", ""].map((h) => (
+                      <TableCell key={h} sx={{ fontWeight: 600, fontSize: "0.75rem", color: "text.secondary", py: "0.625rem" }}>{h}</TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(activeTable === "worst" ? result.worst_skus : result.best_skus).map((m) => (
+                    <TableRow key={m.sku_id} hover
+                      sx={{ cursor: "pointer", "&:hover .drill-btn": { opacity: 1 } }}
+                      onClick={() => handleDrillDown(m.sku_id)}>
+                      <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8125rem" }}>{m.sku_id}</TableCell>
+                      <TableCell><WapeBadge v={m.wape} /></TableCell>
+                      <TableCell><BiasBadge v={m.bias} /></TableCell>
+                      <TableCell>
+                        {m.cluster_abc && m.cluster_xyz && (
+                          <Chip label={`${m.cluster_abc}-${m.cluster_xyz}`} size="small"
+                            sx={{ height: "1.125rem", fontSize: "0.625rem" }} />
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ color: "text.disabled", fontSize: "0.75rem" }}>{m.n_obs}</TableCell>
+                      <TableCell>
+                        <Tooltip title="Cargar serie y abrir en Forecast">
+                          {drillLoading === m.sku_id ? (
+                            <CircularProgress size="0.875rem" />
+                          ) : (
+                            <Button className="drill-btn" size="small" variant="outlined"
+                              startIcon={<ShowChartIcon sx={{ fontSize: "0.75rem !important" }} />}
+                              sx={{ opacity: 0, transition: "opacity 0.15s", textTransform: "none", fontSize: "0.6875rem", py: "0.125rem" }}>
+                              Forecast →
+                            </Button>
+                          )}
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
         </>
       )}
     </Box>

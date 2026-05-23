@@ -62,18 +62,32 @@ export default function ForecastPage() {
   const [forceReoptimize, setForceReoptimize] = useState(false)
   const [hpoCache, setHpoCache] = useState<{ wape: number | null; optimized_at: string | null } | null>(null)
 
+  // Pre-select cached model if we already ran forecast for this dataset
+  useEffect(() => {
+    if (!config.datasetId) return
+    const cached = appStore.getDetectedModel(config.datasetId)
+    if (cached && config.modelOverride === "auto") {
+      patchConfig({ modelOverride: cached as typeof config.modelOverride })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.datasetId])
+
   const patchConfig = (patch: Partial<ForecastConfig>) =>
     setConfig((prev) => ({ ...prev, ...patch }))
 
   // Persist job_id to appStore for Chat context
+  // Also cache the detected model to avoid re-running detection on next visit
   const jobPersisted = useRef(false)
   useEffect(() => {
     if (forecast.stage === "done" && forecast.jobId && !jobPersisted.current) {
       appStore.setActiveJobId(forecast.jobId)
+      if (forecast.result?.model_used && config.datasetId) {
+        appStore.setDetectedModel(config.datasetId, forecast.result.model_used)
+      }
       jobPersisted.current = true
     }
     if (forecast.stage === "idle") jobPersisted.current = false
-  }, [forecast.stage, forecast.jobId])
+  }, [forecast.stage, forecast.jobId, forecast.result, config.datasetId])
 
   // Consultar cache HPO cuando el modelo es lightgbm y hay dataset
   useEffect(() => {
