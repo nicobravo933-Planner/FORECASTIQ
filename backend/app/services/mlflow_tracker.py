@@ -15,8 +15,6 @@ from __future__ import annotations
 import os
 from typing import Any
 
-import joblib
-import mlflow
 import pandas as pd
 import structlog
 
@@ -27,6 +25,8 @@ log = structlog.get_logger(__name__)
 
 def _configure_mlflow() -> None:
     """Configura MLflow tracking URI y credenciales Dagshub (una sola vez)."""
+    import mlflow
+
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
 
     # Dagshub usa Basic Auth vía variables de entorno estándar de MLflow
@@ -41,6 +41,8 @@ def _get_or_create_experiment(user_id: str | None) -> str:
     Retorna el experiment_id para el usuario.
     Usa un experimento global si no hay user_id (modo demo).
     """
+    import mlflow
+
     experiment_name = (
         f"{settings.mlflow_experiment_name}/{user_id}"
         if user_id
@@ -77,6 +79,9 @@ def log_forecast_run(
         run_id: string de MLflow, o None si falló el tracking
     """
     try:
+        import joblib
+        import mlflow
+
         _configure_mlflow()
         experiment_id = _get_or_create_experiment(user_id)
 
@@ -149,6 +154,8 @@ def get_recent_runs(
     Usado por GET /api/experiments.
     """
     try:
+        import mlflow
+
         _configure_mlflow()
         experiment_name = (
             f"{settings.mlflow_experiment_name}/{user_id}"
@@ -205,6 +212,8 @@ def get_run_detail(run_id: str) -> dict[str, Any] | None:
     Usado por GET /api/experiments/{run_id}.
     """
     try:
+        import mlflow
+
         _configure_mlflow()
         run = mlflow.get_run(run_id)
         return {

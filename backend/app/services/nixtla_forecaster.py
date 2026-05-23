@@ -29,19 +29,23 @@ import time
 from typing import Any
 
 import pandas as pd
-import polars as pl
 import structlog
-from statsforecast import StatsForecast
-from statsforecast.models import (
-    AutoARIMA,
-    AutoETS,
-    SeasonalNaive,
-)
 
 log = structlog.get_logger(__name__)
 
 # Mínimo de observaciones para entrenar un modelo
 _MIN_OBS = 4
+
+
+def _check_heavy_deps() -> None:
+    """Lanza ImportError descriptivo si las deps heavy-ml no están instaladas."""
+    try:
+        import polars  # noqa: F401
+        import statsforecast  # noqa: F401
+    except ImportError as exc:
+        raise ImportError(
+            "nixtla_forecaster requiere el grupo heavy-ml. Instalá con: uv sync --group heavy-ml"
+        ) from exc
 
 
 def _season_length(freq: str) -> int:
@@ -64,14 +68,13 @@ def _build_panel(
     date_col: str,
     target_col: str,
     id_col: str,
-) -> pl.DataFrame:
+) -> Any:  # polars.DataFrame
     """
     Convierte registros de entrada al formato panel Nixtla usando Polars.
     Más rápido que pandas para >10k filas (columnar, zero-copy).
-
-    Returns:
-        DataFrame con columnas [unique_id, ds, y] + columnas extras que existan.
     """
+    import polars as pl
+
     df = pl.from_dicts(records)
 
     rename_map: dict[str, str] = {}
@@ -98,8 +101,10 @@ def _build_panel(
     return df.sort(["unique_id", "ds"])
 
 
-def _filter_min_obs(panel: pl.DataFrame, min_obs: int) -> pl.DataFrame:
+def _filter_min_obs(panel: Any, min_obs: int) -> Any:  # polars.DataFrame
     """Descarta series con menos de min_obs observaciones (no entrenables)."""
+    import polars as pl
+
     counts = panel.group_by("unique_id").agg(pl.len().alias("n_obs"))
     valid_ids = counts.filter(pl.col("n_obs") >= min_obs).select("unique_id")
     filtered = panel.join(valid_ids, on="unique_id", how="inner")
@@ -113,6 +118,8 @@ def _filter_min_obs(panel: pl.DataFrame, min_obs: int) -> pl.DataFrame:
 
 def _model_for_segment(cluster_key: str, season_len: int) -> Any:
     """Retorna instancia del modelo apropiado para el segmento ABC-XYZ."""
+    from statsforecast.models import AutoARIMA, AutoETS, SeasonalNaive
+
     if cluster_key in ("A-Z", "B-Z"):
         return AutoARIMA()
     if cluster_key.startswith("C"):
@@ -127,10 +134,10 @@ def _statsforecast_run(
     freq: str,
     season_len: int,
 ) -> pd.DataFrame:
-    """
-    Corre StatsForecast sobre un panel pandas ya limpio.
-    fallback_model: SeasonalNaive por si el modelo principal falla en alguna serie.
-    """
+    """Corre StatsForecast sobre un panel pandas ya limpio."""
+    from statsforecast import StatsForecast
+    from statsforecast.models import SeasonalNaive
+
     sf = StatsForecast(
         models=[model],
         freq=freq,
@@ -177,6 +184,11 @@ def run_batch_forecast(
     """
     t0 = time.perf_counter()
     season_len = _season_length(freq)
+
+    # Verifica deps antes de cualquier otra cosa
+    _check_heavy_deps()
+    import polars as pl
+    from statsforecast.models import AutoETS
 
     log.info("nixtla_batch_start", n_records=len(records), freq=freq, horizon=horizon)
 

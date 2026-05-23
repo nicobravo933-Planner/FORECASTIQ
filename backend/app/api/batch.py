@@ -21,7 +21,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.core.dependencies import OptionalUser, get_optional_user
-from app.services.nixtla_forecaster import run_batch_forecast
 from app.services.redis_cache import check_forecast_rate_limit
 
 log = structlog.get_logger(__name__)
@@ -125,6 +124,8 @@ async def batch_forecast(
     )
 
     try:
+        from app.services.nixtla_forecaster import run_batch_forecast
+
         result = run_batch_forecast(
             records=body.records,
             date_col=body.date_col,

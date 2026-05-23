@@ -21,16 +21,12 @@ from typing import Any
 
 import pandas as pd
 import structlog
-from evidently import ColumnMapping
-from evidently.metrics import DataDriftTable
-from evidently.report import Report
 
 from app.services.supabase import get_supabase
 
 log = structlog.get_logger(__name__)
 
-# Umbral para considerar drift significativo (configurable)
-DRIFT_THRESHOLD = 0.05  # 5% de cambio relativo en WAPE
+DRIFT_THRESHOLD = 0.05
 
 
 def detect_drift(
@@ -58,6 +54,10 @@ def detect_drift(
         }
     """
     try:
+        from evidently import ColumnMapping
+        from evidently.metrics import DataDriftTable
+        from evidently.report import Report
+
         # Construir DataFrames de referencia y actual
         ref_df = pd.DataFrame({"value": series_full.values})
         cur_df = pd.DataFrame({"value": series_recent.values})
@@ -168,7 +168,7 @@ def _parse_drift_result(report_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 def _save_report_html(
-    report: Report,
+    report: Any,
     dataset_id: str,
     job_id: str | None,
 ) -> str | None:
