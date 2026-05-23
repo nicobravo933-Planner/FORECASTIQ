@@ -3,21 +3,23 @@
 /**
  * useCapabilities — fetches server tier and available ML features.
  *
- * The backend exposes GET /api/capabilities which returns:
- *   tier: "cloud" | "local"
- *   models_available: string[]
- *   features: { lightgbm, optuna_hpo, nixtla_batch, demo_dataset, db_connect }
- *   message: string
+ * Priority:
+ *   1. sessionStorage cache (avoids round-trip on every navigation)
+ *   2. GET /api/capabilities (backend real — once deployed)
+ *   3. NEXT_PUBLIC_SERVER_TIER env var (frontend .env.local fallback for dev)
+ *   4. CLOUD_FALLBACK (safe defaults when backend unreachable)
  *
- * Result is cached in sessionStorage so we call the backend only once per tab.
- * Falls back to "cloud" tier gracefully if the backend is unreachable.
+ * This means in localhost, even without the backend endpoint deployed,
+ * setting NEXT_PUBLIC_SERVER_TIER=local in frontend/.env.local shows
+ * the correct "Backend local" chip immediately.
  */
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 
 export interface ServerCapabilities {
-  tier: "cloud" | "local"
+  tier: "local" | "ec2" | "cloud"
+  tier_label: string
   models_available: string[]
   features: {
     lightgbm: boolean
@@ -29,19 +31,35 @@ export interface ServerCapabilities {
   message: string
 }
 
-// Safe cloud-tier defaults — used as fallback when the backend is unreachable
-const CLOUD_FALLBACK: ServerCapabilities = {
-  tier: "cloud",
-  models_available: ["moving_average", "holt_winters", "sarima"],
-  features: {
-    lightgbm: false,
-    optuna_hpo: false,
-    nixtla_batch: false,
-    demo_dataset: true,
-    db_connect: true,
-  },
-  message: "No se pudo conectar al backend — mostrando modo cloud.",
+// Tier labels matching the backend
+const TIER_LABELS: Record<string, string> = {
+  local: "Backend local",
+  ec2:   "AWS EC2",
+  cloud: "Cloud",
 }
+
+// Build capabilities from a tier string (used for env-var fallback)
+function capsFromTier(tier: string): ServerCapabilities {
+  const isLocal = tier === "local" || tier === "ec2"
+  return {
+    tier: (tier as ServerCapabilities["tier"]) ?? "cloud",
+    tier_label: TIER_LABELS[tier] ?? "Cloud",
+    models_available: isLocal
+      ? ["moving_average", "holt_winters", "sarima", "lightgbm"]
+      : ["moving_average", "holt_winters", "sarima"],
+    features: {
+      lightgbm:    isLocal,
+      optuna_hpo:  isLocal,
+      nixtla_batch: isLocal,
+      demo_dataset: true,
+      db_connect:   true,
+    },
+    message: TIER_LABELS[tier] ?? "Cloud",
+  }
+}
+
+// Safe cloud-tier defaults — last resort fallback
+const CLOUD_FALLBACK = capsFromTier("cloud")
 
 const SESSION_KEY = "fiq_capabilities"
 
@@ -50,7 +68,7 @@ export function useCapabilities() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Try sessionStorage first — avoids a round-trip on every page navigation
+    // 1. sessionStorage cache
     try {
       const cached = sessionStorage.getItem(SESSION_KEY)
       if (cached) {
@@ -58,23 +76,25 @@ export function useCapabilities() {
         setLoading(false)
         return
       }
-    } catch {
-      // sessionStorage unavailable (SSR, private mode) — continue to fetch
-    }
+    } catch { /* unavailable */ }
 
+    // 2. Backend endpoint
     api.get<ServerCapabilities>("/api/capabilities")
       .then((data) => {
         setCaps(data)
         try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(data)) } catch { /* ok */ }
       })
-      .catch(() => setCaps(CLOUD_FALLBACK))
+      .catch(() => {
+        // 3. Env-var fallback — works in dev without backend endpoint deployed
+        const envTier = process.env.NEXT_PUBLIC_SERVER_TIER ?? "cloud"
+        setCaps(capsFromTier(envTier))
+      })
       .finally(() => setLoading(false))
   }, [])
 
   return { caps: caps ?? CLOUD_FALLBACK, loading }
 }
 
-/** Invalidate the session cache (call after SERVER_TIER env changes in dev) */
 export function clearCapabilitiesCache() {
   try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ok */ }
 }

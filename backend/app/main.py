@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.batch import router as batch_router
+from app.api.capabilities import router as capabilities_router
 from app.api.chat import router as chat_router
 from app.api.conversations import router as conversations_router
 from app.api.datasets import router as datasets_router
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(health_router)
+    app.include_router(capabilities_router)
     app.include_router(datasets_router)
     app.include_router(forecast_router)
     app.include_router(events_router)

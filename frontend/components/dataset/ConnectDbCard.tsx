@@ -152,11 +152,13 @@ export function ConnectDbCard() {
             variant={engine === eng.value ? "filled" : "outlined"}
             sx={{
               cursor: "pointer",
-              bgcolor: engine === eng.value ? "primary.dark" : "transparent",
-              color: engine === eng.value ? "primary.light" : "text.secondary",
+              bgcolor: engine === eng.value ? "primary.main" : "transparent",
+              color: engine === eng.value ? "#ffffff" : "text.secondary",
               borderColor: engine === eng.value ? "primary.main" : "divider",
               fontWeight: engine === eng.value ? 600 : 400,
               fontSize: "0.8125rem",
+              "&:hover": { bgcolor: engine === eng.value ? "primary.dark" : "action.hover" },
+              "& .MuiChip-label": { color: engine === eng.value ? "#ffffff" : undefined },
             }}
           />
         ))}

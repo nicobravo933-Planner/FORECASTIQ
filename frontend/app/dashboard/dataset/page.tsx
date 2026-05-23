@@ -18,13 +18,10 @@ import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Alert from "@mui/material/Alert"
 import Button from "@mui/material/Button"
-import Chip from "@mui/material/Chip"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
-import ComputerIcon from "@mui/icons-material/Computer"
 
 import { useDataset } from "@/hooks/useDataset"
-import { useCapabilities } from "@/hooks/useCapabilities"
 import { appStore } from "@/lib/appStore"
 import { DataSourceTabs } from "@/components/dataset/DataSourceTabs"
 import { DemoDatasetCard } from "@/components/dataset/DemoDatasetCard"
@@ -37,7 +34,6 @@ import { ModelRecommendation } from "@/components/upload/ModelRecommendation"
 
 export default function DatasetPage() {
   const dataset = useDataset()
-  const { caps, loading: capsLoading } = useCapabilities()
   const router = useRouter()
 
   // Persist active dataset context to appStore once detection is complete.
@@ -131,28 +127,11 @@ export default function DatasetPage() {
             Subí un archivo, conectá tu base de datos o usá el dataset demo para empezar a forecasting.
           </Typography>
         </Box>
-
-        {/* Server tier badge — solo visible en modo local */}
-        {!capsLoading && caps.tier === "local" && (
-          <Chip
-            icon={<ComputerIcon sx={{ fontSize: "0.875rem !important" }} />}
-            label="Backend local"
-            size="small"
-            sx={{
-              bgcolor: "rgba(16,185,129,0.12)",
-              color: "success.main",
-              border: "1px solid rgba(16,185,129,0.3)",
-              fontWeight: 600,
-              fontSize: "0.75rem",
-            }}
-          />
-        )}
       </Box>
 
       {/* Tabs */}
       <Suspense fallback={<Box sx={{ display:"flex", justifyContent:"center", mt:"2rem" }}><CircularProgress /></Box>}>
         <DataSourceTabs
-          caps={caps}
           csvContent={csvFlow}
           dbContent={<ConnectDbCard />}
           demoContent={<DemoDatasetCard />}

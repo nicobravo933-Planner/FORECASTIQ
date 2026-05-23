@@ -4,6 +4,7 @@
  * ForecastConfigPanel — UX-3.
  *
  * Config panel for the Forecast page. When a dataset_id is present:
+ *   - DatasetPicker shows all available datasets by name (no UUID visible)
  *   - Loads real column names from /api/datasets/{id}/preview
  *   - Shows Select dropdowns for date column and target column
  *   - Validates column types and shows inline warnings
@@ -27,10 +28,10 @@ import Alert from "@mui/material/Alert"
 import LockIcon from "@mui/icons-material/Lock"
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline"
 import WarningAmberIcon from "@mui/icons-material/WarningAmber"
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined"
 import { useEffect } from "react"
 import { useColumnPreview } from "@/hooks/useColumnPreview"
 import { useCapabilities } from "@/hooks/useCapabilities"
+import { DatasetPicker } from "@/components/forecast/DatasetPicker"
 import { HorizonSelector } from "@/components/forecast/HorizonSelector"
 import type { DataFreq, ModelName, DatasetColumn } from "@/lib/types"
 
@@ -71,78 +72,56 @@ const FREQ_OPTIONS: { value: DataFreq; label: string }[] = [
 // ── Column type validation helpers ────────────────────────────────────────────
 
 type ColStatus = "ok" | "warn" | "unknown"
-
-interface ColValidation {
-  status:  ColStatus
-  message: string
-}
+interface ColValidation { status: ColStatus; message: string }
 
 function validateDateCol(col: DatasetColumn | undefined): ColValidation {
   if (!col) return { status: "unknown", message: "" }
-  if (col.dtype === "datetime") return { status: "ok", message: "Columna de fecha válida" }
-  if (col.dtype === "numeric")  return { status: "warn", message: "Esta columna es numérica. Verificá que sea una fecha en formato reconocible." }
-  return { status: "warn", message: "Columna de tipo texto. Puede haber problemas al parsear fechas." }
+  if (col.dtype === "datetime") return { status: "ok",   message: "Columna de fecha válida" }
+  if (col.dtype === "numeric")  return { status: "warn", message: "Columna numérica. Verificá que sea una fecha reconocible." }
+  return                               { status: "warn", message: "Columna de tipo texto. Puede haber problemas al parsear fechas." }
 }
 
 function validateTargetCol(col: DatasetColumn | undefined): ColValidation {
   if (!col) return { status: "unknown", message: "" }
-  if (col.dtype === "numeric")  return { status: "ok", message: "Columna numérica válida" }
-  if (col.dtype === "datetime") return { status: "warn", message: "Esta columna parece ser una fecha, no un valor objetivo." }
-  return { status: "warn", message: "Columna de texto. El objetivo debe ser un número (ventas, unidades, etc.)." }
+  if (col.dtype === "numeric")  return { status: "ok",   message: "Columna numérica válida" }
+  if (col.dtype === "datetime") return { status: "warn", message: "Parece una fecha, no un valor objetivo." }
+  return                               { status: "warn", message: "El objetivo debe ser un número (ventas, unidades, etc.)." }
 }
 
 // ── Status icon ───────────────────────────────────────────────────────────────
 
 function ColIcon({ validation }: { validation: ColValidation }) {
   if (validation.status === "ok")
-    return (
-      <Tooltip title={validation.message} placement="top">
-        <CheckCircleOutlineIcon sx={{ fontSize: "1rem", color: "success.main", flexShrink: 0 }} />
-      </Tooltip>
-    )
+    return <Tooltip title={validation.message} placement="top"><CheckCircleOutlineIcon sx={{ fontSize: "1rem", color: "success.main", flexShrink: 0 }} /></Tooltip>
   if (validation.status === "warn")
-    return (
-      <Tooltip title={validation.message} placement="top">
-        <WarningAmberIcon sx={{ fontSize: "1rem", color: "warning.main", flexShrink: 0 }} />
-      </Tooltip>
-    )
+    return <Tooltip title={validation.message} placement="top"><WarningAmberIcon sx={{ fontSize: "1rem", color: "warning.main", flexShrink: 0 }} /></Tooltip>
   return null
 }
 
 // ── dtype chip ────────────────────────────────────────────────────────────────
 
 const DTYPE_COLORS: Record<string, "default" | "success" | "warning" | "error"> = {
-  datetime: "success",
-  numeric:  "success",
-  text:     "warning",
-  unknown:  "default",
+  datetime: "success", numeric: "success", text: "warning", unknown: "default",
 }
 
 function DtypeChip({ dtype }: { dtype: string }) {
   return (
-    <Chip
-      label={dtype}
-      size="small"
-      color={DTYPE_COLORS[dtype] ?? "default"}
-      variant="outlined"
-      sx={{ fontSize: "0.625rem", height: "1.125rem", pointerEvents: "none" }}
-    />
+    <Chip label={dtype} size="small" color={DTYPE_COLORS[dtype] ?? "default"} variant="outlined"
+      sx={{ fontSize: "0.625rem", height: "1.125rem", pointerEvents: "none" }} />
   )
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function ForecastConfigPanel({ config, onChange, disabled = false }: ForecastConfigPanelProps) {
-  const preview = useColumnPreview(config.datasetId || null)
+  const preview  = useColumnPreview(config.datasetId || null)
   const { caps } = useCapabilities()
+  const isLocal  = caps.tier === "local"
 
-  // Determine which models are available based on server tier
-  const isLocal = caps.tier === "local"
-
-  // Auto-select best columns when preview loads and fields are still empty.
+  // Auto-select best columns when preview loads and fields are still empty
   useEffect(() => {
     if (preview.status !== "ready") return
-    const cols = preview.columns
+    const cols        = preview.columns
     const needsDate   = !config.dateCol
     const needsTarget = !config.targetCol
     if (!needsDate && !needsTarget) return
@@ -164,42 +143,40 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
 
   const dateColMeta   = columns.find((c) => c.name === config.dateCol)
   const targetColMeta = columns.find((c) => c.name === config.targetCol)
-
   const dateValidation   = validateDateCol(dateColMeta)
   const targetValidation = validateTargetCol(targetColMeta)
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-      {/* Section label */}
       <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
         Parámetros del forecast
       </Typography>
 
-      {/* Dataset ID */}
-      <TextField
-        label="Dataset ID"
-        size="small"
+      {/* Dataset picker — nombre legible, no UUID */}
+      <DatasetPicker
         value={config.datasetId}
-        onChange={(e) => onChange({ datasetId: e.target.value })}
-        placeholder="UUID del dataset subido"
-        disabled={disabled}
-        helperText={
-          config.datasetId
-            ? preview.status === "loading" ? "Cargando columnas…"
-            : preview.status === "error"   ? preview.message
-            : preview.status === "ready"   ? `${preview.totalRows.toLocaleString("es-AR")} filas · ${columns.length} columnas detectadas`
-            : ""
-            : "Subí un CSV en la página Dataset o seleccioná desde Mis Datasets"
-        }
-        color={config.datasetId && preview.status === "ready" ? "success" : "primary"}
-        sx={{ width: "100%" }}
-        InputProps={{
-          endAdornment: preview.status === "loading"
-            ? <InfoOutlinedIcon sx={{ fontSize: "1rem", color: "text.disabled" }} />
-            : undefined,
+        onChange={(ds) => {
+          onChange({
+            datasetId: ds.dataset_id,
+            dateCol:   ds.dateCol   ?? "",
+            targetCol: ds.targetCol ?? "",
+            freq:      (ds.freq as DataFreq | undefined) ?? config.freq,
+          })
         }}
       />
+
+      {/* Row count hint cuando hay preview */}
+      {config.datasetId && preview.status === "ready" && (
+        <Typography variant="caption" color="success.main" sx={{ mt: "-0.75rem" }}>
+          {preview.totalRows.toLocaleString("es-AR")} filas · {columns.length} columnas detectadas
+        </Typography>
+      )}
+      {config.datasetId && preview.status === "error" && (
+        <Typography variant="caption" color="error.main" sx={{ mt: "-0.75rem" }}>
+          {preview.message}
+        </Typography>
+      )}
 
       {/* Column selectors */}
       <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
@@ -290,12 +267,11 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
             {ALL_MODEL_OPTIONS.map((o) => {
               const locked = o.requiresLocal && !isLocal
               return (
-                <MenuItem key={o.value} value={o.value} disabled={locked}
-                  sx={{ opacity: locked ? 0.5 : 1 }}>
+                <MenuItem key={o.value} value={o.value} disabled={locked} sx={{ opacity: locked ? 0.5 : 1 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
                     <span style={{ flex: 1 }}>{o.label}</span>
                     {locked && (
-                      <Tooltip title="Requiere backend local (EC2). No disponible en modo cloud." placement="right">
+                      <Tooltip title="Requiere backend local. No disponible en modo cloud." placement="right">
                         <LockIcon sx={{ fontSize: "0.875rem", color: "text.disabled" }} />
                       </Tooltip>
                     )}
@@ -315,6 +291,7 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
       {/* Horizon */}
       <HorizonSelector
         value={config.horizon}
+        freq={config.freq}
         onChange={(h) => onChange({ horizon: h })}
         disabled={disabled}
       />
