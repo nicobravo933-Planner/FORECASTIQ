@@ -79,7 +79,6 @@ function NavItem({
         href={item.href}
         selected={active}
         sx={{
-          borderRadius: "0.5rem",
           mb: "0.125rem",
           mx: "0.5rem",
           px: collapsed ? "0.625rem" : "0.75rem",
