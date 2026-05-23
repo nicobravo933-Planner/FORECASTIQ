@@ -16,15 +16,19 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import Alert from "@mui/material/Alert";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DriftCard } from "@/components/mlops/DriftCard";
 import { ExperimentTable } from "@/components/mlops/ExperimentTable";
 import { MLflowLink } from "@/components/mlops/MLflowLink";
 import { WapeTrendChart } from "@/components/mlops/WapeTrendChart";
+import { useCapabilities } from "@/hooks/useCapabilities";
 import { api, ApiError } from "@/lib/api";
 import { type DriftSummary, type MlflowRun } from "@/lib/types";
 
 export default function MlopsPage() {
+  const { caps } = useCapabilities();
+  const isCloud = caps.tier === "cloud";
   // ── Experiment runs ────────────────────────────────────────────
   const [runs, setRuns] = useState<MlflowRun[]>([]);
   const [runsLoading, setRunsLoading] = useState(true);
@@ -127,6 +131,16 @@ export default function MlopsPage() {
           </Tooltip>
         </Box>
       </Box>
+
+      {/* Cloud tier notice */}
+      {isCloud && (
+        <Alert severity="info" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
+          MLflow tracking requiere el worker local con el grupo <strong>heavy-ml</strong>.
+          Los experimentos se registran cuando corrés forecasts desde tu PC con{" "}
+          <code style={{ fontSize: "0.75rem" }}>SERVER_TIER=local</code>.
+          En producción (EC2) esta sección no genera nuevos datos.
+        </Alert>
+      )}
 
       {/* Experiment table */}
       <Typography variant="subtitle1" fontWeight={600} sx={{ mb: "0.75rem" }}>

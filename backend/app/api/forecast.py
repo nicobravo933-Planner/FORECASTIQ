@@ -33,6 +33,7 @@ class ForecastRunRequest(BaseModel):
     freq: str = "M"
     horizon: int = Field(default=12, ge=1, le=60)
     model_override: str | None = None
+    force_reoptimize: bool = False  # True → ignora cache HPO y corre Optuna desde cero
 
 
 class ForecastRunResponse(BaseModel):
@@ -144,6 +145,7 @@ async def run_forecast(
         horizon=body.horizon,
         model_override=body.model_override,
         user_id=str(user.user_id) if user else None,
+        force_reoptimize=body.force_reoptimize,
     )
     job_id: str = str(task.id)
     return ForecastRunResponse(job_id=job_id, status="done" if _eager_mode() else "pending")
@@ -282,3 +284,37 @@ async def get_forecast_compare(job_id: str, year: int | None = None) -> Forecast
         events_applied=len(events_applied_set),
         predictions=compare_points,
     )
+
+
+# ── HPO Cache endpoints ───────────────────────────────────────────────────
+
+
+class HpoCacheInfo(BaseModel):
+    has_cache: bool
+    wape: float | None = None
+    n_trials: int | None = None
+    optimized_at: str | None = None
+
+
+@router.get("/hpo-cache/{dataset_id}", response_model=HpoCacheInfo)
+async def get_hpo_cache_info(dataset_id: str, freq: str = "ME") -> HpoCacheInfo:
+    """Retorna info del cache HPO para un dataset+freq. Usado por el frontend."""
+    from app.services.supabase import get_hpo_cache
+
+    cache = get_hpo_cache(dataset_id, freq)
+    if not cache:
+        return HpoCacheInfo(has_cache=False)
+    return HpoCacheInfo(
+        has_cache=True,
+        wape=cache.get("wape"),
+        n_trials=cache.get("n_trials"),
+        optimized_at=str(cache.get("optimized_at", ""))[:16],  # solo fecha+hora
+    )
+
+
+@router.delete("/hpo-cache/{dataset_id}", status_code=204)
+async def invalidate_hpo_cache(dataset_id: str, freq: str = "ME") -> None:
+    """Invalida el cache HPO. El próximo forecast correrá Optuna desde cero."""
+    from app.services.supabase import delete_hpo_cache
+
+    delete_hpo_cache(dataset_id, freq)

@@ -35,9 +35,9 @@ warnings.filterwarnings("ignore")  # statsmodels lanza warnings de convergencia
 # ── Config ────────────────────────────────────────────────────────────────────
 
 N_SKUS_DEFAULT = 1_000
-N_WEEKS = 104       # 2 años de historia semanal
-HORIZON = 12        # 12 semanas de forecast
-HOLDOUT = 12        # hold-out para evaluar WAPE
+N_WEEKS = 104  # 2 años de historia semanal
+HORIZON = 12  # 12 semanas de forecast
+HOLDOUT = 12  # hold-out para evaluar WAPE
 FREQ = "W"
 SEED = 42
 
@@ -46,7 +46,7 @@ rng = np.random.default_rng(SEED)
 # Segmentos ABC-XYZ
 ABC = ["A", "B", "C"]
 XYZ = ["X", "Y", "Z"]
-ABC_PROBS = [0.2, 0.3, 0.5]   # 20% A, 30% B, 50% C
+ABC_PROBS = [0.2, 0.3, 0.5]  # 20% A, 30% B, 50% C
 XYZ_PROBS = [0.3, 0.4, 0.3]
 
 
@@ -159,8 +159,15 @@ def run_statsmodels(panel: pd.DataFrame) -> dict[str, Any]:
     duration = time.perf_counter() - t0
     avg_wape = float(np.nanmean(wapes))
 
-    print(f"  Tiempo: {duration:.2f}s  |  WAPE medio: {avg_wape*100:.1f}%  |  Fallidos: {failed}")
-    return {"method": "statsmodels (loop)", "duration_s": round(duration, 3), "wape": avg_wape, "failed": failed}
+    print(
+        f"  Tiempo: {duration:.2f}s  |  WAPE medio: {avg_wape * 100:.1f}%  |  Fallidos: {failed}"
+    )
+    return {
+        "method": "statsmodels (loop)",
+        "duration_s": round(duration, 3),
+        "wape": avg_wape,
+        "failed": failed,
+    }
 
 
 # ── Método B: StatsForecast Nixtla (vectorizado) ──────────────────────────────
@@ -177,9 +184,15 @@ def run_nixtla(panel: pd.DataFrame) -> dict[str, Any]:
     print("\n[B] StatsForecast (Nixtla) — AutoETS vectorizado…")
     t0 = time.perf_counter()
 
-    train = panel[panel.groupby("unique_id").cumcount(ascending=False) >= HOLDOUT].copy()
+    train = panel[
+        panel.groupby("unique_id").cumcount(ascending=False) >= HOLDOUT
+    ].copy()
     test_dict = (
-        panel.groupby("unique_id").tail(HOLDOUT).groupby("unique_id")["y"].apply(np.array).to_dict()
+        panel.groupby("unique_id")
+        .tail(HOLDOUT)
+        .groupby("unique_id")["y"]
+        .apply(np.array)
+        .to_dict()
     )
 
     sf = StatsForecast(
@@ -189,7 +202,9 @@ def run_nixtla(panel: pd.DataFrame) -> dict[str, Any]:
         fallback_model=SeasonalNaive(season_length=52),
     )
 
-    forecast_df = sf.forecast(df=train[["unique_id", "ds", "y"]], h=HOLDOUT).reset_index()
+    forecast_df = sf.forecast(
+        df=train[["unique_id", "ds", "y"]], h=HOLDOUT
+    ).reset_index()
     duration = time.perf_counter() - t0
 
     # Calcular WAPE por SKU
@@ -203,7 +218,7 @@ def run_nixtla(panel: pd.DataFrame) -> dict[str, Any]:
 
     avg_wape = float(np.nanmean(wapes)) if wapes else float("nan")
 
-    print(f"  Tiempo: {duration:.2f}s  |  WAPE medio: {avg_wape*100:.1f}%")
+    print(f"  Tiempo: {duration:.2f}s  |  WAPE medio: {avg_wape * 100:.1f}%")
     return {
         "method": "StatsForecast AutoETS (Nixtla)",
         "duration_s": round(duration, 3),
@@ -229,9 +244,15 @@ def run_nixtla_segmented(panel: pd.DataFrame) -> dict[str, Any]:
     panel2 = panel.copy()
     panel2["_cluster"] = panel2["cluster_abc"] + "-" + panel2["cluster_xyz"]
 
-    train = panel2[panel2.groupby("unique_id").cumcount(ascending=False) >= HOLDOUT].copy()
+    train = panel2[
+        panel2.groupby("unique_id").cumcount(ascending=False) >= HOLDOUT
+    ].copy()
     test_dict = (
-        panel2.groupby("unique_id").tail(HOLDOUT).groupby("unique_id")["y"].apply(np.array).to_dict()
+        panel2.groupby("unique_id")
+        .tail(HOLDOUT)
+        .groupby("unique_id")["y"]
+        .apply(np.array)
+        .to_dict()
     )
 
     # Mapa cluster → modelo
@@ -274,7 +295,12 @@ def run_nixtla_segmented(panel: pd.DataFrame) -> dict[str, Any]:
     duration = time.perf_counter() - t0
 
     if not parts:
-        return {"method": "StatsForecast ABC-XYZ (Nixtla)", "duration_s": round(duration, 3), "wape": float("nan"), "failed": len(segments)}
+        return {
+            "method": "StatsForecast ABC-XYZ (Nixtla)",
+            "duration_s": round(duration, 3),
+            "wape": float("nan"),
+            "failed": len(segments),
+        }
 
     forecast_df = pd.concat(parts, ignore_index=True)
     pred_col = [c for c in forecast_df.columns if c not in ("unique_id", "ds")][0]
@@ -293,20 +319,22 @@ def run_nixtla_segmented(panel: pd.DataFrame) -> dict[str, Any]:
             wapes_by_seg.setdefault(seg, []).append(w)
 
     avg_wape = float(np.nanmean(wapes_all)) if wapes_all else float("nan")
-    print(f"  Tiempo: {duration:.2f}s  |  WAPE medio: {avg_wape*100:.1f}%")
+    print(f"  Tiempo: {duration:.2f}s  |  WAPE medio: {avg_wape * 100:.1f}%")
 
     # Mostrar WAPE por segmento
     print("\n  WAPE por segmento:")
     for seg_k in sorted(wapes_by_seg):
         seg_vals = wapes_by_seg[seg_k]
-        print(f"    {seg_k}: {np.nanmean(seg_vals)*100:.1f}%  (n={len(seg_vals)})")
+        print(f"    {seg_k}: {np.nanmean(seg_vals) * 100:.1f}%  (n={len(seg_vals)})")
 
     return {
         "method": "StatsForecast ABC-XYZ (Nixtla)",
         "duration_s": round(duration, 3),
         "wape": avg_wape,
         "failed": 0,
-        "wape_by_segment": {k: round(float(np.nanmean(v)), 4) for k, v in wapes_by_seg.items()},
+        "wape_by_segment": {
+            k: round(float(np.nanmean(v)), 4) for k, v in wapes_by_seg.items()
+        },
     }
 
 
@@ -316,21 +344,27 @@ def run_nixtla_segmented(panel: pd.DataFrame) -> dict[str, Any]:
 def print_markdown_table(results: list[dict[str, Any]], n_skus: int) -> None:
     """Imprime una tabla markdown lista para pegar en el ROADMAP."""
     print("\n\n" + "=" * 70)
-    print(f"BENCHMARK RESULTS — {n_skus:,} SKUs × {N_WEEKS} semanas | hold-out {HOLDOUT}W")
+    print(
+        f"BENCHMARK RESULTS — {n_skus:,} SKUs × {N_WEEKS} semanas | hold-out {HOLDOUT}W"
+    )
     print("=" * 70)
     print()
-    print(f"| Método | Tiempo (s) | WAPE medio | Speedup vs loop |")
-    print(f"|--------|-----------|-----------|-----------------|")
+    print("| Método | Tiempo (s) | WAPE medio | Speedup vs loop |")
+    print("|--------|-----------|-----------|-----------------|")
 
     base_time = results[0]["duration_s"]  # statsmodels es el baseline
     for r in results:
         speedup = base_time / r["duration_s"] if r["duration_s"] > 0 else float("inf")
-        wape_str = f"{r['wape']*100:.1f}%" if not np.isnan(r["wape"]) else "N/A"
+        wape_str = f"{r['wape'] * 100:.1f}%" if not np.isnan(r["wape"]) else "N/A"
         sp_str = f"{speedup:.1f}×" if speedup != float("inf") else "—"
-        print(f"| {r['method']:<38} | {r['duration_s']:>9.2f} | {wape_str:>9} | {sp_str:>15} |")
+        print(
+            f"| {r['method']:<38} | {r['duration_s']:>9.2f} | {wape_str:>9} | {sp_str:>15} |"
+        )
 
     print()
-    print("*Benchmark corrido con dataset sintético — patrones: tendencia + estacionalidad anual + ruido gaussiano.*")
+    print(
+        "*Benchmark corrido con dataset sintético — patrones: tendencia + estacionalidad anual + ruido gaussiano.*"
+    )
     print()
 
 
@@ -338,13 +372,26 @@ def print_markdown_table(results: list[dict[str, Any]], n_skus: int) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Benchmark statsmodels vs Nixtla StatsForecast")
-    parser.add_argument("--n-skus", type=int, default=N_SKUS_DEFAULT, help="Cantidad de SKUs a generar (default: 1000)")
-    parser.add_argument("--skip-statsmodels", action="store_true", help="Saltear el loop de statsmodels (mucho más lento)")
+    parser = argparse.ArgumentParser(
+        description="Benchmark statsmodels vs Nixtla StatsForecast"
+    )
+    parser.add_argument(
+        "--n-skus",
+        type=int,
+        default=N_SKUS_DEFAULT,
+        help="Cantidad de SKUs a generar (default: 1000)",
+    )
+    parser.add_argument(
+        "--skip-statsmodels",
+        action="store_true",
+        help="Saltear el loop de statsmodels (mucho más lento)",
+    )
     args = parser.parse_args()
 
-    print(f"\nforecastiq — Scale Engine Benchmark")
-    print(f"SKUs: {args.n_skus:,}  |  Semanas: {N_WEEKS}  |  Horizon: {HORIZON}  |  Hold-out: {HOLDOUT}W\n")
+    print("\nforecastiq — Scale Engine Benchmark")
+    print(
+        f"SKUs: {args.n_skus:,}  |  Semanas: {N_WEEKS}  |  Horizon: {HORIZON}  |  Hold-out: {HOLDOUT}W\n"
+    )
 
     panel = generate_panel(args.n_skus)
 
@@ -355,7 +402,14 @@ def main() -> None:
     else:
         # Placeholder para tabla con tiempo 0 (baseline omitido)
         print("\n[A] statsmodels — omitido con --skip-statsmodels")
-        results.append({"method": "statsmodels (loop) [omitido]", "duration_s": 9999.0, "wape": float("nan"), "failed": 0})
+        results.append(
+            {
+                "method": "statsmodels (loop) [omitido]",
+                "duration_s": 9999.0,
+                "wape": float("nan"),
+                "failed": 0,
+            }
+        )
 
     results.append(run_nixtla(panel))
     results.append(run_nixtla_segmented(panel))

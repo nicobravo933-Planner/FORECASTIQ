@@ -23,10 +23,12 @@ import FormControlLabel from "@mui/material/FormControlLabel"
 import Chip from "@mui/material/Chip"
 import Skeleton from "@mui/material/Skeleton"
 import Divider from "@mui/material/Divider"
+import Tooltip from "@mui/material/Tooltip"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import PlayArrowIcon from "@mui/icons-material/PlayArrow"
 import EventIcon from "@mui/icons-material/Event"
 import TuneIcon from "@mui/icons-material/Tune"
+import PsychologyIcon from "@mui/icons-material/Psychology"
 import { useForecast } from "@/hooks/useForecast"
 import { appStore } from "@/lib/appStore"
 import { ForecastConfigPanel, type ForecastConfig } from "@/components/forecast/ForecastConfigPanel"
@@ -57,6 +59,9 @@ export default function ForecastPage() {
     modelOverride: "auto",
   })
 
+  const [forceReoptimize, setForceReoptimize] = useState(false)
+  const [hpoCache, setHpoCache] = useState<{ wape: number | null; optimized_at: string | null } | null>(null)
+
   const patchConfig = (patch: Partial<ForecastConfig>) =>
     setConfig((prev) => ({ ...prev, ...patch }))
 
@@ -69,6 +74,17 @@ export default function ForecastPage() {
     }
     if (forecast.stage === "idle") jobPersisted.current = false
   }, [forecast.stage, forecast.jobId])
+
+  // Consultar cache HPO cuando el modelo es lightgbm y hay dataset
+  useEffect(() => {
+    const isLgbm = config.modelOverride === "lightgbm" || config.modelOverride === "auto"
+    if (!config.datasetId || !isLgbm) { setHpoCache(null); return }
+    api.get<{ has_cache: boolean; wape: number | null; optimized_at: string | null }>(
+      `/api/forecast/hpo-cache/${config.datasetId}?freq=${config.freq}`
+    ).then((res) => {
+      setHpoCache(res.has_cache ? { wape: res.wape, optimized_at: res.optimized_at } : null)
+    }).catch(() => setHpoCache(null))
+  }, [config.datasetId, config.freq, config.modelOverride])
 
   // Events overlay
   const [eventsOn, setEventsOn]           = useState(false)
@@ -109,16 +125,17 @@ export default function ForecastPage() {
     !isRunning
 
   const handleRun = () => {
-    // Persist config to appStore before running
     appStore.setActiveDataset(config.datasetId, config.dateCol, config.targetCol, config.freq)
     forecast.runForecast({
-      dataset_id:     config.datasetId.trim(),
-      date_column:    config.dateCol.trim(),
-      target_column:  config.targetCol.trim(),
-      freq:           config.freq,
-      horizon:        config.horizon,
-      model_override: config.modelOverride === "auto" ? null : config.modelOverride,
+      dataset_id:       config.datasetId.trim(),
+      date_column:      config.dateCol.trim(),
+      target_column:    config.targetCol.trim(),
+      freq:             config.freq,
+      horizon:          config.horizon,
+      model_override:   config.modelOverride === "auto" ? null : config.modelOverride,
+      force_reoptimize: forceReoptimize,
     })
+    setForceReoptimize(false) // reset tras correr
   }
 
   const isDone    = forecast.stage === "done"
@@ -182,6 +199,35 @@ export default function ForecastPage() {
 
               <Divider sx={{ my: "1.25rem" }} />
 
+              {/* HPO cache info + Re-optimizar (solo para LightGBM) */}
+              {(config.modelOverride === "lightgbm" || config.modelOverride === "auto") && config.datasetId && (
+                <Box sx={{ mb: "1rem", p: "0.875rem", bgcolor: "background.default", borderRadius: "0.5rem", border: "1px solid", borderColor: "divider" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <PsychologyIcon sx={{ fontSize: "1rem", color: hpoCache ? "success.main" : "text.disabled" }} />
+                      <Typography variant="caption" color="text.secondary">
+                        {hpoCache
+                          ? <>HPO cache: WAPE <strong>{hpoCache.wape?.toFixed(3) ?? "—"}</strong> · {hpoCache.optimized_at ?? ""}</>
+                          : "Sin cache HPO — Optuna correrá (~60s)"}
+                      </Typography>
+                    </Box>
+                    {hpoCache && (
+                      <Tooltip title="Ignora el cache y corre Optuna desde cero para encontrar mejores hiperparámetros">
+                        <Chip
+                          label={forceReoptimize ? "Re-optimizar: ON" : "Re-optimizar"}
+                          size="small"
+                          onClick={() => setForceReoptimize((v) => !v)}
+                          color={forceReoptimize ? "warning" : "default"}
+                          variant={forceReoptimize ? "filled" : "outlined"}
+                          icon={<PsychologyIcon />}
+                          sx={{ cursor: "pointer", fontSize: "0.75rem" }}
+                        />
+                      </Tooltip>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
               <Button
                 variant="contained"
                 startIcon={<PlayArrowIcon />}
@@ -190,7 +236,7 @@ export default function ForecastPage() {
                 fullWidth
                 sx={{ py: "0.625rem" }}
               >
-                Generar forecast
+                {forceReoptimize ? "Optimizar + Forecast" : "Generar forecast"}
               </Button>
             </Paper>
           )}

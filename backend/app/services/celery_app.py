@@ -55,6 +55,7 @@ def run_forecast_task(
     horizon: int,
     model_override: str | None = None,
     user_id: str | None = None,
+    force_reoptimize: bool = False,
 ) -> dict[str, Any]:
     """
     Pipeline completo de forecasting:
@@ -139,7 +140,11 @@ def run_forecast_task(
             }
             # LightGBM solo si está disponible (tier local)
             if _lgbm_available and _lgbm_cls is not None:
-                model_map["lightgbm"] = _lgbm_cls()
+                model_map["lightgbm"] = _lgbm_cls(
+                    dataset_id=dataset_id,
+                    user_id=user_id,
+                    force_reoptimize=force_reoptimize,
+                )
             elif model_name == "lightgbm":
                 # Fallback a Holt-Winters si se pide LightGBM en cloud
                 import structlog as _sl

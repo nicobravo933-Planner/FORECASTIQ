@@ -40,8 +40,8 @@ np.random.seed(SEED)
 # ── Config ────────────────────────────────────────────────────────────────
 OUTPUT_DIR = Path("./data/forecastiq")
 START_DATE = date(2023, 1, 1)
-END_DATE   = date(2024, 12, 31)   # 2 años exactos
-CURRENCY   = "ARS"
+END_DATE = date(2024, 12, 31)  # 2 años exactos
+CURRENCY = "ARS"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -85,7 +85,7 @@ CATEGORIES = {
             ("Medias Pack x6", 4_200, 4.5),
             ("Ropa Interior Pack x3", 12_000, 2.8),
         ],
-        "seasonality": "clothing",     # pico invierno (julio), verano (enero)
+        "seasonality": "clothing",  # pico invierno (julio), verano (enero)
         "noise": 0.22,
     },
     "Alimentos": {
@@ -101,7 +101,7 @@ CATEGORIES = {
             ("Aceite de Coco 500ml", 5_500, 3.0),
             ("Mix de Frutos Secos 300g", 6_800, 3.5),
         ],
-        "seasonality": "food",         # relativamente estable, pico fin de año
+        "seasonality": "food",  # relativamente estable, pico fin de año
         "noise": 0.12,
     },
     "Hogar": {
@@ -117,7 +117,7 @@ CATEGORIES = {
             ("Velas Aromáticas Pack x4", 7_200, 3.5),
             ("Difusor Aromas 300ml", 22_000, 1.8),
         ],
-        "seasonality": "home",         # pico día de la madre, navidad
+        "seasonality": "home",  # pico día de la madre, navidad
         "noise": 0.16,
     },
     "Deportes": {
@@ -133,7 +133,7 @@ CATEGORIES = {
             ("Casco Bicicleta MTB", 45_000, 0.9),
             ("Zapatillas Trail Running", 72_000, 0.8),
         ],
-        "seasonality": "sports",       # pico enero (propósitos año nuevo), junio
+        "seasonality": "sports",  # pico enero (propósitos año nuevo), junio
         "noise": 0.20,
     },
 }
@@ -155,20 +155,22 @@ for cat_name, cat_data in CATEGORIES.items():
 
         # Precio con algo de variación realista
         price = base_price * random.uniform(0.9, 1.1)
-        cost  = price * random.uniform(0.45, 0.65)  # margen 35-55%
+        cost = price * random.uniform(0.45, 0.65)  # margen 35-55%
 
-        products_rows.append({
-            "id":          product_id,
-            "sku":         sku,
-            "name":        prod_name,
-            "category":    cat_name,
-            "base_price":  round(price, 2),
-            "base_cost":   round(cost, 2),
-            "base_demand": base_demand,   # unidades/día base
-            "currency":    CURRENCY,
-            "active":      True,
-            "created_at":  "2023-01-01T00:00:00Z",
-        })
+        products_rows.append(
+            {
+                "id": product_id,
+                "sku": sku,
+                "name": prod_name,
+                "category": cat_name,
+                "base_price": round(price, 2),
+                "base_cost": round(cost, 2),
+                "base_demand": base_demand,  # unidades/día base
+                "currency": CURRENCY,
+                "active": True,
+                "created_at": "2023-01-01T00:00:00Z",
+            }
+        )
         product_id += 1
 
 df_products = pd.DataFrame(products_rows)
@@ -182,73 +184,278 @@ print(f"\n✓ Products:  {len(df_products)} filas")
 calendar_events = []
 event_id = 1
 
+
 def add_event(name, ev_type, date_from, date_to, impact_pct, affects_cats, notes=""):
     global event_id
-    calendar_events.append({
-        "id":               event_id,
-        "name":             name,
-        "event_type":       ev_type,  # holiday | promotion | seasonal | external
-        "date_from":        str(date_from),
-        "date_to":          str(date_to),
-        "impact_pct":       impact_pct,   # % sobre demanda base, puede ser negativo
-        "affects_categories": affects_cats,  # JSON array como string
-        "notes":            notes,
-        "created_at":       "2023-01-01T00:00:00Z",
-    })
+    calendar_events.append(
+        {
+            "id": event_id,
+            "name": name,
+            "event_type": ev_type,  # holiday | promotion | seasonal | external
+            "date_from": str(date_from),
+            "date_to": str(date_to),
+            "impact_pct": impact_pct,  # % sobre demanda base, puede ser negativo
+            "affects_categories": affects_cats,  # JSON array como string
+            "notes": notes,
+            "created_at": "2023-01-01T00:00:00Z",
+        }
+    )
     event_id += 1
 
+
 # ── Feriados nacionales 2023 ──
-add_event("Año Nuevo 2023", "holiday", date(2023,1,1), date(2023,1,1), -60, "all", "Feriado nacional")
-add_event("Carnaval 2023", "holiday", date(2023,2,20), date(2023,2,21), -40, "all")
-add_event("Día Memoria 2023", "holiday", date(2023,3,24), date(2023,3,24), -50, "all")
-add_event("Semana Santa 2023", "holiday", date(2023,4,6), date(2023,4,9), -45, "all")
-add_event("Día del Trabajador 2023", "holiday", date(2023,5,1), date(2023,5,1), -55, "all")
-add_event("25 de Mayo 2023", "holiday", date(2023,5,25), date(2023,5,25), -50, "all")
-add_event("Día de la Bandera 2023", "holiday", date(2023,6,20), date(2023,6,20), -50, "all")
-add_event("9 de Julio 2023", "holiday", date(2023,7,9), date(2023,7,9), -55, "all")
-add_event("Día del Maestro 2023", "holiday", date(2023,9,11), date(2023,9,11), -45, "all")
-add_event("Día de la Raza 2023", "holiday", date(2023,10,16), date(2023,10,16), -45, "all")
-add_event("Día Soberanía 2023", "holiday", date(2023,11,20), date(2023,11,20), -40, "all")
-add_event("Navidad 2023", "holiday", date(2023,12,25), date(2023,12,25), -65, "all")
-add_event("Fin de Año 2023", "holiday", date(2023,12,31), date(2023,12,31), -60, "all")
+add_event(
+    "Año Nuevo 2023",
+    "holiday",
+    date(2023, 1, 1),
+    date(2023, 1, 1),
+    -60,
+    "all",
+    "Feriado nacional",
+)
+add_event("Carnaval 2023", "holiday", date(2023, 2, 20), date(2023, 2, 21), -40, "all")
+add_event(
+    "Día Memoria 2023", "holiday", date(2023, 3, 24), date(2023, 3, 24), -50, "all"
+)
+add_event(
+    "Semana Santa 2023", "holiday", date(2023, 4, 6), date(2023, 4, 9), -45, "all"
+)
+add_event(
+    "Día del Trabajador 2023", "holiday", date(2023, 5, 1), date(2023, 5, 1), -55, "all"
+)
+add_event(
+    "25 de Mayo 2023", "holiday", date(2023, 5, 25), date(2023, 5, 25), -50, "all"
+)
+add_event(
+    "Día de la Bandera 2023",
+    "holiday",
+    date(2023, 6, 20),
+    date(2023, 6, 20),
+    -50,
+    "all",
+)
+add_event("9 de Julio 2023", "holiday", date(2023, 7, 9), date(2023, 7, 9), -55, "all")
+add_event(
+    "Día del Maestro 2023", "holiday", date(2023, 9, 11), date(2023, 9, 11), -45, "all"
+)
+add_event(
+    "Día de la Raza 2023", "holiday", date(2023, 10, 16), date(2023, 10, 16), -45, "all"
+)
+add_event(
+    "Día Soberanía 2023", "holiday", date(2023, 11, 20), date(2023, 11, 20), -40, "all"
+)
+add_event("Navidad 2023", "holiday", date(2023, 12, 25), date(2023, 12, 25), -65, "all")
+add_event(
+    "Fin de Año 2023", "holiday", date(2023, 12, 31), date(2023, 12, 31), -60, "all"
+)
 
 # ── Feriados nacionales 2024 ──
-add_event("Año Nuevo 2024", "holiday", date(2024,1,1), date(2024,1,1), -60, "all")
-add_event("Carnaval 2024", "holiday", date(2024,2,12), date(2024,2,13), -40, "all")
-add_event("Día Memoria 2024", "holiday", date(2024,3,24), date(2024,3,24), -50, "all")
-add_event("Semana Santa 2024", "holiday", date(2024,3,28), date(2024,3,31), -45, "all")
-add_event("Día del Trabajador 2024", "holiday", date(2024,5,1), date(2024,5,1), -55, "all")
-add_event("25 de Mayo 2024", "holiday", date(2024,5,25), date(2024,5,25), -50, "all")
-add_event("Día de la Bandera 2024", "holiday", date(2024,6,17), date(2024,6,17), -50, "all")
-add_event("9 de Julio 2024", "holiday", date(2024,7,9), date(2024,7,9), -55, "all")
-add_event("Día Soberanía 2024", "holiday", date(2024,11,18), date(2024,11,18), -40, "all")
-add_event("Navidad 2024", "holiday", date(2024,12,25), date(2024,12,25), -65, "all")
-add_event("Fin de Año 2024", "holiday", date(2024,12,31), date(2024,12,31), -60, "all")
+add_event("Año Nuevo 2024", "holiday", date(2024, 1, 1), date(2024, 1, 1), -60, "all")
+add_event("Carnaval 2024", "holiday", date(2024, 2, 12), date(2024, 2, 13), -40, "all")
+add_event(
+    "Día Memoria 2024", "holiday", date(2024, 3, 24), date(2024, 3, 24), -50, "all"
+)
+add_event(
+    "Semana Santa 2024", "holiday", date(2024, 3, 28), date(2024, 3, 31), -45, "all"
+)
+add_event(
+    "Día del Trabajador 2024", "holiday", date(2024, 5, 1), date(2024, 5, 1), -55, "all"
+)
+add_event(
+    "25 de Mayo 2024", "holiday", date(2024, 5, 25), date(2024, 5, 25), -50, "all"
+)
+add_event(
+    "Día de la Bandera 2024",
+    "holiday",
+    date(2024, 6, 17),
+    date(2024, 6, 17),
+    -50,
+    "all",
+)
+add_event("9 de Julio 2024", "holiday", date(2024, 7, 9), date(2024, 7, 9), -55, "all")
+add_event(
+    "Día Soberanía 2024", "holiday", date(2024, 11, 18), date(2024, 11, 18), -40, "all"
+)
+add_event("Navidad 2024", "holiday", date(2024, 12, 25), date(2024, 12, 25), -65, "all")
+add_event(
+    "Fin de Año 2024", "holiday", date(2024, 12, 31), date(2024, 12, 31), -60, "all"
+)
 
 # ── Eventos comerciales argentinos ──
-add_event("Hot Sale 2023", "promotion", date(2023,5,8), date(2023,5,10), +180, "Electrónica,Hogar,Deportes", "3 días de descuentos masivos")
-add_event("Día de la Madre 2023", "promotion", date(2023,10,12), date(2023,10,15), +120, "Ropa,Hogar,Electrónica", "Preventa + día")
-add_event("Black Friday 2023", "promotion", date(2023,11,24), date(2023,11,24), +200, "Electrónica,Ropa,Hogar", "Viernes negro")
-add_event("Cyber Monday 2023", "promotion", date(2023,11,27), date(2023,11,27), +160, "Electrónica,Hogar", "Lunes cyber")
-add_event("Pre-Navidad 2023", "seasonal", date(2023,12,15), date(2023,12,24), +90, "all", "Compras navideñas")
-add_event("Hot Sale 2024", "promotion", date(2024,5,13), date(2024,5,15), +190, "Electrónica,Hogar,Deportes")
-add_event("Día de la Madre 2024", "promotion", date(2024,10,17), date(2024,10,20), +125, "Ropa,Hogar,Electrónica")
-add_event("Black Friday 2024", "promotion", date(2024,11,29), date(2024,11,29), +210, "Electrónica,Ropa,Hogar")
-add_event("Cyber Monday 2024", "promotion", date(2024,12,2), date(2024,12,2), +170, "Electrónica,Hogar")
-add_event("Pre-Navidad 2024", "seasonal", date(2024,12,15), date(2024,12,24), +95, "all")
+add_event(
+    "Hot Sale 2023",
+    "promotion",
+    date(2023, 5, 8),
+    date(2023, 5, 10),
+    +180,
+    "Electrónica,Hogar,Deportes",
+    "3 días de descuentos masivos",
+)
+add_event(
+    "Día de la Madre 2023",
+    "promotion",
+    date(2023, 10, 12),
+    date(2023, 10, 15),
+    +120,
+    "Ropa,Hogar,Electrónica",
+    "Preventa + día",
+)
+add_event(
+    "Black Friday 2023",
+    "promotion",
+    date(2023, 11, 24),
+    date(2023, 11, 24),
+    +200,
+    "Electrónica,Ropa,Hogar",
+    "Viernes negro",
+)
+add_event(
+    "Cyber Monday 2023",
+    "promotion",
+    date(2023, 11, 27),
+    date(2023, 11, 27),
+    +160,
+    "Electrónica,Hogar",
+    "Lunes cyber",
+)
+add_event(
+    "Pre-Navidad 2023",
+    "seasonal",
+    date(2023, 12, 15),
+    date(2023, 12, 24),
+    +90,
+    "all",
+    "Compras navideñas",
+)
+add_event(
+    "Hot Sale 2024",
+    "promotion",
+    date(2024, 5, 13),
+    date(2024, 5, 15),
+    +190,
+    "Electrónica,Hogar,Deportes",
+)
+add_event(
+    "Día de la Madre 2024",
+    "promotion",
+    date(2024, 10, 17),
+    date(2024, 10, 20),
+    +125,
+    "Ropa,Hogar,Electrónica",
+)
+add_event(
+    "Black Friday 2024",
+    "promotion",
+    date(2024, 11, 29),
+    date(2024, 11, 29),
+    +210,
+    "Electrónica,Ropa,Hogar",
+)
+add_event(
+    "Cyber Monday 2024",
+    "promotion",
+    date(2024, 12, 2),
+    date(2024, 12, 2),
+    +170,
+    "Electrónica,Hogar",
+)
+add_event(
+    "Pre-Navidad 2024", "seasonal", date(2024, 12, 15), date(2024, 12, 24), +95, "all"
+)
 
 # ── Estacionalidades ──
-add_event("Temporada Invierno 2023", "seasonal", date(2023,6,21), date(2023,8,20), +35, "Ropa", "Pico ventas ropa de abrigo")
-add_event("Temporada Verano 2023-24", "seasonal", date(2023,12,21), date(2024,2,28), +25, "Deportes,Ropa", "Ropa de verano y deportes")
-add_event("Temporada Invierno 2024", "seasonal", date(2024,6,21), date(2024,8,20), +40, "Ropa")
-add_event("Vuelta al Cole 2023", "seasonal", date(2023,2,15), date(2023,3,10), +30, "Deportes,Hogar", "Mochillas y útiles")
-add_event("Vuelta al Cole 2024", "seasonal", date(2024,2,15), date(2024,3,10), +35, "Deportes,Hogar")
-add_event("Propósitos Año Nuevo 2023", "seasonal", date(2023,1,2), date(2023,1,31), +45, "Deportes,Alimentos", "Fitness enero")
-add_event("Propósitos Año Nuevo 2024", "seasonal", date(2024,1,2), date(2024,1,31), +50, "Deportes,Alimentos")
-add_event("Día del Padre 2023", "promotion", date(2023,6,18), date(2023,6,18), +80, "Deportes,Electrónica,Ropa")
-add_event("Día del Padre 2024", "promotion", date(2024,6,16), date(2024,6,16), +85, "Deportes,Electrónica,Ropa")
-add_event("Día del Niño 2023", "promotion", date(2023,8,13), date(2023,8,13), +70, "Electrónica,Deportes")
-add_event("Día del Niño 2024", "promotion", date(2024,8,11), date(2024,8,11), +75, "Electrónica,Deportes")
+add_event(
+    "Temporada Invierno 2023",
+    "seasonal",
+    date(2023, 6, 21),
+    date(2023, 8, 20),
+    +35,
+    "Ropa",
+    "Pico ventas ropa de abrigo",
+)
+add_event(
+    "Temporada Verano 2023-24",
+    "seasonal",
+    date(2023, 12, 21),
+    date(2024, 2, 28),
+    +25,
+    "Deportes,Ropa",
+    "Ropa de verano y deportes",
+)
+add_event(
+    "Temporada Invierno 2024",
+    "seasonal",
+    date(2024, 6, 21),
+    date(2024, 8, 20),
+    +40,
+    "Ropa",
+)
+add_event(
+    "Vuelta al Cole 2023",
+    "seasonal",
+    date(2023, 2, 15),
+    date(2023, 3, 10),
+    +30,
+    "Deportes,Hogar",
+    "Mochillas y útiles",
+)
+add_event(
+    "Vuelta al Cole 2024",
+    "seasonal",
+    date(2024, 2, 15),
+    date(2024, 3, 10),
+    +35,
+    "Deportes,Hogar",
+)
+add_event(
+    "Propósitos Año Nuevo 2023",
+    "seasonal",
+    date(2023, 1, 2),
+    date(2023, 1, 31),
+    +45,
+    "Deportes,Alimentos",
+    "Fitness enero",
+)
+add_event(
+    "Propósitos Año Nuevo 2024",
+    "seasonal",
+    date(2024, 1, 2),
+    date(2024, 1, 31),
+    +50,
+    "Deportes,Alimentos",
+)
+add_event(
+    "Día del Padre 2023",
+    "promotion",
+    date(2023, 6, 18),
+    date(2023, 6, 18),
+    +80,
+    "Deportes,Electrónica,Ropa",
+)
+add_event(
+    "Día del Padre 2024",
+    "promotion",
+    date(2024, 6, 16),
+    date(2024, 6, 16),
+    +85,
+    "Deportes,Electrónica,Ropa",
+)
+add_event(
+    "Día del Niño 2023",
+    "promotion",
+    date(2023, 8, 13),
+    date(2023, 8, 13),
+    +70,
+    "Electrónica,Deportes",
+)
+add_event(
+    "Día del Niño 2024",
+    "promotion",
+    date(2024, 8, 11),
+    date(2024, 8, 11),
+    +75,
+    "Electrónica,Deportes",
+)
 
 df_events = pd.DataFrame(calendar_events)
 print(f"✓ Events:    {len(df_events)} filas")
@@ -258,10 +465,11 @@ print(f"✓ Events:    {len(df_events)} filas")
 # 3. VENTAS — el corazón del dataset
 # ══════════════════════════════════════════════════════════════════════════
 
+
 def seasonal_factor(d: date, season_type: str, category: str) -> float:
     """Devuelve multiplicador de demanda según día del año y tipo de estacionalidad."""
-    doy  = d.timetuple().tm_yday   # día del año 1-365
-    dow  = d.weekday()             # 0=lun, 6=dom
+    doy = d.timetuple().tm_yday  # día del año 1-365
+    dow = d.weekday()  # 0=lun, 6=dom
     month = d.month
 
     # Factor día de semana (sábado y domingo venden más en retail)
@@ -274,15 +482,15 @@ def seasonal_factor(d: date, season_type: str, category: str) -> float:
         # Boost adicional noviembre-diciembre
         if month in (11, 12):
             annual *= 1.3
-        elif month in (5,):   # Hot Sale
+        elif month in (5,):  # Hot Sale
             annual *= 1.2
 
     elif season_type == "clothing":
         # Dos picos: invierno (julio) y verano (enero)
         winter = 0.5 * math.sin(2 * math.pi * (doy - 180) / 365)  # pico julio
-        summer = 0.3 * math.sin(2 * math.pi * (doy - 10) / 365)   # pico enero
+        summer = 0.3 * math.sin(2 * math.pi * (doy - 10) / 365)  # pico enero
         annual = 1.0 + winter + summer
-        if month in (6, 7, 8):   # invierno AR
+        if month in (6, 7, 8):  # invierno AR
             annual *= 1.2
 
     elif season_type == "food":
@@ -303,8 +511,8 @@ def seasonal_factor(d: date, season_type: str, category: str) -> float:
 
     elif season_type == "sports":
         # Pico enero (propósitos) y junio (día del padre)
-        jan_boost = 0.4 * math.exp(-((doy - 15) ** 2) / (2 * 20 ** 2))   # gaussiana enero
-        jun_boost = 0.3 * math.exp(-((doy - 167) ** 2) / (2 * 15 ** 2))  # gaussiana junio
+        jan_boost = 0.4 * math.exp(-((doy - 15) ** 2) / (2 * 20**2))  # gaussiana enero
+        jun_boost = 0.3 * math.exp(-((doy - 167) ** 2) / (2 * 15**2))  # gaussiana junio
         annual = 1.0 + jan_boost + jun_boost
     else:
         annual = 1.0
@@ -319,7 +527,7 @@ def event_multiplier(d: date, category: str, events_df: pd.DataFrame) -> float:
     for _, ev in events_df.iterrows():
         if ev["date_from"] <= d_str <= ev["date_to"]:
             cats = ev["affects_categories"]
-            affects_this = (cats == "all" or category in cats)
+            affects_this = cats == "all" or category in cats
             if affects_this:
                 mult += ev["impact_pct"] / 100.0
     return max(0.05, mult)
@@ -337,22 +545,24 @@ print("\nGenerando ventas diarias (puede tardar 10-20 segundos)...")
 sales_rows = []
 sale_id = 1
 
-all_dates = [START_DATE + timedelta(days=i) for i in range((END_DATE - START_DATE).days + 1)]
+all_dates = [
+    START_DATE + timedelta(days=i) for i in range((END_DATE - START_DATE).days + 1)
+]
 
 for d in all_dates:
     t = trend_factor(d)
     for _, prod in df_products.iterrows():
-        cat        = prod["category"]
+        cat = prod["category"]
         season_key = CATEGORIES[cat]["seasonality"]
-        noise_lvl  = CATEGORIES[cat]["noise"]
+        noise_lvl = CATEGORIES[cat]["noise"]
 
-        s  = seasonal_factor(d, season_key, cat)
+        s = seasonal_factor(d, season_key, cat)
         ev = event_multiplier(d, cat, df_events)
 
         # Demanda base con todos los factores
-        base    = prod["base_demand"] * s * ev * t
-        noise   = np.random.lognormal(0, noise_lvl)
-        demand  = base * noise
+        base = prod["base_demand"] * s * ev * t
+        noise = np.random.lognormal(0, noise_lvl)
+        demand = base * noise
 
         # Cantidad vendida (entero, mínimo 0)
         quantity = max(0, int(round(demand)))
@@ -370,33 +580,34 @@ for d in all_dates:
             inflation_mult = 2.30 + 1.50 * (days_2024 / 365)  # base ya inflado
 
         unit_price = prod["base_price"] * inflation_mult * random.uniform(0.95, 1.05)
-        unit_cost  = prod["base_cost"]  * inflation_mult * random.uniform(0.93, 1.03)
+        unit_cost = prod["base_cost"] * inflation_mult * random.uniform(0.93, 1.03)
 
         revenue = round(unit_price * quantity, 2)
-        cost    = round(unit_cost  * quantity, 2)
-        margin  = round(revenue - cost, 2)
+        cost = round(unit_cost * quantity, 2)
+        margin = round(revenue - cost, 2)
 
         # Canal de venta
         channel = random.choices(
-            ["online", "marketplace", "whatsapp"],
-            weights=[0.55, 0.35, 0.10]
+            ["online", "marketplace", "whatsapp"], weights=[0.55, 0.35, 0.10]
         )[0]
 
-        sales_rows.append({
-            "id":          sale_id,
-            "date":        str(d),
-            "product_id":  prod["id"],
-            "sku":         prod["sku"],
-            "category":    cat,
-            "quantity":    quantity,
-            "unit_price":  round(unit_price, 2),
-            "unit_cost":   round(unit_cost, 2),
-            "revenue":     revenue,
-            "cost":        cost,
-            "margin":      margin,
-            "channel":     channel,
-            "currency":    CURRENCY,
-        })
+        sales_rows.append(
+            {
+                "id": sale_id,
+                "date": str(d),
+                "product_id": prod["id"],
+                "sku": prod["sku"],
+                "category": cat,
+                "quantity": quantity,
+                "unit_price": round(unit_price, 2),
+                "unit_cost": round(unit_cost, 2),
+                "revenue": revenue,
+                "cost": cost,
+                "margin": margin,
+                "channel": channel,
+                "currency": CURRENCY,
+            }
+        )
         sale_id += 1
 
 df_sales = pd.DataFrame(sales_rows)
@@ -407,25 +618,27 @@ print(f"✓ Sales:     {len(df_sales):,} filas")
 # 4. FORECASTS (tabla vacía con estructura lista)
 # ══════════════════════════════════════════════════════════════════════════
 
-df_forecasts = pd.DataFrame(columns=[
-    "id",
-    "user_id",
-    "dataset_id",
-    "product_id",
-    "sku",
-    "category",
-    "model_used",          # moving_average | holt_winters | prophet | lightgbm
-    "horizon_months",
-    "forecast_date",       # fecha de la predicción
-    "predicted_quantity",
-    "lower_bound",
-    "upper_bound",
-    "mape",
-    "rmse",
-    "mae",
-    "model_params",        # JSON
-    "created_at",
-])
+df_forecasts = pd.DataFrame(
+    columns=[
+        "id",
+        "user_id",
+        "dataset_id",
+        "product_id",
+        "sku",
+        "category",
+        "model_used",  # moving_average | holt_winters | prophet | lightgbm
+        "horizon_months",
+        "forecast_date",  # fecha de la predicción
+        "predicted_quantity",
+        "lower_bound",
+        "upper_bound",
+        "mape",
+        "rmse",
+        "mae",
+        "model_params",  # JSON
+        "created_at",
+    ]
+)
 
 print("\u2713 Forecasts: tabla vacía (estructura lista)")
 
@@ -446,8 +659,10 @@ df_forecasts.to_csv(OUTPUT_DIR / "forecasts.csv", index=False, encoding="utf-8-s
 # 6. REPORTE FINAL
 # ══════════════════════════════════════════════════════════════════════════
 
+
 def file_size_mb(path):
     return os.path.getsize(path) / 1_048_576
+
 
 print("\n" + "=" * 60)
 print("  ARCHIVOS GENERADOS")
@@ -458,15 +673,19 @@ for fname in ["products.csv", "sales.csv", "calendar_events.csv", "forecasts.csv
     rows = len(pd.read_csv(p))
     print(f"  {fname:<25} {rows:>7,} filas   {mb:>6.2f} MB")
 
-total_mb = sum(file_size_mb(OUTPUT_DIR / f) for f in
-               ["products.csv", "sales.csv", "calendar_events.csv", "forecasts.csv"])
+total_mb = sum(
+    file_size_mb(OUTPUT_DIR / f)
+    for f in ["products.csv", "sales.csv", "calendar_events.csv", "forecasts.csv"]
+)
 print(f"\n  Total:                        {total_mb:.2f} MB / 500 MB free tier")
-print(f"  Supabase usado:               {total_mb/500*100:.1f}%  ← muy cómodo")
+print(f"  Supabase usado:               {total_mb / 500 * 100:.1f}%  ← muy cómodo")
 
 print("\n" + "=" * 60)
 print("  RESUMEN DEL DATASET")
 print("=" * 60)
-print(f"\n  Período:      {START_DATE} → {END_DATE} ({(END_DATE - START_DATE).days} días)")
+print(
+    f"\n  Período:      {START_DATE} → {END_DATE} ({(END_DATE - START_DATE).days} días)"
+)
 print(f"  Productos:    {len(df_products)} SKUs en 5 categorías")
 print(f"  Ventas:       {len(df_sales):,} registros")
 print(f"  Eventos:      {len(df_events)} (feriados + promociones + estacionalidades)")
@@ -475,7 +694,9 @@ print(f"  Moneda:       {CURRENCY} (con inflación simulada ~130% 2023 / ~150% 2
 print("\n  Ventas por categoría:")
 for cat in df_sales["category"].unique():
     sub = df_sales[df_sales["category"] == cat]
-    print(f"    {cat:<15} {len(sub):>7,} registros   ${sub['revenue'].sum():>15,.0f} ARS")
+    print(
+        f"    {cat:<15} {len(sub):>7,} registros   ${sub['revenue'].sum():>15,.0f} ARS"
+    )
 
 print("\n  Canales:")
 for ch, cnt in df_sales["channel"].value_counts().items():
@@ -751,8 +972,12 @@ if len(sep24_idx):
         agg_total.loc[sep24_idx[0], "ventas_unidades"] * 2.20
     )
 
-agg_total.to_csv(OUTPUT_DIR / "ventas_totales_mensual.csv", index=False, encoding="utf-8-sig")
-print(f"  ventas_totales_mensual.csv     {len(agg_total):>3} filas  (outliers: mar-2023 stock, sep-2024 spike)")
+agg_total.to_csv(
+    OUTPUT_DIR / "ventas_totales_mensual.csv", index=False, encoding="utf-8-sig"
+)
+print(
+    f"  ventas_totales_mensual.csv     {len(agg_total):>3} filas  (outliers: mar-2023 stock, sep-2024 spike)"
+)
 
 # ── Electrónica mensual ──
 agg_elec = (
@@ -762,8 +987,12 @@ agg_elec = (
     .reset_index()
     .rename(columns={"month": "fecha", "quantity": "ventas_unidades"})
 )
-agg_elec.to_csv(OUTPUT_DIR / "ventas_electronica_mensual.csv", index=False, encoding="utf-8-sig")
-print(f"  ventas_electronica_mensual.csv {len(agg_elec):>3} filas  (pico dic, Hot Sale mayo, Black Friday)")
+agg_elec.to_csv(
+    OUTPUT_DIR / "ventas_electronica_mensual.csv", index=False, encoding="utf-8-sig"
+)
+print(
+    f"  ventas_electronica_mensual.csv {len(agg_elec):>3} filas  (pico dic, Hot Sale mayo, Black Friday)"
+)
 
 # ── Ropa mensual ──
 agg_ropa = (
@@ -773,8 +1002,12 @@ agg_ropa = (
     .reset_index()
     .rename(columns={"month": "fecha", "quantity": "ventas_unidades"})
 )
-agg_ropa.to_csv(OUTPUT_DIR / "ventas_ropa_mensual.csv", index=False, encoding="utf-8-sig")
-print(f"  ventas_ropa_mensual.csv        {len(agg_ropa):>3} filas  (pico invierno jul, verano ene)")
+agg_ropa.to_csv(
+    OUTPUT_DIR / "ventas_ropa_mensual.csv", index=False, encoding="utf-8-sig"
+)
+print(
+    f"  ventas_ropa_mensual.csv        {len(agg_ropa):>3} filas  (pico invierno jul, verano ene)"
+)
 
 print("""
   Uso en forecastiq:

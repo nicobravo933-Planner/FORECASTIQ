@@ -4,10 +4,8 @@
  * DataSourceTabs — selector de fuente de datos con 4 tabs.
  *   Tab 0: Archivo       → CSV, Excel, Parquet (upload)
  *   Tab 1: Base de datos → conexión efímera PostgreSQL/MySQL/SQLite
- *   Tab 2: Cloud / Lake  → BigQuery, Snowflake, S3/Parquet (Fase 13)
- *   Tab 3: Dataset demo  → 25k SKUs Parquet en Supabase Storage
- *
- * Los tabs deshabilitados muestran un chip "Próximamente" o "Requiere modo local".
+ *   Tab 2: Dataset demo  → 25k SKUs Parquet en Supabase Storage
+ *   Tab 3: Cloud / Lake  → BigQuery, Snowflake, S3/Parquet (Fase 13 — locked)
  */
 
 import { useState } from "react"
@@ -15,7 +13,6 @@ import Tabs from "@mui/material/Tabs"
 import Tab from "@mui/material/Tab"
 import Box from "@mui/material/Box"
 import Chip from "@mui/material/Chip"
-import Tooltip from "@mui/material/Tooltip"
 import UploadFileIcon from "@mui/icons-material/UploadFile"
 import StorageIcon from "@mui/icons-material/Storage"
 import CloudIcon from "@mui/icons-material/Cloud"
@@ -24,63 +21,33 @@ import LockIcon from "@mui/icons-material/Lock"
 import type { ServerCapabilities } from "@/hooks/useCapabilities"
 
 interface DataSourceTabsProps {
-  csvContent:  React.ReactNode
-  dbContent:   React.ReactNode
+  csvContent:   React.ReactNode
+  dbContent:    React.ReactNode
+  demoContent:  React.ReactNode
   cloudContent: React.ReactNode
-  demoContent: React.ReactNode
-  /** Pass caps from useCapabilities() — used to lock/unlock advanced tabs */
   caps?: ServerCapabilities | null
 }
+
+const TAB_DEFS = [
+  { label: "Archivo",           icon: <UploadFileIcon sx={{ fontSize: "1rem" }} />, locked: false },
+  { label: "Base de datos",     icon: <StorageIcon    sx={{ fontSize: "1rem" }} />, locked: false },
+  { label: "Dataset demo",      icon: <AutoGraphIcon  sx={{ fontSize: "1rem" }} />, locked: false },
+  { label: "Cloud / Data Lake", icon: <CloudIcon      sx={{ fontSize: "1rem" }} />, locked: true  },
+]
 
 export function DataSourceTabs({
   csvContent,
   dbContent,
-  cloudContent,
   demoContent,
-  caps,
+  cloudContent,
 }: DataSourceTabsProps) {
   const [tab, setTab] = useState(0)
-
-  const isLocal = caps?.tier === "local"
-
-  // Tab definitions with lock logic
-  const tabs = [
-    {
-      label: "Archivo",
-      icon: <UploadFileIcon sx={{ fontSize: "1rem" }} />,
-      locked: false,
-      tooltip: "CSV, Excel, Parquet — subí tu archivo directamente",
-    },
-    {
-      label: "Base de datos",
-      icon: <StorageIcon sx={{ fontSize: "1rem" }} />,
-      locked: false,
-      tooltip: "Conectá tu PostgreSQL, MySQL o SQLite — conexión efímera, sin persistencia",
-    },
-    {
-      label: "Cloud / Data Lake",
-      icon: <CloudIcon sx={{ fontSize: "1rem" }} />,
-      locked: true,
-      tooltip: "BigQuery, Snowflake, S3 — disponible en Fase 13",
-    },
-    {
-      label: "Dataset demo",
-      icon: <AutoGraphIcon sx={{ fontSize: "1rem" }} />,
-      locked: !caps?.features.demo_dataset,
-      tooltip: isLocal
-        ? "25 000 SKUs × 3 años — dataset sintético de planificación de demanda"
-        : "Dataset demo disponible — leerá el Parquet desde Supabase Storage vía DuckDB",
-    },
-  ]
-
-  // If current tab becomes locked (e.g. caps loaded after mount), fallback to 0
-  const effectiveTab = tabs[tab]?.locked ? 0 : tab
 
   return (
     <Box>
       <Tabs
-        value={effectiveTab}
-        onChange={(_, v: number) => !tabs[v].locked && setTab(v)}
+        value={tab}
+        onChange={(_, v: number) => setTab(v)}
         sx={{
           mb: "1.5rem",
           borderBottom: "1px solid",
@@ -100,45 +67,39 @@ export function DataSourceTabs({
           "& .Mui-disabled": { opacity: 0.45 },
         }}
       >
-        {tabs.map((t, i) => (
-          <Tooltip key={t.label} title={t.tooltip} placement="top" arrow>
-            <span>   {/* span needed so Tooltip works on disabled Tab */}
-              <Tab
-                icon={t.locked
-                  ? <LockIcon sx={{ fontSize: "0.875rem", opacity: 0.5 }} />
-                  : t.icon
-                }
-                iconPosition="start"
-                label={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                    {t.label}
-                    {t.locked && (
-                      <Chip
-                        label="Próximamente"
-                        size="small"
-                        sx={{
-                          height: "1rem",
-                          fontSize: "0.625rem",
-                          bgcolor: "rgba(99,102,241,0.1)",
-                          color: "primary.light",
-                          border: "1px solid rgba(99,102,241,0.2)",
-                          pointerEvents: "none",
-                        }}
-                      />
-                    )}
-                  </Box>
-                }
-                disabled={t.locked}
-              />
-            </span>
-          </Tooltip>
+        {TAB_DEFS.map((t) => (
+          <Tab
+            key={t.label}
+            disabled={t.locked}
+            icon={t.locked ? <LockIcon sx={{ fontSize: "0.875rem", opacity: 0.5 }} /> : t.icon}
+            iconPosition="start"
+            label={
+              t.locked ? (
+                <Box sx={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                  {t.label}
+                  <Chip
+                    label="Próximamente"
+                    size="small"
+                    sx={{
+                      height: "1rem",
+                      fontSize: "0.625rem",
+                      bgcolor: "rgba(99,102,241,0.1)",
+                      color: "primary.light",
+                      border: "1px solid rgba(99,102,241,0.2)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </Box>
+              ) : t.label
+            }
+          />
         ))}
       </Tabs>
 
-      {effectiveTab === 0 && <Box>{csvContent}</Box>}
-      {effectiveTab === 1 && <Box>{dbContent}</Box>}
-      {effectiveTab === 2 && <Box>{cloudContent}</Box>}
-      {effectiveTab === 3 && <Box>{demoContent}</Box>}
+      {tab === 0 && csvContent}
+      {tab === 1 && dbContent}
+      {tab === 2 && demoContent}
+      {tab === 3 && cloudContent}
     </Box>
   )
 }

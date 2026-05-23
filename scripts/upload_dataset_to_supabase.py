@@ -37,15 +37,15 @@ def upload(file_path: str) -> None:
     if not path.exists():
         raise FileNotFoundError(f"Archivo no encontrado: {file_path}")
 
-    size_mb = path.stat().st_size / (1024 ** 2)
-    print(f"\n{'='*55}")
-    print(f"  ForecastIQ — Upload a Supabase Storage")
-    print(f"{'='*55}")
+    size_mb = path.stat().st_size / (1024**2)
+    print(f"\n{'=' * 55}")
+    print("  ForecastIQ — Upload a Supabase Storage")
+    print(f"{'=' * 55}")
     print(f"  Archivo:  {path}")
     print(f"  Tamaño:   {size_mb:.1f} MB")
     print(f"  Bucket:   {BUCKET}/{STORAGE_PATH}")
     print(f"  URL:      {SUPABASE_URL}")
-    print(f"{'='*55}\n")
+    print(f"{'=' * 55}\n")
 
     # Usar service key para saltear RLS en Storage
     client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -85,18 +85,20 @@ def upload(file_path: str) -> None:
     uploaded = next((f for f in files if f["name"] == STORAGE_PATH), None)
 
     if uploaded:
-        print(f"\n{'='*55}")
-        print(f"  ✅ Upload exitoso")
+        print(f"\n{'=' * 55}")
+        print("  ✅ Upload exitoso")
         print(f"  Ruta:    {BUCKET}/{STORAGE_PATH}")
         print(f"  Tiempo:  {t1 - t0:.1f}s")
         print(f"  ID:      {uploaded.get('id', 'n/a')}")
-        print(f"{'='*55}\n")
+        print(f"{'=' * 55}\n")
     else:
         print("  ⚠️  Upload completado pero no se pudo verificar en el listado.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Sube el dataset Parquet a Supabase Storage")
+    parser = argparse.ArgumentParser(
+        description="Sube el dataset Parquet a Supabase Storage"
+    )
     parser.add_argument(
         "--file",
         type=str,

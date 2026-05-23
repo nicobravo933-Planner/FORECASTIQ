@@ -16,10 +16,10 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
 
-SUPABASE_URL        = os.environ["SUPABASE_URL"]
+SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
-BUCKET  = "datasets"
-FOLDER  = "ventas_25k_skus"
+BUCKET = "datasets"
+FOLDER = "ventas_25k_skus"
 N_CHUNKS = 6
 
 
@@ -29,9 +29,9 @@ def verify() -> None:
 
     client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-    print(f"\n{'='*55}")
-    print(f"  ForecastIQ — Verificación dataset en Supabase")
-    print(f"{'='*55}\n")
+    print(f"\n{'=' * 55}")
+    print("  ForecastIQ — Verificación dataset en Supabase")
+    print(f"{'=' * 55}\n")
 
     # 1. Listar archivos en el bucket
     files = client.storage.from_(BUCKET).list(FOLDER)
@@ -41,7 +41,9 @@ def verify() -> None:
         print(f"    ✔ {f}")
 
     if len(parquet_files) != N_CHUNKS:
-        print(f"\n  ⚠️  Se esperaban {N_CHUNKS} chunks, se encontraron {len(parquet_files)}")
+        print(
+            f"\n  ⚠️  Se esperaban {N_CHUNKS} chunks, se encontraron {len(parquet_files)}"
+        )
 
     # 2. Construir URLs públicas directas (bucket público, sin signed URLs)
     base_url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{FOLDER}"
@@ -68,15 +70,15 @@ def verify() -> None:
     """
     row = con.execute(query).fetchone()
 
-    print(f"\n  {'='*45}")
-    print(f"  ✅ Dataset verificado en Supabase Storage")
-    print(f"  {'='*45}")
+    print(f"\n  {'=' * 45}")
+    print("  ✅ Dataset verificado en Supabase Storage")
+    print(f"  {'=' * 45}")
     print(f"  Total filas:      {row[0]:,}")
     print(f"  SKUs únicos:      {row[1]:,}")
     print(f"  Categorías:       {row[2]}")
     print(f"  Período:          {row[3]} → {row[4]}")
     print(f"  Ventas promedio:  {row[5]}")
-    print(f"  {'='*45}\n")
+    print(f"  {'=' * 45}\n")
 
 
 if __name__ == "__main__":

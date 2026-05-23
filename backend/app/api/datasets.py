@@ -5,6 +5,8 @@ Endpoints de datasets — Phase 1 + Conectar Datos.
   GET  /api/datasets/{id}/preview   → primeras 10 filas + tipos de columnas
   POST /api/datasets/{id}/detect    → caracteriza la serie y recomienda modelo
   POST /api/datasets/connect-db     → conexión DB efímera: SELECT → dataset_id
+  GET  /api/datasets/demo/skus      → lista SKUs del dataset sintético por categoría
+  POST /api/datasets/demo/load      → carga una serie de un SKU via DuckDB → dataset_id
 """
 
 from __future__ import annotations
@@ -391,4 +393,151 @@ async def connect_db(body: DbConnectRequest, user: OptionalUser = None) -> DbCon
         dataset_id=dataset_id,
         rows=len(df),
         columns=list(df.columns),
+    )
+
+
+# ── Dataset Demo (DuckDB sobre Supabase Storage) ─────────────────────────────
+
+# URLs públicas de los 6 chunks del Parquet 25k SKUs en Supabase Storage
+_DEMO_BASE = (
+    "https://umzqqrujfnqfearjmbyn.supabase.co/storage/v1/object/public/datasets/ventas_25k_skus"
+)
+_DEMO_CHUNKS = [f"{_DEMO_BASE}/ventas_chunk_{str(i).zfill(3)}.parquet" for i in range(1, 7)]
+_DEMO_CHUNKS_SQL = ", ".join(f"'{u}'" for u in _DEMO_CHUNKS)
+
+# Mapeo categoría → chunk(s) donde predominan sus SKUs
+# Los SKUs están ordenados por sku_id, cada chunk tiene ~4167 SKUs
+# Usamos todos los chunks pero filtramos por categoría (DuckDB hace pushdown)
+_CATEGORIAS = ["Electrónica", "Alimentos", "Indumentaria", "Hogar", "Deportes"]
+
+
+class DemoSkusResponse(BaseModel):
+    categoria: str
+    skus: list[str]  # primeros 50 SKU-IDs de esa categoría
+    total: int
+
+
+class DemoLoadRequest(BaseModel):
+    sku_id: str
+    categoria: str
+    freq: str = "D"  # los datos son diarios
+
+
+class DemoLoadResponse(BaseModel):
+    dataset_id: str
+    sku_id: str
+    rows: int
+    columns: list[str]
+    date_range: str  # ej. "2022-01-01 → 2024-12-31"
+
+
+@router.get("/demo/skus", response_model=DemoSkusResponse)
+async def demo_list_skus(categoria: str = "Electrónica") -> DemoSkusResponse:
+    """
+    Lista los primeros 50 SKUs de una categoría del dataset sintético.
+    DuckDB lee directamente desde las URLs públicas de Supabase Storage.
+    Solo descarga los row groups necesarios (column + predicate pushdown).
+    """
+    import duckdb
+
+    if categoria not in _CATEGORIAS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Categoría inválida. Opciones: {_CATEGORIAS}",
+        )
+
+    try:
+        con = duckdb.connect()
+        # Instalar y cargar extensión httpfs para leer URLs remotas
+        con.execute("INSTALL httpfs; LOAD httpfs;")
+        con.execute("SET enable_progress_bar = false;")
+
+        # Query eficiente: solo columnas sku_id y categoria, sin descargar y
+        result = con.execute(
+            f"""
+            SELECT DISTINCT sku_id
+            FROM read_parquet([{_DEMO_CHUNKS_SQL}])
+            WHERE categoria = ?
+            ORDER BY sku_id
+            LIMIT 50
+            """,
+            [categoria],
+        ).fetchall()
+
+        con.close()
+        skus = [row[0] for row in result]
+        return DemoSkusResponse(categoria=categoria, skus=skus, total=len(skus))
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al leer dataset demo: {exc}",
+        ) from exc
+
+
+@router.post("/demo/load", response_model=DemoLoadResponse, status_code=201)
+async def demo_load_sku(body: DemoLoadRequest, user: OptionalUser = None) -> DemoLoadResponse:
+    """
+    Carga la serie temporal completa de un SKU específico del dataset sintético.
+    DuckDB hace pushdown sobre los 6 chunks y solo descarga las filas del SKU pedido.
+    El resultado se guarda en Supabase Storage como CSV virtual con un dataset_id.
+    El usuario puede entonces correr forecast normalmente sobre ese dataset_id.
+
+    Columnas retornadas: fecha, ventas, precio, stock
+    (las suficientes para hacer forecast con o sin features externas)
+    """
+    import duckdb
+
+    try:
+        con = duckdb.connect()
+        con.execute("INSTALL httpfs; LOAD httpfs;")
+        con.execute("SET enable_progress_bar = false;")
+
+        df: pd.DataFrame = con.execute(
+            f"""
+            SELECT fecha, ventas, precio, stock
+            FROM read_parquet([{_DEMO_CHUNKS_SQL}])
+            WHERE sku_id = ?
+            ORDER BY fecha
+            """,
+            [body.sku_id],
+        ).df()
+
+        con.close()
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al leer SKU del dataset demo: {exc}",
+        ) from exc
+
+    if df.empty:
+        raise HTTPException(
+            status_code=404,
+            detail=f"SKU '{body.sku_id}' no encontrado en el dataset demo.",
+        )
+
+    # Rango de fechas para mostrar en la UI
+    date_min = str(df["fecha"].min())[:10]
+    date_max = str(df["fecha"].max())[:10]
+    date_range = f"{date_min} → {date_max}"
+
+    # Guardar como CSV en Supabase Storage (mismo pipeline que upload normal)
+    filename = f"demo_{body.sku_id.replace('-', '_')}.csv"
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
+    dataset_id = upload_csv(csv_bytes, filename)
+    register_dataset(
+        dataset_id=dataset_id,
+        filename=filename,
+        rows=len(df),
+        columns=list(df.columns),
+        user_id=str(user.user_id) if user else None,
+    )
+
+    return DemoLoadResponse(
+        dataset_id=dataset_id,
+        sku_id=body.sku_id,
+        rows=len(df),
+        columns=list(df.columns),
+        date_range=date_range,
     )

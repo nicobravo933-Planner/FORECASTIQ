@@ -74,6 +74,7 @@ export interface ForecastRunRequest {
   freq: DataFreq
   horizon: number
   model_override?: ModelName | null
+  force_reoptimize?: boolean
 }
 
 export interface ForecastStatusResponse {

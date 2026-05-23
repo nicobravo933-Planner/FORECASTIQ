@@ -17,11 +17,8 @@ import Typography from "@mui/material/Typography"
 import Alert from "@mui/material/Alert"
 import Button from "@mui/material/Button"
 import Chip from "@mui/material/Chip"
-import Skeleton from "@mui/material/Skeleton"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
-import WifiTetheringIcon from "@mui/icons-material/WifiTethering"
 import ComputerIcon from "@mui/icons-material/Computer"
-import CloudIcon from "@mui/icons-material/Cloud"
 
 import { useDataset } from "@/hooks/useDataset"
 import { useCapabilities } from "@/hooks/useCapabilities"
@@ -125,26 +122,16 @@ export default function DatasetPage() {
           </Typography>
         </Box>
 
-        {/* Server tier badge */}
-        {capsLoading ? (
-          <Skeleton variant="rounded" width={140} height={28} />
-        ) : (
+        {/* Server tier badge — solo visible en modo local */}
+        {!capsLoading && caps.tier === "local" && (
           <Chip
-            icon={caps.tier === "local"
-              ? <ComputerIcon sx={{ fontSize: "0.875rem !important" }} />
-              : <CloudIcon sx={{ fontSize: "0.875rem !important" }} />
-            }
-            label={caps.tier === "local" ? "Modo local — full power" : "Modo cloud (EC2)"}
+            icon={<ComputerIcon sx={{ fontSize: "0.875rem !important" }} />}
+            label="Backend local"
             size="small"
             sx={{
-              bgcolor: caps.tier === "local"
-                ? "rgba(16,185,129,0.12)"
-                : "rgba(99,102,241,0.1)",
-              color: caps.tier === "local" ? "success.main" : "primary.light",
-              border: "1px solid",
-              borderColor: caps.tier === "local"
-                ? "rgba(16,185,129,0.3)"
-                : "rgba(99,102,241,0.2)",
+              bgcolor: "rgba(16,185,129,0.12)",
+              color: "success.main",
+              border: "1px solid rgba(16,185,129,0.3)",
               fontWeight: 600,
               fontSize: "0.75rem",
             }}
@@ -152,29 +139,13 @@ export default function DatasetPage() {
         )}
       </Box>
 
-      {/* Cloud-mode info banner */}
-      {!capsLoading && caps.tier === "cloud" && (
-        <Alert
-          severity="info"
-          icon={<WifiTetheringIcon />}
-          sx={{ fontSize: "0.8125rem", "& .MuiAlert-message": { lineHeight: 1.6 } }}
-        >
-          <strong>Modo cloud activo</strong> — los modelos LightGBM + Optuna HPO y el batch Nixtla
-          requieren más RAM de la disponible en el EC2. Para habilitarlos, levantá el backend local:
-          {" "}
-          <code style={{ fontSize: "0.75rem", opacity: 0.85 }}>
-            SERVER_TIER=local uv run uvicorn app.main:app
-          </code>
-        </Alert>
-      )}
-
       {/* Tabs */}
       <DataSourceTabs
         caps={caps}
         csvContent={csvFlow}
         dbContent={<ConnectDbCard />}
-        cloudContent={<CloudDataCard />}
         demoContent={<DemoDatasetCard />}
+        cloudContent={<CloudDataCard />}
       />
     </Box>
   )

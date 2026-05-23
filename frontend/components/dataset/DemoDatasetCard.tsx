@@ -1,20 +1,32 @@
 "use client"
 
 /**
- * DemoDatasetCard — placeholder for the "Demo dataset" tab.
- * Phase 9 will wire this to the real 25k-SKU Parquet in Supabase Storage
- * served via DuckDB signed-URL queries.
- *
- * For now: shows what the dataset contains + a "coming soon" badge.
+ * DemoDatasetCard — carga un SKU del dataset sintético via DuckDB + Supabase Storage.
+ * Flujo: elegir categoría → cargar SKUs → elegir SKU → cargar serie → ir a Forecast.
  */
 
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Chip from "@mui/material/Chip"
+import Button from "@mui/material/Button"
+import Alert from "@mui/material/Alert"
+import CircularProgress from "@mui/material/CircularProgress"
+import Select from "@mui/material/Select"
+import MenuItem from "@mui/material/MenuItem"
+import FormControl from "@mui/material/FormControl"
+import InputLabel from "@mui/material/InputLabel"
+import AutoGraphIcon from "@mui/icons-material/AutoGraph"
 import StorageIcon from "@mui/icons-material/Storage"
 import ScheduleIcon from "@mui/icons-material/Schedule"
 import CategoryIcon from "@mui/icons-material/Category"
 import TrendingUpIcon from "@mui/icons-material/TrendingUp"
+import PlayArrowIcon from "@mui/icons-material/PlayArrow"
+import { api, ApiError } from "@/lib/api"
+import { appStore } from "@/lib/appStore"
+
+const CATEGORIAS = ["Electrónica", "Alimentos", "Indumentaria", "Hogar", "Deportes"]
 
 const STATS = [
   { icon: <StorageIcon sx={{ fontSize: "1rem" }} />, label: "25 000 SKUs", sub: "productos únicos" },
@@ -23,87 +35,172 @@ const STATS = [
   { icon: <TrendingUpIcon sx={{ fontSize: "1rem" }} />, label: "~27 M filas", sub: "Parquet · Snappy" },
 ]
 
-export function DemoDatasetCard() {
-  return (
-    <Box
-      sx={{
-        border: "2px dashed",
-        borderColor: "divider",
-        borderRadius: "0.75rem",
-        p: "2.5rem",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: "1.75rem",
-        textAlign: "center",
-      }}
-    >
-      {/* Badge */}
-      <Chip
-        label="Disponible en Fase 9"
-        size="small"
-        sx={{
-          bgcolor: "rgba(99,102,241,0.12)",
-          color: "primary.light",
-          fontWeight: 600,
-          fontSize: "0.75rem",
-          letterSpacing: "0.04em",
-          border: "1px solid rgba(99,102,241,0.25)",
-        }}
-      />
+interface DemoSkusResponse {
+  categoria: string
+  skus: string[]
+  total: number
+}
 
-      {/* Heading */}
-      <Box>
-        <Typography variant="h6" color="text.primary" fontWeight={700} gutterBottom>
-          Dataset demo — Ventas empresa retail
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: "32rem", lineHeight: 1.7 }}>
-          Un dataset sintético de planificación de demanda con patrones realistas: tendencia,
-          estacionalidad anual y semanal, outliers y clustering ABC-XYZ.
-          Podrás explorar cualquier SKU sin subir nada.
-        </Typography>
+interface DemoLoadResponse {
+  dataset_id: string
+  sku_id: string
+  rows: number
+  columns: string[]
+  date_range: string
+}
+
+export function DemoDatasetCard() {
+  const router = useRouter()
+
+  const [categoria, setCategoria]     = useState("Electrónica")
+  const [skus, setSkus]               = useState<string[]>([])
+  const [skuId, setSkuId]             = useState("")
+  const [loadingSkus, setLoadingSkus] = useState(false)
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const [loaded, setLoaded]           = useState<DemoLoadResponse | null>(null)
+
+  // Cargar lista de SKUs cuando cambia la categoría
+  useEffect(() => {
+    setSkuId("")
+    setSkus([])
+    setError(null)
+    setLoaded(null)
+    setLoadingSkus(true)
+
+    api.get<DemoSkusResponse>(`/api/datasets/demo/skus?categoria=${encodeURIComponent(categoria)}`)
+      .then((res) => setSkus(res.skus))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Error al cargar SKUs."))
+      .finally(() => setLoadingSkus(false))
+  }, [categoria])
+
+  const handleLoad = async () => {
+    if (!skuId) return
+    setLoading(true)
+    setError(null)
+    setLoaded(null)
+
+    try {
+      const res = await api.post<DemoLoadResponse>("/api/datasets/demo/load", {
+        sku_id: skuId,
+        categoria,
+        freq: "D",
+      })
+      setLoaded(res)
+      // Pre-cargar en appStore para que Forecast lo reciba automáticamente
+      appStore.setActiveDataset(res.dataset_id, "fecha", "ventas", "D")
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Error al cargar el SKU.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoToForecast = () => router.push("/dashboard/forecast")
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+
+      {/* Header */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <AutoGraphIcon sx={{ color: "primary.main", fontSize: "1.5rem" }} />
+        <Box>
+          <Typography variant="h6" fontWeight={700} color="text.primary">
+            Dataset demo — Ventas retail
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            25 000 SKUs × 3 años · DuckDB lee directamente desde Supabase Storage
+          </Typography>
+        </Box>
       </Box>
 
-      {/* Stats grid */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(9rem, 1fr))",
-          gap: "0.75rem",
-          width: "100%",
-          maxWidth: "36rem",
-        }}
-      >
+      {/* Stats */}
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(8.5rem, 1fr))", gap: "0.625rem" }}>
         {STATS.map((s) => (
-          <Box
-            key={s.label}
-            sx={{
-              bgcolor: "background.paper",
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: "0.625rem",
-              p: "0.875rem",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.375rem",
-              alignItems: "flex-start",
-            }}
-          >
-            <Box sx={{ color: "primary.light", display: "flex", alignItems: "center" }}>
-              {s.icon}
-            </Box>
-            <Typography variant="body2" fontWeight={600} color="text.primary">
-              {s.label}
-            </Typography>
-            <Typography variant="caption" color="text.disabled">
-              {s.sub}
-            </Typography>
+          <Box key={s.label} sx={{
+            bgcolor: "background.paper", border: "1px solid", borderColor: "divider",
+            borderRadius: "0.625rem", p: "0.75rem",
+            display: "flex", flexDirection: "column", gap: "0.25rem",
+          }}>
+            <Box sx={{ color: "primary.light" }}>{s.icon}</Box>
+            <Typography variant="body2" fontWeight={600} color="text.primary">{s.label}</Typography>
+            <Typography variant="caption" color="text.disabled">{s.sub}</Typography>
           </Box>
         ))}
       </Box>
 
+      {/* Selectores */}
+      <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+        {/* Categoría */}
+        <FormControl size="small" sx={{ minWidth: "12rem" }}>
+          <InputLabel>Categoría</InputLabel>
+          <Select
+            value={categoria}
+            label="Categoría"
+            onChange={(e) => setCategoria(e.target.value)}
+          >
+            {CATEGORIAS.map((c) => (
+              <MenuItem key={c} value={c}>{c}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* SKU */}
+        <FormControl size="small" sx={{ minWidth: "14rem" }} disabled={loadingSkus || skus.length === 0}>
+          <InputLabel>
+            {loadingSkus ? "Cargando SKUs…" : "SKU"}
+          </InputLabel>
+          <Select
+            value={skuId}
+            label={loadingSkus ? "Cargando SKUs…" : "SKU"}
+            onChange={(e) => { setSkuId(e.target.value); setLoaded(null) }}
+          >
+            {skus.map((s) => (
+              <MenuItem key={s} value={s} sx={{ fontSize: "0.8125rem", fontFamily: "monospace" }}>
+                {s}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* Botón cargar */}
+        <Button
+          variant="contained"
+          startIcon={loading ? <CircularProgress size="1rem" color="inherit" /> : <PlayArrowIcon />}
+          onClick={handleLoad}
+          disabled={!skuId || loading}
+          sx={{ textTransform: "none", fontWeight: 600, height: "2.5rem" }}
+        >
+          {loading ? "Cargando…" : "Cargar serie"}
+        </Button>
+      </Box>
+
+      {/* Error */}
+      {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+
+      {/* Éxito — serie cargada */}
+      {loaded && (
+        <Alert
+          severity="success"
+          action={
+            <Button
+              size="small"
+              variant="contained"
+              onClick={handleGoToForecast}
+              sx={{ textTransform: "none", fontWeight: 600, whiteSpace: "nowrap" }}
+            >
+              Ir a Forecast →
+            </Button>
+          }
+        >
+          <strong>{loaded.sku_id}</strong> cargado correctamente —{" "}
+          {loaded.rows.toLocaleString("es-AR")} filas · {loaded.date_range}
+        </Alert>
+      )}
+
       <Typography variant="caption" color="text.disabled" sx={{ fontStyle: "italic" }}>
-        El backend leerá el Parquet desde Supabase Storage vía DuckDB — sin cargar 180 MB en memoria.
+        DuckDB lee solo las filas del SKU elegido — sin descargar los 180 MB completos.
+        La serie queda disponible en Forecast con fecha=<code>fecha</code>, objetivo=<code>ventas</code>.
       </Typography>
     </Box>
   )

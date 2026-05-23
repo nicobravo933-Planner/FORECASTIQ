@@ -291,3 +291,61 @@ def delete_conversation(conversation_id: str, user_id: str) -> bool:
     )
     data = response.data
     return bool(data and isinstance(data, list) and len(data) > 0)
+
+
+# ── HPO Cache (LightGBM + Optuna) ─────────────────────────────────────
+
+
+def get_hpo_cache(dataset_id: str, freq: str) -> dict[str, Any] | None:
+    """
+    Busca hiperparámetros cacheados para un dataset+freq.
+    Retorna el dict de params o None si no hay cache.
+    """
+    client = get_supabase()
+    response = (
+        client.table("forecast_hpo_cache")
+        .select("params, wape, n_trials, optimized_at")
+        .eq("dataset_id", dataset_id)
+        .eq("freq", freq)
+        .single()
+        .execute()
+    )
+    data = response.data
+    if not data or not isinstance(data, dict):
+        return None
+    return dict(data)
+
+
+def save_hpo_cache(
+    dataset_id: str,
+    freq: str,
+    params: dict[str, Any],
+    wape: float | None = None,
+    n_trials: int = 0,
+    user_id: str | None = None,
+) -> None:
+    """
+    Guarda o actualiza los mejores hiperparámetros de Optuna para un dataset+freq.
+    Usa upsert para que re-optimizar sobreescriba el cache anterior.
+    """
+    client = get_supabase()
+    client.table("forecast_hpo_cache").upsert(
+        {
+            "dataset_id": dataset_id,
+            "freq": freq,
+            "params": params,
+            "wape": wape,
+            "n_trials": n_trials,
+            "user_id": user_id,
+            "optimized_at": "now()",
+        },
+        on_conflict="dataset_id,freq",
+    ).execute()
+
+
+def delete_hpo_cache(dataset_id: str, freq: str) -> None:
+    """Invalida el cache HPO para forzar re-optimización en el próximo forecast."""
+    client = get_supabase()
+    client.table("forecast_hpo_cache").delete().eq("dataset_id", dataset_id).eq(
+        "freq", freq
+    ).execute()

@@ -35,7 +35,6 @@ Clustering ABC-XYZ:
 """
 
 import argparse
-import os
 import time
 from pathlib import Path
 
@@ -45,9 +44,11 @@ import pandas as pd
 # tqdm es opcional — si no está instalado, usa un wrapper vacío
 try:
     from tqdm import tqdm
+
     HAS_TQDM = True
 except ImportError:
     HAS_TQDM = False
+
     def tqdm(iterable, **kwargs):  # type: ignore[misc]
         return iterable
 
@@ -74,7 +75,7 @@ except ImportError:
 CATEGORIAS_CONFIG = {
     "Electronica": {
         "peso": 0.15,
-        "ventas_base": (1, 80),        # rango amplio pero no extremo
+        "ventas_base": (1, 80),  # rango amplio pero no extremo
         "precio_rango": (15_000, 200_000),
         "tendencia": 0.0003,
         "estac_anual": 0.35,
@@ -86,12 +87,12 @@ CATEGORIAS_CONFIG = {
     },
     "Alimentos": {
         "peso": 0.30,
-        "ventas_base": (2, 500),       # rango enorme → pocos SKUs masivos generan el 80%
+        "ventas_base": (2, 500),  # rango enorme → pocos SKUs masivos generan el 80%
         "precio_rango": (500, 5_000),
         "tendencia": 0.0001,
         "estac_anual": 0.15,
         "estac_semanal": 0.25,
-        "ruido": 0.20,                 # ruido bajo → Alimentos masivos son X o Y, no Z
+        "ruido": 0.20,  # ruido bajo → Alimentos masivos son X o Y, no Z
         "prob_cero": 0.03,
         "outlier_prob": 0.003,
         "outlier_mult": (1.5, 3.0),
@@ -103,7 +104,7 @@ CATEGORIAS_CONFIG = {
         "tendencia": 0.0001,
         "estac_anual": 0.55,
         "estac_semanal": 0.15,
-        "ruido": 0.55,                 # v2=0.70 → bajado para reducir SKUs Z
+        "ruido": 0.55,  # v2=0.70 → bajado para reducir SKUs Z
         "prob_cero": 0.20,
         "outlier_prob": 0.005,
         "outlier_mult": (2.0, 5.0),
@@ -115,8 +116,8 @@ CATEGORIAS_CONFIG = {
         "tendencia": 0.00005,
         "estac_anual": 0.20,
         "estac_semanal": 0.20,
-        "ruido": 0.65,                 # v2=0.90 → bajado; prob_cero da el Z, no el ruido solo
-        "prob_cero": 0.40,             # muchos días sin venta → CV alto por zeros
+        "ruido": 0.65,  # v2=0.90 → bajado; prob_cero da el Z, no el ruido solo
+        "prob_cero": 0.40,  # muchos días sin venta → CV alto por zeros
         "outlier_prob": 0.004,
         "outlier_mult": (2.0, 4.0),
     },
@@ -191,7 +192,7 @@ def _generar_serie_ventas(
 
     # 5. Ruido multiplicativo log-normal
     sigma_ruido = np.sqrt(np.log(1 + ruido**2))
-    ruido_v = rng.lognormal(mean=-sigma_ruido**2 / 2, sigma=sigma_ruido, size=n_dias)
+    ruido_v = rng.lognormal(mean=-(sigma_ruido**2) / 2, sigma=sigma_ruido, size=n_dias)
 
     # 6. Serie base
     ventas = tend * estac_a * estac_s * ruido_v
@@ -271,22 +272,21 @@ def generar_dataset(
 
     sku_categorias = rng.choice(categorias_lista, size=n_skus, p=pesos_cat_norm)
     sku_canales = rng.choice(CANALES, size=n_skus, p=CANAL_PESOS)
-    sku_ids = [f"SKU-{i+1:05d}" for i in range(n_skus)]
+    sku_ids = [f"SKU-{i + 1:05d}" for i in range(n_skus)]
 
     # Precio fijo por SKU (no varía por día en esta versión)
-    sku_precios = np.array([
-        rng.uniform(*CATEGORIAS_CONFIG[cat]["precio_rango"])
-        for cat in sku_categorias
-    ])
+    sku_precios = np.array(
+        [rng.uniform(*CATEGORIAS_CONFIG[cat]["precio_rango"]) for cat in sku_categorias]
+    )
 
-    print(f"\n{'='*60}")
-    print(f"  ForecastIQ — Generador de Dataset Masivo")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  ForecastIQ — Generador de Dataset Masivo")
+    print(f"{'=' * 60}")
     print(f"  SKUs:        {n_skus:,}")
     print(f"  Días:        {n_dias:,}  ({fecha_inicio} → {fechas[-1].date()})")
     print(f"  Filas total: {n_skus * n_dias:,}")
     print(f"  Output:      {output_path}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     t0 = time.time()
     chunks: list[pd.DataFrame] = []
@@ -351,17 +351,19 @@ def generar_dataset(
     abc_col = np.repeat(clusters["cluster_abc"].loc[sku_ids].values, n_dias)
     xyz_col = np.repeat(clusters["cluster_xyz"].loc[sku_ids].values, n_dias)
 
-    df = pd.DataFrame({
-        "sku_id":      sku_col,
-        "categoria":   cat_col,
-        "canal":       canal_col,
-        "fecha":       fecha_col,
-        "ventas":      ventas_col.astype(np.float32),
-        "precio":      precio_col,
-        "stock":       stock_col,
-        "cluster_abc": abc_col,
-        "cluster_xyz": xyz_col,
-    })
+    df = pd.DataFrame(
+        {
+            "sku_id": sku_col,
+            "categoria": cat_col,
+            "canal": canal_col,
+            "fecha": fecha_col,
+            "ventas": ventas_col.astype(np.float32),
+            "precio": precio_col,
+            "stock": stock_col,
+            "cluster_abc": abc_col,
+            "cluster_xyz": xyz_col,
+        }
+    )
 
     print(f"  DataFrame: {len(df):,} filas × {len(df.columns)} columnas")
     print("  Guardando en Parquet (Snappy)...")
@@ -369,35 +371,50 @@ def generar_dataset(
     df.to_parquet(output_path, engine="pyarrow", compression="snappy", index=False)
 
     t1 = time.time()
-    size_mb = Path(output_path).stat().st_size / (1024 ** 2)
+    size_mb = Path(output_path).stat().st_size / (1024**2)
 
-    print(f"\n{'='*60}")
-    print(f"  ✅ Dataset generado exitosamente")
+    print(f"\n{'=' * 60}")
+    print("  ✅ Dataset generado exitosamente")
     print(f"  Archivo:   {output_path}")
     print(f"  Tamaño:    {size_mb:.1f} MB")
     print(f"  Filas:     {len(df):,}")
     print(f"  Tiempo:    {t1 - t0:.1f}s")
-    print(f"\n  Distribución ABC:")
-    for label, count in df.drop_duplicates("sku_id")["cluster_abc"].value_counts().items():
+    print("\n  Distribución ABC:")
+    for label, count in (
+        df.drop_duplicates("sku_id")["cluster_abc"].value_counts().items()
+    ):
         print(f"    {label}: {count:,} SKUs")
-    print(f"\n  Distribución XYZ:")
-    for label, count in df.drop_duplicates("sku_id")["cluster_xyz"].value_counts().items():
+    print("\n  Distribución XYZ:")
+    for label, count in (
+        df.drop_duplicates("sku_id")["cluster_xyz"].value_counts().items()
+    ):
         print(f"    {label}: {count:,} SKUs")
-    print(f"\n  Distribución por categoría:")
+    print("\n  Distribución por categoría:")
     for cat, count in df.drop_duplicates("sku_id")["categoria"].value_counts().items():
         print(f"    {cat}: {count:,} SKUs")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Genera dataset sintético masivo de ventas para ForecastIQ"
     )
-    parser.add_argument("--skus", type=int, default=25_000, help="Número de SKUs (default: 25000)")
-    parser.add_argument("--years", type=int, default=3, help="Años de historia (default: 3)")
-    parser.add_argument("--output", type=str, default="data/ventas_25k_skus.parquet", help="Ruta de salida")
+    parser.add_argument(
+        "--skus", type=int, default=25_000, help="Número de SKUs (default: 25000)"
+    )
+    parser.add_argument(
+        "--years", type=int, default=3, help="Años de historia (default: 3)"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="data/ventas_25k_skus.parquet",
+        help="Ruta de salida",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Semilla aleatoria")
-    parser.add_argument("--chunk", type=int, default=500, help="SKUs por chunk (RAM control)")
+    parser.add_argument(
+        "--chunk", type=int, default=500, help="SKUs por chunk (RAM control)"
+    )
     args = parser.parse_args()
 
     generar_dataset(

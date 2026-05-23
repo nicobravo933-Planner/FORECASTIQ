@@ -57,6 +57,10 @@ class LightGBMModel(ForecastModel):
     """
     LightGBM con HPO via Optuna + CI por quantile regression.
     Predice recursivamente: cada paso usa las predicciones anteriores como lags.
+
+    HPO cache: los mejores hiperparámetros se guardan en Supabase por dataset+freq.
+    Si hay cache, Optuna se saltea y el forecast es instantáneo.
+    Si force_reoptimize=True, ignora el cache y corre Optuna desde cero.
     """
 
     name = "lightgbm"
@@ -68,11 +72,17 @@ class LightGBMModel(ForecastModel):
         ci_level: float = 0.95,
         n_trials: int = 30,
         optuna_timeout: int = 60,
+        dataset_id: str | None = None,
+        user_id: str | None = None,
+        force_reoptimize: bool = False,
     ) -> None:
         self.max_lag = max_lag
         self.ci_level = ci_level
         self.n_trials = n_trials
         self.optuna_timeout = optuna_timeout
+        self.dataset_id = dataset_id
+        self.user_id = user_id
+        self.force_reoptimize = force_reoptimize
 
         self._model_mean: lgb.Booster | None = None
         self._model_lower: lgb.Booster | None = None
@@ -80,6 +90,7 @@ class LightGBMModel(ForecastModel):
         self._series: pd.Series | None = None
         self._freq: str | None = None
         self._best_params: dict[str, object] = {}
+        self.used_cache: bool = False  # True si se usó cache en lugar de Optuna
 
     # ── Entrenamiento ─────────────────────────────────────────────────────────
 
@@ -91,8 +102,38 @@ class LightGBMModel(ForecastModel):
         x: np.ndarray = df.drop(columns=["y"]).to_numpy()
         y: np.ndarray = df["y"].to_numpy()
 
-        # Optuna HPO sobre el modelo de media
-        self._best_params = self._optimize(x, y)
+        # ── HPO: buscar cache antes de correr Optuna ──────────────────────────────────
+        cached_params: dict[str, object] | None = None
+        if self.dataset_id and not self.force_reoptimize:
+            try:
+                from app.services.supabase import get_hpo_cache
+
+                cache = get_hpo_cache(self.dataset_id, self._freq)
+                if cache and cache.get("params"):
+                    cached_params = dict(cache["params"])
+                    self.used_cache = True
+            except Exception:
+                pass  # Si falla el cache, continuar con Optuna normal
+
+        if cached_params is not None:
+            self._best_params = cached_params
+        else:
+            # Corre Optuna (costoso, 30-60s)
+            self._best_params = self._optimize(x, y)
+            # Guarda en cache para futuros forecasts del mismo dataset
+            if self.dataset_id:
+                try:
+                    from app.services.supabase import save_hpo_cache
+
+                    save_hpo_cache(
+                        dataset_id=self.dataset_id,
+                        freq=self._freq,
+                        params=dict(self._best_params),
+                        n_trials=self.n_trials,
+                        user_id=self.user_id,
+                    )
+                except Exception:
+                    pass  # Cache es opcional, no rompe el forecast
 
         # Entrena modelo de media con mejores params
         self._model_mean = self._train_lgb(x, y, self._best_params, objective="regression")
