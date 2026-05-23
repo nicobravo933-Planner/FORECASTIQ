@@ -23,6 +23,7 @@ interface UseChatReturn {
   isStreaming: boolean
   activeToolCall: string | null
   error: string | null
+  tokensUsed: number
   sendMessage: (text: string, model: LlmModelId) => Promise<void>
   clearMessages: () => void
 }
@@ -33,6 +34,7 @@ export function useChat({ datasetId, jobId }: UseChatOptions = {}): UseChatRetur
   const [isStreaming, setIsStreaming] = useState(false)
   const [activeToolCall, setActiveToolCall] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tokensUsed, setTokensUsed] = useState(0)
 
   // Ref to abort in-flight SSE fetch
   const abortRef = useRef<AbortController | null>(null)
@@ -128,6 +130,8 @@ export function useChat({ datasetId, jobId }: UseChatOptions = {}): UseChatRetur
                       : m,
                   ),
                 )
+                // Estimate tokens (4 chars ≈ 1 token)
+                setTokensUsed((prev) => prev + Math.ceil((event.content?.length ?? 0) / 4))
                 break
 
               case "tool_call":
@@ -183,6 +187,7 @@ export function useChat({ datasetId, jobId }: UseChatOptions = {}): UseChatRetur
     setSuggestions([])
     setError(null)
     setActiveToolCall(null)
+    setTokensUsed(0)
   }, [])
 
   return {
@@ -191,6 +196,7 @@ export function useChat({ datasetId, jobId }: UseChatOptions = {}): UseChatRetur
     isStreaming,
     activeToolCall,
     error,
+    tokensUsed,
     sendMessage,
     clearMessages,
   }

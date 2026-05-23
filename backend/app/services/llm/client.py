@@ -16,7 +16,7 @@ from app.services.llm.tools import DEFAULT_MODEL_ID, FREE_MODELS
 logger = logging.getLogger(__name__)
 
 
-def build_system_prompt(session_context: dict[str, Any]) -> str:
+def build_system_prompt(session_context: dict[str, Any], user_message: str = "") -> str:
     """
     Construye el system prompt inyectando contexto del dataset y forecast.
     El LLM recibe el esquema de columnas + KPIs actuales para responder
@@ -27,10 +27,29 @@ def build_system_prompt(session_context: dict[str, Any]) -> str:
     events_summary = session_context.get("events_summary", "No events configured.")
     freq_label = session_context.get("freq_label", "unknown frequency")
 
+    # Detecta idioma del mensaje del usuario para responder en el mismo idioma.
+    # Si el mensaje contiene caracteres latinos/españoles → español, sino inglés.
+    spanish_chars = set("áéíóúüñ¿¡àèìòùâêîôûäëïöü")
+    is_spanish = any(c.lower() in spanish_chars for c in user_message) or \
+        any(w in user_message.lower() for w in [
+            "como", "qué", "cuál", "cuáles", "cuánto", "cuándo", "dónde",
+            "por qué", "puedo", "podés", "tiene", "hay", "son", "está",
+            "quiero", "necesito", "mostrar", "analizar", "dame", "hola",
+        ])
+    language_instruction = (
+        "IMPORTANT: Always respond in Spanish (es-AR). "
+        "Use professional but approachable language."
+        if is_spanish else
+        "Respond in the same language the user writes in."
+    )
+
     return f"""You are ForecastIQ's AI assistant — an expert in time-series forecasting and demand planning.
 
 You have access to the user's actual sales data and forecast results.
 Use the available tools to query their data and give precise, data-driven answers.
+
+## Language
+{language_instruction}
 
 ## Current dataset
 {dataset_schema}
@@ -103,7 +122,7 @@ async def stream_llm_response(
     from app.services.llm.openrouter import stream_chat
 
     model = resolve_model(session_context)
-    system_prompt = build_system_prompt(session_context)
+    system_prompt = build_system_prompt(session_context, user_message=user_message)
 
     # Construye el historial completo para el LLM
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]

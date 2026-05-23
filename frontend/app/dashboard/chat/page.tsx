@@ -13,11 +13,8 @@
 import { useEffect, useRef, useState } from "react"
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
 import SendIcon from "@mui/icons-material/Send"
-import StorageIcon from "@mui/icons-material/Storage"
-import TimelineIcon from "@mui/icons-material/Timeline"
 import Alert from "@mui/material/Alert"
 import Box from "@mui/material/Box"
-import Chip from "@mui/material/Chip"
 import Divider from "@mui/material/Divider"
 import IconButton from "@mui/material/IconButton"
 import Stack from "@mui/material/Stack"
@@ -27,8 +24,10 @@ import Typography from "@mui/material/Typography"
 import Image from "next/image"
 import { ChatBox } from "@/components/chat/ChatBox"
 import { ModelSelector } from "@/components/chat/ModelSelector"
+import { ModelStatusBar } from "@/components/chat/ModelStatusBar"
 import { QuickQuestions } from "@/components/chat/QuickQuestions"
 import { useChat } from "@/hooks/useChat"
+import { useModelStatus } from "@/hooks/useModelStatus"
 import { appStore } from "@/lib/appStore"
 import { type LlmModelId } from "@/lib/types"
 import { getPreferredModel } from "@/lib/preferredModel"
@@ -47,8 +46,10 @@ export default function ChatPage() {
     setJobId(ctx.jobId)
   }, [])
 
-  const { messages, suggestions, isStreaming, activeToolCall, error, sendMessage, clearMessages } =
+  const { messages, suggestions, isStreaming, activeToolCall, error, tokensUsed, sendMessage, clearMessages } =
     useChat({ datasetId, jobId })
+
+  const { status: modelStatus } = useModelStatus(model)
 
   const handleSend = async (text?: string) => {
     const msg = (text ?? input).trim()
@@ -94,32 +95,15 @@ export default function ChatPage() {
           boxShadow: 1,
         }}
       >
-        {/* chip.png + title */}
+        {/* chip.png */}
         <Image src="/chip.png" alt="AI" width={42} height={42} style={{ objectFit: "contain", flexShrink: 0 }} />
 
-        {/* Title + context chips */}
+        {/* Title + ModelStatusBar */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography fontWeight={600} sx={{ fontSize: "0.9375rem", lineHeight: 1.2 }}>
+          <Typography fontWeight={600} sx={{ fontSize: "0.9375rem", lineHeight: 1.2, mb: "0.375rem" }}>
             AI Assistant
           </Typography>
-          <Stack direction="row" spacing="0.375rem" sx={{ mt: "0.25rem" }}>
-            <Chip
-              icon={<StorageIcon sx={{ fontSize: "0.75rem !important" }} />}
-              label={datasetId ? "Dataset activo" : "Sin dataset"}
-              size="small"
-              color={datasetId ? "success" : "default"}
-              variant={datasetId ? "filled" : "outlined"}
-              sx={{ fontSize: "0.625rem", height: "1.25rem" }}
-            />
-            <Chip
-              icon={<TimelineIcon sx={{ fontSize: "0.75rem !important" }} />}
-              label={jobId ? "Forecast activo" : "Sin forecast"}
-              size="small"
-              color={jobId ? "success" : "default"}
-              variant={jobId ? "filled" : "outlined"}
-              sx={{ fontSize: "0.625rem", height: "1.25rem" }}
-            />
-          </Stack>
+          <ModelStatusBar model={model} status={modelStatus} tokensUsed={tokensUsed} />
         </Box>
 
         {/* Controls */}

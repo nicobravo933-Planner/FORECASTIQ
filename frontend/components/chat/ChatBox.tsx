@@ -137,13 +137,15 @@ export function ChatBox({ messages, activeToolCall, isStreaming, onQuickSelect, 
         <WelcomeScreen onSelect={onQuickSelect ?? (() => {})} />
       )}
 
-      {/* Messages */}
-      {messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
-      ))}
+      {/* Messages — el placeholder vacío se reemplaza con ThinkingIndicator */}
+      {messages.map((msg) => {
+        // Ocultar el placeholder vacío del asistente mientras llegan tokens
+        if (msg.role === "assistant" && msg.isStreaming && msg.content === "") return null
+        return <MessageBubble key={msg.id} message={msg} />
+      })}
 
-      {/* Thinking indicator — shown while streaming before first token */}
-      {isStreaming && (
+      {/* Thinking indicator — solo mientras no hay ningún token aún */}
+      {isStreaming && messages.some((m) => m.role === "assistant" && m.isStreaming && m.content === "") && (
         <ThinkingIndicator toolCall={activeToolCall} />
       )}
 

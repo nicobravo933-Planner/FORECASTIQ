@@ -327,7 +327,6 @@ export function FloatingChat() {
                 : "linear-gradient(135deg, #1e3a6e 0%, #1e40af 100%)",
               boxShadow: "0 0.25rem 1rem rgba(59,130,246,0.45), 0 0 0 1px rgba(59,130,246,0.2)",
               border: "1px solid rgba(59,130,246,0.3)",
-              overflow: "hidden",  // clip Lottie dentro del círculo
               p: 0,
               "&:hover": {
                 transform: "scale(1.06)",
@@ -339,7 +338,17 @@ export function FloatingChat() {
             {open ? (
               <CloseIcon sx={{ fontSize: "1.25rem", color: "white" }} />
             ) : (
-              <RobotAvatar size={56} />
+              <Box sx={{
+                width: "3.5rem",
+                height: "3.5rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                // Scale down the 825x825 lottie to fit the FAB
+                "& > div": { transform: "scale(1.4)", transformOrigin: "center" },
+              }}>
+                <RobotAvatar size={40} />
+              </Box>
             )}
           </Fab>
         </Tooltip>
