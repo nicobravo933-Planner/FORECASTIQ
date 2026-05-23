@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
 
 def _make_features(series: pd.Series, max_lag: int = 13) -> pd.DataFrame:
     """Genera features temporales y de lag para el DataFrame de entrenamiento."""
-    df = pd.DataFrame({"y": series.values}, index=series.index)
+    df = pd.DataFrame({"y": series.to_numpy()}, index=series.index)
 
     # Features de lag
     for lag in range(1, max_lag + 1):
@@ -147,7 +147,7 @@ class LightGBMModel(ForecastModel):
             sampler=optuna.samplers.TPESampler(seed=42),
         )
         study.optimize(objective, n_trials=self.n_trials, timeout=self.optuna_timeout)
-        return study.best_params
+        return dict(study.best_params)
 
     def _train_lgb(
         self, x: np.ndarray, y: np.ndarray, params: dict[str, object], objective: str
@@ -206,5 +206,5 @@ class LightGBMModel(ForecastModel):
             raise RuntimeError("Llamar fit() antes de evaluate().")
 
         preds = self.predict(len(test))
-        predicted_series = pd.Series(preds["predicted"].values, index=test.index)
+        predicted_series = pd.Series(preds["predicted"].to_numpy(), index=test.index)
         return evaluate_all(test, predicted_series)

@@ -74,12 +74,15 @@ def run_forecast_task(
     from app.services.supabase import download_csv, save_forecast_result
 
     # LightGBM solo disponible en tier local (worker con heavy-ml instalado)
+    _lgbm_cls: type | None = None
+    _lgbm_available = False
     try:
-        from app.ml.models.lightgbm_model import LightGBMModel  # type: ignore[import]
+        from app.ml.models.lightgbm_model import LightGBMModel as _LgbmCls
+
+        _lgbm_cls = _LgbmCls
         _lgbm_available = True
     except ImportError:
-        LightGBMModel = None  # type: ignore[assignment,misc]
-        _lgbm_available = False
+        pass
 
     job_id = self.request.id or str(uuid.uuid4())
 
@@ -135,11 +138,12 @@ def run_forecast_task(
                 "sarima": SarimaModel(),
             }
             # LightGBM solo si está disponible (tier local)
-            if _lgbm_available and LightGBMModel is not None:
-                model_map["lightgbm"] = LightGBMModel()
+            if _lgbm_available and _lgbm_cls is not None:
+                model_map["lightgbm"] = _lgbm_cls()
             elif model_name == "lightgbm":
                 # Fallback a Holt-Winters si se pide LightGBM en cloud
                 import structlog as _sl
+
                 _sl.get_logger().warning(
                     "lightgbm_not_available_fallback",
                     tier=settings.server_tier,

@@ -48,9 +48,9 @@ def _get_or_create_experiment(user_id: str | None) -> str:
     )
     experiment = mlflow.get_experiment_by_name(experiment_name)
     if experiment is None:
-        experiment_id = mlflow.create_experiment(experiment_name)
+        experiment_id: str = mlflow.create_experiment(experiment_name)
     else:
-        experiment_id = experiment.experiment_id
+        experiment_id = str(experiment.experiment_id)
     return experiment_id
 
 

@@ -320,9 +320,7 @@ class DbConnectResponse(BaseModel):
 
 
 @router.post("/connect-db", response_model=DbConnectResponse, status_code=201)
-async def connect_db(
-    body: DbConnectRequest, user: OptionalUser = None
-) -> DbConnectResponse:
+async def connect_db(body: DbConnectRequest, user: OptionalUser = None) -> DbConnectResponse:
     """
     Ejecuta una query SELECT sobre la base de datos del usuario.
     La conexión es EFÍMERA: se crea, ejecuta y descarta en esta misma función.
@@ -334,7 +332,8 @@ async def connect_db(
       - La connection_string no aparece en logs ni en trazas OTel.
     """
     import re
-    from sqlalchemy import create_engine, text  # type: ignore[import-untyped]
+
+    from sqlalchemy import create_engine, text
 
     # ── Validación de seguridad: solo SELECT permitido ───────────────────────────────
     query_stripped = body.query.strip().lstrip("-").strip()
@@ -350,7 +349,7 @@ async def connect_db(
         engine_sa = create_engine(
             body.connection_string,
             connect_args={"connect_timeout": 10},  # no esperar más de 10s
-            echo=False,   # nunca loguear la connection string
+            echo=False,  # nunca loguear la connection string
             hide_parameters=True,  # no loguear parámetros de la query
         )
         with engine_sa.connect() as conn:

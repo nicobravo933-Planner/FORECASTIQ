@@ -18,10 +18,10 @@ class HealthResponse(BaseModel):
 
 
 class CapabilitiesResponse(BaseModel):
-    tier: str                    # "cloud" | "local"
+    tier: str  # "cloud" | "local"
     models_available: list[str]  # nombres de los modelos habilitados
-    features: dict[str, bool]    # feature flags individuales
-    message: str                 # descripción humana del tier
+    features: dict[str, bool]  # feature flags individuales
+    message: str  # descripción humana del tier
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -67,8 +67,8 @@ async def get_capabilities() -> CapabilitiesResponse:
             "lightgbm": False,
             "optuna_hpo": False,
             "nixtla_batch": False,
-            "demo_dataset": True,   # el demo lee desde Supabase Storage, liviano
-            "db_connect": True,     # conexiones DB efímeras funcionan en cloud
+            "demo_dataset": True,  # el demo lee desde Supabase Storage, liviano
+            "db_connect": True,  # conexiones DB efímeras funcionan en cloud
         }
         message = "Modo cloud (EC2) — modelos estadísticos disponibles. Montá el worker local para LightGBM y Nixtla."
 
