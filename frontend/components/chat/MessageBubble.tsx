@@ -138,12 +138,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         <Box
           sx={{
             maxWidth: { xs: "88%", sm: "72%", md: "60%" },
-            background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+            background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
             color: "white",
             borderRadius: "1rem 1rem 0.25rem 1rem",
             px: "0.9375rem",
             py: "0.625rem",
-            boxShadow: "0 0.25rem 0.75rem rgba(99,102,241,0.3)",
+            boxShadow: "0 0.25rem 0.75rem rgba(59,130,246,0.3)",
             wordBreak: "break-word",
           }}
         >

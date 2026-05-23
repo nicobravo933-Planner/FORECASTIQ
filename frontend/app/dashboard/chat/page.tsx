@@ -11,7 +11,6 @@
  */
 
 import { useEffect, useRef, useState } from "react"
-import AutoGraphIcon from "@mui/icons-material/AutoGraph"
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
 import SendIcon from "@mui/icons-material/Send"
 import StorageIcon from "@mui/icons-material/Storage"
@@ -25,13 +24,13 @@ import Stack from "@mui/material/Stack"
 import TextField from "@mui/material/TextField"
 import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
+import Image from "next/image"
 import { ChatBox } from "@/components/chat/ChatBox"
 import { ModelSelector } from "@/components/chat/ModelSelector"
 import { QuickQuestions } from "@/components/chat/QuickQuestions"
-import { RobotAvatar } from "@/components/chat/RobotAvatar"
 import { useChat } from "@/hooks/useChat"
 import { appStore } from "@/lib/appStore"
-import { FREE_MODELS, type LlmModelId } from "@/lib/types"
+import { type LlmModelId } from "@/lib/types"
 import { getPreferredModel } from "@/lib/preferredModel"
 
 export default function ChatPage() {
@@ -95,8 +94,8 @@ export default function ChatPage() {
           boxShadow: 1,
         }}
       >
-        {/* Avatar */}
-        <RobotAvatar size={32} />
+        {/* chip.png + title */}
+        <Image src="/chip.png" alt="AI" width={28} height={28} style={{ objectFit: "contain", flexShrink: 0 }} />
 
         {/* Title + context chips */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -207,16 +206,16 @@ export default function ChatPage() {
               disabled={!input.trim() || isStreaming}
               onClick={() => void handleSend()}
               sx={{
-                background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
                 color: "white",
                 width: "2.5rem",
                 height: "2.5rem",
                 borderRadius: "0.625rem",
                 flexShrink: 0,
-                boxShadow: "0 0.125rem 0.5rem rgba(99,102,241,0.3)",
+                boxShadow: "0 0.125rem 0.5rem rgba(59,130,246,0.3)",
                 "&:hover": {
-                  background: "linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)",
-                  boxShadow: "0 0.25rem 0.75rem rgba(99,102,241,0.4)",
+                  background: "linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)",
+                  boxShadow: "0 0.25rem 0.75rem rgba(59,130,246,0.4)",
                 },
                 "&.Mui-disabled": {
                   background: "action.disabledBackground",
