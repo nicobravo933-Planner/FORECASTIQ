@@ -9,7 +9,6 @@
 import Image from "next/image"
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
-import Divider from "@mui/material/Divider"
 import Typography from "@mui/material/Typography"
 import GoogleIcon from "@mui/icons-material/Google"
 import GitHubIcon from "@mui/icons-material/GitHub"
@@ -17,7 +16,7 @@ import AutoGraphIcon from "@mui/icons-material/AutoGraph"
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
 import ChatIcon from "@mui/icons-material/Chat"
 import LockOpenIcon from "@mui/icons-material/LockOpen"
-import { signIn } from "@/lib/auth-client"
+import { signIn, authClient } from "@/lib/auth-client"
 
 const FEATURES = [
   { icon: <AutoGraphIcon sx={{ fontSize: "1.125rem" }} />, text: "Detección automática del mejor modelo ML" },
@@ -267,22 +266,25 @@ export default function LoginPage() {
             </Button>
           </Box>
 
-          <Divider sx={{ my: "1.5rem", borderColor: "divider" }} />
-
           <Typography
             variant="caption"
             color="text.disabled"
             textAlign="center"
             display="block"
-            sx={{ lineHeight: 1.6 }}
+            sx={{ mt: "1.5rem", lineHeight: 1.6 }}
           >
             También podés usar la app sin cuenta —{" "}
             <Box
               component="span"
-              onClick={() => (window.location.href = "/dashboard/dataset")}
+              onClick={() => {
+                void authClient.signIn.anonymous().then(() => {
+                  window.location.href = "/dashboard/datasets"
+                })
+              }}
               sx={{
-                color: "primary.light",
+                color: "primary.main",
                 cursor: "pointer",
+                fontWeight: 500,
                 "&:hover": { textDecoration: "underline" },
               }}
             >

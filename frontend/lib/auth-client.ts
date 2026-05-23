@@ -4,11 +4,13 @@
  */
 
 import { createAuthClient } from "better-auth/react"
+import { anonymousClient } from "better-auth/client/plugins"
 
 export const authClient = createAuthClient({
   baseURL: process.env.NEXT_PUBLIC_API_URL
-    ? undefined  // use same origin when API is on same domain
+    ? undefined
     : "http://localhost:3000",
+  plugins: [anonymousClient()],
 })
 
 // Convenience re-exports used throughout the app

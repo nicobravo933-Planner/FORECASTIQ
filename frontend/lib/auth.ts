@@ -4,6 +4,7 @@
  */
 
 import { betterAuth } from "better-auth"
+import { anonymous } from "better-auth/plugins"
 
 export const auth = betterAuth({
   // Secret used to sign sessions — must match BETTER_AUTH_SECRET in .env.local
@@ -29,4 +30,15 @@ export const auth = betterAuth({
     afterSignIn: "/dashboard/dataset",
     afterSignOut: "/login",
   },
+
+  // Plugins
+  plugins: [
+    anonymous({
+      // El invitado puede luego vincular su cuenta OAuth sin perder datos
+      onLinkAccount: async ({ anonymousUser, newUser }) => {
+        // Aquí se podría migrar datasets del invitado al usuario real
+        console.log(`Guest ${anonymousUser.user.id} linked to ${newUser.user.id}`)
+      },
+    }),
+  ],
 })
