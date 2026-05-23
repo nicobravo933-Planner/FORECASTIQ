@@ -70,7 +70,7 @@ export default function ChatPage() {
       sx={{
         display: "flex",
         flexDirection: "column",
-        // Full height = viewport - header (3.5rem) - page padding top+bottom (4rem)
+        // Full height = viewport - header (4rem) - page padding top+bottom (3.5rem)
         height: "calc(100vh - 7.5rem)",
         bgcolor: "background.default",
         borderRadius: "0.75rem",

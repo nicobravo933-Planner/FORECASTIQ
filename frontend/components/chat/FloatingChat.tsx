@@ -148,7 +148,7 @@ export function FloatingChat() {
                 borderRadius: "1rem",
                 overflow: "hidden",
                 border: "1px solid rgba(59,130,246,0.25)",
-                boxShadow: "0 1rem 3rem rgba(0,0,0,0.5), 0 0 0 1px rgba(59,130,246,0.1)",
+                boxShadow: "0 1rem 3rem rgba(0,0,0,0.15), 0 0 0 1px rgba(59,130,246,0.1)",
               }}
             >
               {/* Header — chip.png + título */}

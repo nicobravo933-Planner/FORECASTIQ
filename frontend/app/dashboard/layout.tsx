@@ -1,21 +1,17 @@
 "use client"
 
 /**
- * Dashboard layout — colapsable glass sidebar + top header.
- *
- * Sidebar states:
- *   expanded  → 15rem  (logo + label)
- *   collapsed → 4rem   (solo íconos, tooltips on hover)
- * Toggle: botón ChevronLeft/Right en el bottom del sidebar.
- *
- * Header: barra superior fija con fecha, notificaciones, avatar.
+ * Dashboard layout — Navy Pro
+ * Fiel al HTML de referencia:
+ *   Header: gradiente azul marino, logo ForecastIQ.png centrado, hamburger izquierda
+ *   Sidebar: blanco, borde gris, nav con borde-left de acento activo
+ *   Toggle: hamburger en header (no botón en el bottom del sidebar)
  */
 
 import BarChartIcon from "@mui/icons-material/BarChart"
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
 import ChatIcon from "@mui/icons-material/Chat"
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"
-import ChevronRightIcon from "@mui/icons-material/ChevronRight"
+import MenuIcon from "@mui/icons-material/Menu"
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone"
 import ScienceIcon from "@mui/icons-material/Science"
 import SettingsIcon from "@mui/icons-material/Settings"
@@ -41,37 +37,98 @@ import { useState } from "react"
 import { FloatingChat } from "@/components/chat/FloatingChat"
 import { signOut, useSession } from "@/lib/auth-client"
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 const SIDEBAR_EXPANDED  = "15rem"
 const SIDEBAR_COLLAPSED = "4rem"
-const HEADER_HEIGHT     = "3.5rem"
+const HEADER_HEIGHT     = "4rem"   // 64px — igual al HTML
 
 const NAV_ITEMS = [
   { label: "Mis Datasets", href: "/dashboard/datasets", icon: <StorageIcon fontSize="small" /> },
   { label: "Subir CSV",    href: "/dashboard/dataset",  icon: <UploadFileIcon fontSize="small" /> },
-  { label: "Forecast",    href: "/dashboard/forecast", icon: <ShowChartIcon fontSize="small" /> },
-  { label: "Calendario",  href: "/dashboard/calendar", icon: <CalendarMonthIcon fontSize="small" /> },
-  { label: "Chat IA",     href: "/dashboard/chat",     icon: <ChatIcon fontSize="small" /> },
-  { label: "MLOps",       href: "/dashboard/mlops",    icon: <ScienceIcon fontSize="small" /> },
-  { label: "Batch",       href: "/dashboard/batch",    icon: <BarChartIcon fontSize="small" /> },
-  { label: "Ajustes",     href: "/dashboard/settings", icon: <SettingsIcon fontSize="small" /> },
+  { label: "Forecast",     href: "/dashboard/forecast", icon: <ShowChartIcon fontSize="small" /> },
+  { label: "Calendario",   href: "/dashboard/calendar", icon: <CalendarMonthIcon fontSize="small" /> },
+  { label: "Chat IA",      href: "/dashboard/chat",     icon: <ChatIcon fontSize="small" /> },
+  { label: "MLOps",        href: "/dashboard/mlops",    icon: <ScienceIcon fontSize="small" /> },
+  { label: "Batch",        href: "/dashboard/batch",    icon: <BarChartIcon fontSize="small" /> },
+]
+const NAV_BOTTOM = [
+  { label: "Ajustes", href: "/dashboard/settings", icon: <SettingsIcon fontSize="small" /> },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function formatDate(): string {
-  return new Date().toLocaleDateString("es-AR", {
-    weekday: "long", day: "numeric", month: "long",
-  })
-}
-
 function isActive(href: string, pathname: string): boolean {
-  if (href === "/dashboard/dataset" || href === "/dashboard/datasets") {
+  if (href === "/dashboard/dataset" || href === "/dashboard/datasets")
     return pathname === href || pathname.startsWith(href + "/")
-  }
   return pathname.startsWith(href)
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── NavItem component ─────────────────────────────────────────────────────────
+function NavItem({
+  item,
+  active,
+  collapsed,
+}: {
+  item: { label: string; href: string; icon: React.ReactNode }
+  active: boolean
+  collapsed: boolean
+}) {
+  return (
+    <Tooltip title={collapsed ? item.label : ""} placement="right" arrow>
+      <ListItemButton
+        component={Link}
+        href={item.href}
+        selected={active}
+        sx={{
+          borderRadius: "0.5rem",
+          mb: "0.125rem",
+          mx: "0.5rem",
+          px: collapsed ? "0.625rem" : "0.75rem",
+          justifyContent: collapsed ? "center" : "flex-start",
+          minHeight: "2.625rem",
+          // Borde izquierdo de acento — fiel al HTML
+          borderLeft: "0.1875rem solid transparent",
+          borderRadius: collapsed ? "0.5rem" : "0 0.5rem 0.5rem 0",
+          transition: "all 0.15s ease",
+          "&.Mui-selected": {
+            background: "rgba(59,130,246,0.08)",
+            borderLeftColor: "#3b82f6",
+            "& .MuiListItemIcon-root": { color: "#2563eb" },
+          },
+          "&.Mui-selected .MuiListItemText-primary": {
+            color: "#2563eb",
+            fontWeight: 600,
+          },
+          "&:hover:not(.Mui-selected)": {
+            background: "rgba(59,130,246,0.04)",
+          },
+        }}
+      >
+        <ListItemIcon
+          sx={{
+            minWidth: collapsed ? 0 : "2.25rem",
+            color: active ? "#2563eb" : "#9ca3af",
+            transition: "color 0.15s ease",
+          }}
+        >
+          {item.icon}
+        </ListItemIcon>
+        {!collapsed && (
+          <ListItemText
+            primary={item.label}
+            primaryTypographyProps={{
+              fontSize: "0.875rem",
+              fontWeight: active ? 600 : 400,
+              color: active ? "#2563eb" : "#6b7280",
+              noWrap: true,
+            }}
+          />
+        )}
+      </ListItemButton>
+    </Tooltip>
+  )
+}
+
+// ── Layout ────────────────────────────────────────────────────────────────────
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router   = useRouter()
@@ -94,7 +151,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
+    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden", bgcolor: "background.default" }}>
 
       {/* ── Sidebar ────────────────────────────────────────────────────── */}
       <Box
@@ -103,258 +160,167 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           width: sidebarWidth,
           flexShrink: 0,
           height: "100vh",
-          position: "sticky",
+          position: "fixed",
           top: 0,
+          left: 0,
+          zIndex: 110,
           display: "flex",
           flexDirection: "column",
-          background: "rgba(7,13,27,0.85)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderRight: "1px solid rgba(59,130,246,0.12)",
-          boxShadow: "0.25rem 0 1.5rem rgba(0,0,0,0.4)",
-          transition: "width 0.25s ease",
+          bgcolor: "background.paper",
+          borderRight: "1px solid #e5e7eb",
+          boxShadow: "0.125rem 0 0.5rem rgba(0,0,0,0.06)",
+          transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
           overflow: "hidden",
-          zIndex: 100,
         }}
       >
-        {/* Logo */}
-        <Box
-          sx={{
-            height: HEADER_HEIGHT,
-            px: collapsed ? "0.75rem" : "1.25rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: collapsed ? "center" : "flex-start",
-            flexShrink: 0,
-            borderBottom: "1px solid rgba(59,130,246,0.08)",
-            overflow: "hidden",
-            transition: "padding 0.25s ease",
-          }}
-        >
-          {collapsed ? (
-            // Mini logo — just the icon/monogram when collapsed
-            <Box
-              sx={{
-                width: "2rem",
-                height: "2rem",
-                borderRadius: "0.5rem",
-                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 0.75rem rgba(59,130,246,0.4)",
-                flexShrink: 0,
-              }}
-            >
-              <ShowChartIcon sx={{ fontSize: "1.125rem", color: "white" }} />
-            </Box>
-          ) : (
-            <Image
-              src="/logo_rectangular.png"
-              alt="forecastiq"
-              width={200}
-              height={44}
-              style={{ objectFit: "contain", objectPosition: "left", maxWidth: "100%" }}
-              priority
-            />
-          )}
-        </Box>
+        {/* Spacer igual al header */}
+        <Box sx={{ height: HEADER_HEIGHT, flexShrink: 0 }} />
 
         {/* Nav items */}
-        <List sx={{ px: "0.5rem", pt: "0.75rem", flex: 1, overflow: "hidden" }}>
-          {NAV_ITEMS.map((item) => {
-            const active = isActive(item.href, pathname)
-            return (
-              <Tooltip
-                key={item.href}
-                title={collapsed ? item.label : ""}
-                placement="right"
-                arrow
-              >
-                <ListItemButton
-                  component={Link}
-                  href={item.href}
-                  selected={active}
-                  sx={{
-                    borderRadius: "0.5rem",
-                    mb: "0.2rem",
-                    px: collapsed ? "0.625rem" : "0.75rem",
-                    justifyContent: collapsed ? "center" : "flex-start",
-                    minHeight: "2.5rem",
-                    transition: "all 0.18s ease",
-                    // Glass active state
-                    "&.Mui-selected": {
-                      background: "rgba(59,130,246,0.15)",
-                      border: "1px solid rgba(59,130,246,0.28)",
-                      boxShadow: "0 0 0.75rem rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.05)",
-                      "& .MuiListItemIcon-root": { color: "primary.light" },
-                      "& .MuiListItemText-primary": { color: "primary.light", fontWeight: 600 },
-                    },
-                    "&:hover:not(.Mui-selected)": {
-                      background: "rgba(59,130,246,0.07)",
-                    },
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: collapsed ? 0 : "2.25rem",
-                      color: active ? "primary.light" : "text.secondary",
-                      transition: "color 0.18s ease",
-                    }}
-                  >
-                    {item.icon}
-                  </ListItemIcon>
-                  {!collapsed && (
-                    <ListItemText
-                      primary={item.label}
-                      primaryTypographyProps={{
-                        fontSize: "0.875rem",
-                        fontWeight: active ? 600 : 400,
-                        color: active ? "primary.light" : "text.secondary",
-                        noWrap: true,
-                        sx: { transition: "color 0.18s ease" },
-                      }}
-                    />
-                  )}
-                </ListItemButton>
-              </Tooltip>
-            )
-          })}
+        <List sx={{ pt: "0.5rem", flex: 1, overflow: "hidden", px: 0 }}>
+          {NAV_ITEMS.map((item) => (
+            <NavItem
+              key={item.href}
+              item={item}
+              active={isActive(item.href, pathname)}
+              collapsed={collapsed}
+            />
+          ))}
         </List>
 
-        <Divider sx={{ borderColor: "rgba(59,130,246,0.08)" }} />
+        <Divider />
 
-        {/* User footer */}
-        {!collapsed && (
-          <Box
+        {/* Bottom nav */}
+        <List sx={{ py: "0.5rem", px: 0 }}>
+          {NAV_BOTTOM.map((item) => (
+            <NavItem
+              key={item.href}
+              item={item}
+              active={isActive(item.href, pathname)}
+              collapsed={collapsed}
+            />
+          ))}
+        </List>
+
+        <Divider />
+
+        {/* User profile footer */}
+        <Box
+          sx={{
+            px: collapsed ? "0.75rem" : "1rem",
+            py: "0.75rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.625rem",
+            justifyContent: collapsed ? "center" : "flex-start",
+            cursor: "pointer",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.03)" },
+            transition: "background 0.15s",
+          }}
+          onClick={(e) => setAnchorEl(e.currentTarget as HTMLElement)}
+        >
+          <Avatar
+            src={user?.image ?? undefined}
             sx={{
-              px: "1rem",
-              py: "0.875rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.625rem",
+              width: "2.125rem",
+              height: "2.125rem",
+              fontSize: "0.75rem",
+              background: "linear-gradient(135deg, #3b82f6, #06b6d4)",
+              flexShrink: 0,
             }}
           >
-            <Tooltip title={user?.email ?? "Sin sesión"} placement="top">
-              <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: 0 }}>
-                <Avatar
-                  src={user?.image ?? undefined}
-                  sx={{
-                    width: "2rem",
-                    height: "2rem",
-                    fontSize: "0.75rem",
-                    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                    boxShadow: "0 0 0.5rem rgba(59,130,246,0.4)",
-                  }}
-                >
-                  {initials}
-                </Avatar>
-              </IconButton>
-            </Tooltip>
+            {initials}
+          </Avatar>
+          {!collapsed && (
             <Box sx={{ overflow: "hidden", flex: 1 }}>
-              <Typography variant="caption" fontWeight={500} noWrap display="block" color="text.primary">
+              <Typography
+                sx={{ fontSize: "0.8125rem", fontWeight: 600, color: "#111827", whiteSpace: "nowrap",
+                  overflow: "hidden", textOverflow: "ellipsis" }}
+              >
                 {user?.name ?? "Invitado"}
               </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap display="block" sx={{ fontSize: "0.65rem" }}>
+              <Typography sx={{ fontSize: "0.6875rem", color: "#9ca3af", mt: "0.0625rem" }}>
                 Ver perfil
               </Typography>
             </Box>
-          </Box>
-        )}
-
-        {/* Collapse toggle button */}
-        <Box
-          sx={{
-            px: "0.5rem",
-            pb: "0.75rem",
-            display: "flex",
-            justifyContent: collapsed ? "center" : "flex-end",
-          }}
-        >
-          <Tooltip title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"} placement="right">
-            <IconButton
-              onClick={() => setCollapsed((v) => !v)}
-              size="small"
-              sx={{
-                color: "text.secondary",
-                background: "rgba(59,130,246,0.08)",
-                border: "1px solid rgba(59,130,246,0.15)",
-                borderRadius: "0.5rem",
-                width: "2rem",
-                height: "2rem",
-                "&:hover": {
-                  background: "rgba(59,130,246,0.16)",
-                  color: "primary.light",
-                },
-              }}
-            >
-              {collapsed ? <ChevronRightIcon sx={{ fontSize: "1rem" }} /> : <ChevronLeftIcon sx={{ fontSize: "1rem" }} />}
-            </IconButton>
-          </Tooltip>
+          )}
         </Box>
       </Box>
 
-      {/* ── Main column (header + content) ─────────────────────────────── */}
-      <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      {/* ── Main column ────────────────────────────────────────────────── */}
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          ml: sidebarWidth,
+          transition: "margin-left 0.22s cubic-bezier(0.4,0,0.2,1)",
+        }}
+      >
 
-        {/* ── Top Header ──────────────────────────────────────────────── */}
+        {/* ── Header ────────────────────────────────────────────────────── */}
         <Box
           component="header"
           sx={{
             height: HEADER_HEIGHT,
-            position: "sticky",
+            position: "fixed",
             top: 0,
-            zIndex: 90,
+            // header abarca todo el ancho incluyendo sidebar
+            left: 0,
+            right: 0,
+            zIndex: 120,
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            px: { xs: "1rem", md: "2rem" },
-            background: "rgba(7,13,27,0.8)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-            borderBottom: "1px solid rgba(59,130,246,0.1)",
-            boxShadow: "0 0.125rem 1rem rgba(0,0,0,0.3)",
+            background: "linear-gradient(135deg, #0f2044 0%, #1a3868 100%)",
+            boxShadow: "0 0.125rem 0.75rem rgba(0,0,0,0.25)",
             flexShrink: 0,
           }}
         >
-          {/* Left: current page title + date */}
-          <Box>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ fontSize: "0.75rem", textTransform: "capitalize" }}
-            >
-              {formatDate()}
-            </Typography>
-          </Box>
-
-          {/* Right: actions */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            {/* Notifications placeholder */}
-            <Tooltip title="Notificaciones">
+          {/* Left: hamburger */}
+          <Box sx={{ width: sidebarWidth, flexShrink: 0, display: "flex", alignItems: "center",
+            justifyContent: "center", transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)" }}>
+            <Tooltip title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"} placement="right">
               <IconButton
-                size="small"
-                sx={{
-                  color: "text.secondary",
-                  "&:hover": { color: "primary.light", background: "rgba(59,130,246,0.1)" },
-                }}
+                onClick={() => setCollapsed((v) => !v)}
+                sx={{ color: "rgba(255,255,255,0.75)", "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.1)" },
+                  borderRadius: "0.5rem" }}
               >
-                <NotificationsNoneIcon sx={{ fontSize: "1.25rem" }} />
+                <MenuIcon sx={{ fontSize: "1.375rem" }} />
               </IconButton>
             </Tooltip>
+          </Box>
 
-            {/* User avatar */}
+          {/* Center: logo ForecastIQ.png */}
+          <Box sx={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <Image
+              src="/ForecastIQ.png"
+              alt="ForecastIQ"
+              width={160}
+              height={38}
+              style={{ objectFit: "contain", maxHeight: "2.375rem" }}
+              priority
+            />
+          </Box>
+
+          {/* Right: notifications + avatar */}
+          <Box sx={{ width: sidebarWidth, flexShrink: 0, display: "flex", alignItems: "center",
+            justifyContent: "flex-end", pr: "1rem",
+            transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)" }}>
+            <Tooltip title="Notificaciones">
+              <IconButton
+                sx={{ color: "rgba(255,255,255,0.75)", "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.1)" },
+                  borderRadius: "0.5rem" }}
+              >
+                <NotificationsNoneIcon sx={{ fontSize: "1.375rem" }} />
+              </IconButton>
+            </Tooltip>
             <Tooltip title={user?.email ?? "Sin sesión"} placement="bottom">
-              <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: "0.25rem" }}>
+              <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: "0.3rem" }}>
                 <Avatar
                   src={user?.image ?? undefined}
-                  sx={{
-                    width: "1.75rem",
-                    height: "1.75rem",
-                    fontSize: "0.7rem",
-                    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                    boxShadow: "0 0 0.5rem rgba(59,130,246,0.4)",
-                  }}
+                  sx={{ width: "2.125rem", height: "2.125rem", fontSize: "0.75rem",
+                    background: "linear-gradient(135deg, #3b82f6, #06b6d4)" }}
                 >
                   {initials}
                 </Avatar>
@@ -369,10 +335,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           sx={{
             flex: 1,
             overflow: "auto",
-            px: { xs: "1rem", sm: "1.5rem", md: "2rem", lg: "2.5rem" },
-            py: "2rem",
-            // Subtle radial glow from top-left (fintech feel)
-            background: "radial-gradient(ellipse 80% 50% at 20% -10%, rgba(59,130,246,0.07) 0%, transparent 60%)",
+            mt: HEADER_HEIGHT,
+            px: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
+            py: "1.75rem",
+            bgcolor: "background.default",
           }}
         >
           {children}
@@ -393,11 +359,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {user.email}
             </MenuItem>,
             <Divider key="div" />,
-            <MenuItem
-              key="logout"
-              onClick={handleLogout}
-              sx={{ fontSize: "0.875rem", color: "error.main" }}
-            >
+            <MenuItem key="logout" onClick={handleLogout} sx={{ fontSize: "0.875rem", color: "error.main" }}>
               Cerrar sesión
             </MenuItem>,
           ]
