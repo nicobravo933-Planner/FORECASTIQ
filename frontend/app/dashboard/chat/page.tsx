@@ -95,7 +95,7 @@ export default function ChatPage() {
         }}
       >
         {/* chip.png + title */}
-        <Image src="/chip.png" alt="AI" width={28} height={28} style={{ objectFit: "contain", flexShrink: 0 }} />
+        <Image src="/chip.png" alt="AI" width={42} height={42} style={{ objectFit: "contain", flexShrink: 0 }} />
 
         {/* Title + context chips */}
         <Box sx={{ flex: 1, minWidth: 0 }}>

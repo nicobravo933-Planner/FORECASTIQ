@@ -276,9 +276,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             flexShrink: 0,
           }}
         >
-          {/* Left: hamburger */}
-          <Box sx={{ width: sidebarWidth, flexShrink: 0, display: "flex", alignItems: "center",
-            justifyContent: "center", transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)" }}>
+          {/* Left: hamburger — alineado a la izquierda del área del sidebar */}
+          <Box sx={{
+            width: sidebarWidth,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            pl: "0.75rem",
+            transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
+          }}>
             <Tooltip title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"} placement="right">
               <IconButton
                 onClick={() => setCollapsed((v) => !v)}

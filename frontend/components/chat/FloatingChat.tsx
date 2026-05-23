@@ -166,8 +166,8 @@ export function FloatingChat() {
                 <Image
                   src="/chip.png"
                   alt="AI"
-                  width={22}
-                  height={22}
+                  width={33}
+                  height={33}
                   style={{ objectFit: "contain", flexShrink: 0 }}
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -203,7 +203,8 @@ export function FloatingChat() {
                     </IconButton>
                   </span>
                 </Tooltip>
-                <IconButton size="small" onClick={handleClose} sx={{ color: "text.secondary" }}>
+                <IconButton size="small" onClick={handleClose}
+                  sx={{ color: "text.secondary", "&:hover": { color: "error.main", bgcolor: "rgba(239,68,68,0.08)" } }}>
                   <CloseIcon sx={{ fontSize: "0.8125rem" }} />
                 </IconButton>
               </Stack>
