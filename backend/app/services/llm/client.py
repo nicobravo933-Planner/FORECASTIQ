@@ -30,17 +30,35 @@ def build_system_prompt(session_context: dict[str, Any], user_message: str = "")
     # Detecta idioma del mensaje del usuario para responder en el mismo idioma.
     # Si el mensaje contiene caracteres latinos/españoles → español, sino inglés.
     spanish_chars = set("áéíóúüñ¿¡àèìòùâêîôûäëïöü")
-    is_spanish = any(c.lower() in spanish_chars for c in user_message) or \
-        any(w in user_message.lower() for w in [
-            "como", "qué", "cuál", "cuáles", "cuánto", "cuándo", "dónde",
-            "por qué", "puedo", "podés", "tiene", "hay", "son", "está",
-            "quiero", "necesito", "mostrar", "analizar", "dame", "hola",
-        ])
+    is_spanish = any(c.lower() in spanish_chars for c in user_message) or any(
+        w in user_message.lower()
+        for w in [
+            "como",
+            "qué",
+            "cuál",
+            "cuáles",
+            "cuánto",
+            "cuándo",
+            "dónde",
+            "por qué",
+            "puedo",
+            "podés",
+            "tiene",
+            "hay",
+            "son",
+            "está",
+            "quiero",
+            "necesito",
+            "mostrar",
+            "analizar",
+            "dame",
+            "hola",
+        ]
+    )
     language_instruction = (
-        "IMPORTANT: Always respond in Spanish (es-AR). "
-        "Use professional but approachable language."
-        if is_spanish else
-        "Respond in the same language the user writes in."
+        "IMPORTANT: Always respond in Spanish (es-AR). Use professional but approachable language."
+        if is_spanish
+        else "Respond in the same language the user writes in."
     )
 
     return f"""You are ForecastIQ's AI assistant — an expert in time-series forecasting and demand planning.

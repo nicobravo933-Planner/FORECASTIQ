@@ -21,7 +21,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-CHAT_RATE_LIMIT = 30  # mensajes de chat por hora por usuario
+CHAT_RATE_LIMIT = 60  # mensajes de chat por hora por IP (subido de 30 — IP compartida en proxies)
 UPLOAD_RATE_LIMIT = 5  # uploads CSV por hora por IP
 FORECAST_RATE_LIMIT = 10  # jobs de forecast por hora por IP+usuario
 RATE_WINDOW_SECS = 3600  # ventana fija: 1 hora

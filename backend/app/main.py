@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.batch import router as batch_router
 from app.api.chat import router as chat_router
+from app.api.conversations import router as conversations_router
 from app.api.datasets import router as datasets_router
 from app.api.events import router as events_router
 from app.api.forecast import router as forecast_router
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(forecast_router)
     app.include_router(events_router)
     app.include_router(chat_router)
+    app.include_router(conversations_router)
     app.include_router(me_router)
     app.include_router(metrics_router)
     app.include_router(mlops_router)

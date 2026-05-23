@@ -25,6 +25,22 @@ from app.services.supabase import download_csv, get_forecast_result
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
+CHAT_RATE_LIMIT_ANON = 60  # límite más generoso para anónimos (IP compartida en proxies)
+
+
+def _get_real_ip(request: Request) -> str:
+    """
+    Obtiene la IP real del cliente respetando proxies inversos.
+    Railway, Vercel y AWS ALB propagan X-Forwarded-For.
+    """
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        # El header puede tener múltiples IPs: "client, proxy1, proxy2"
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
+
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -143,13 +159,13 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> StreamingRes
     if not body.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-    # Rate limiting: 30 req/hora por IP (Phase 5: sustituir por user_id)
-    client_ip = request.client.host if request.client else "unknown"
+    # Rate limiting: IP real (respeta X-Forwarded-For de proxies)
+    client_ip = _get_real_ip(request)
     rl = check_rate_limit(client_ip)
     if not rl.allowed:
         raise HTTPException(
             status_code=429,
-            detail=f"Rate limit exceeded. Try again in {rl.reset_in}s ({CHAT_RATE_LIMIT} requests/hour).",
+            detail=f"Rate limit superado. Intentá de nuevo en {rl.reset_in}s ({CHAT_RATE_LIMIT} mensajes/hora).",
             headers={"Retry-After": str(rl.reset_in)},
         )
 

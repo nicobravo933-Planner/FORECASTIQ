@@ -1,17 +1,20 @@
 "use client"
 
 /**
- * MessageBubble — single chat message with avatar, animations, and copy button.
+ * MessageBubble — single chat message with avatar, animations, and action buttons.
  *
  * User:      right-aligned, primary gradient, slide-in from right
+ *            Actions on hover: Copy / Edit / Resend
  * Assistant: left-aligned with avatar, full-width bubble, slide-in from left
- * Mirrors the msg-row / user-bubble / ai-bubble pattern from chat.html reference.
+ *            Actions: Copy (always visible when complete)
  */
 
 import { useState } from "react"
 import AutoGraphIcon from "@mui/icons-material/AutoGraph"
 import CheckIcon from "@mui/icons-material/Check"
 import ContentCopyIcon from "@mui/icons-material/ContentCopy"
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined"
+import ReplayIcon from "@mui/icons-material/Replay"
 import Box from "@mui/material/Box"
 import IconButton from "@mui/material/IconButton"
 import Tooltip from "@mui/material/Tooltip"
@@ -112,9 +115,11 @@ function renderMarkdown(text: string): React.ReactNode {
 // ── Main component ───────────────────────────────────────────────────────
 interface MessageBubbleProps {
   message: ChatMessage
+  onEdit?: (message: ChatMessage) => void
+  onResend?: (message: ChatMessage) => void
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, onEdit, onResend }: MessageBubbleProps) {
   const isUser = message.role === "user"
   const [copied, setCopied] = useState(false)
 
@@ -128,13 +133,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (isUser) {
     return (
       <Box
+        className="msg-user-row"
         sx={{
           display: "flex",
-          justifyContent: "flex-end",
+          flexDirection: "column",
+          alignItems: "flex-end",
           px: { xs: "0.5rem", sm: "0.75rem" },
           ...ANIM_USER,
+          // Show action buttons on hover
+          "&:hover .user-actions": { opacity: 1 },
         }}
       >
+        {/* Bubble */}
         <Box
           sx={{
             maxWidth: { xs: "88%", sm: "72%", md: "60%" },
@@ -150,6 +160,42 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <Box component="span" sx={{ fontSize: "0.9375rem", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
             {message.content}
           </Box>
+        </Box>
+
+        {/* Action bar: Copy / Edit / Resend — visible on hover */}
+        <Box
+          className="user-actions"
+          sx={{
+            display: "flex",
+            gap: "0.125rem",
+            mt: "0.25rem",
+            opacity: 0,
+            transition: "opacity 0.15s",
+          }}
+        >
+          {[  
+            { title: copied ? "¡Copiado!" : "Copiar",   icon: copied ? <CheckIcon sx={{ fontSize: "0.75rem", color: "success.main" }} /> : <ContentCopyIcon sx={{ fontSize: "0.75rem" }} />, onClick: handleCopy },
+            { title: "Editar",   icon: <EditOutlinedIcon sx={{ fontSize: "0.75rem" }} />, onClick: () => onEdit?.(message) },
+            { title: "Reenviar", icon: <ReplayIcon sx={{ fontSize: "0.75rem" }} />,        onClick: () => onResend?.(message) },
+          ].map(({ title, icon, onClick }) => (
+            <Tooltip key={title} title={title}>
+              <IconButton
+                size="small"
+                onClick={onClick}
+                sx={{
+                  p: "0.25rem",
+                  borderRadius: "0.375rem",
+                  border: "0.5px solid",
+                  borderColor: "divider",
+                  bgcolor: "background.paper",
+                  color: "text.secondary",
+                  "&:hover": { color: "primary.main", borderColor: "primary.light" },
+                }}
+              >
+                {icon}
+              </IconButton>
+            </Tooltip>
+          ))}
         </Box>
       </Box>
     )

@@ -11,6 +11,7 @@
 import BarChartIcon from "@mui/icons-material/BarChart"
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
 import ChatIcon from "@mui/icons-material/Chat"
+import SmartToyIcon from "@mui/icons-material/SmartToy"
 import MenuIcon from "@mui/icons-material/Menu"
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone"
 import ScienceIcon from "@mui/icons-material/Science"
@@ -47,7 +48,7 @@ const NAV_ITEMS = [
   { label: "Subir CSV",    href: "/dashboard/dataset",  icon: <UploadFileIcon fontSize="small" /> },
   { label: "Forecast",     href: "/dashboard/forecast", icon: <ShowChartIcon fontSize="small" /> },
   { label: "Calendario",   href: "/dashboard/calendar", icon: <CalendarMonthIcon fontSize="small" /> },
-  { label: "Chat IA",      href: "/dashboard/chat",     icon: <ChatIcon fontSize="small" /> },
+  { label: "Chat IA",      href: "/dashboard/chat",     icon: <SmartToyIcon fontSize="small" /> },
   { label: "MLOps",        href: "/dashboard/mlops",    icon: <ScienceIcon fontSize="small" /> },
   { label: "Batch",        href: "/dashboard/batch",    icon: <BarChartIcon fontSize="small" /> },
 ]

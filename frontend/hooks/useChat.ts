@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useRef, useState } from "react"
+import type React from "react"
 import type { ChatMessage, LlmModelId, SseEvent } from "@/lib/types"
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
@@ -15,6 +16,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 interface UseChatOptions {
   datasetId?: string | null
   jobId?: string | null
+  initialMessages?: ChatMessage[]
 }
 
 interface UseChatReturn {
@@ -26,10 +28,11 @@ interface UseChatReturn {
   tokensUsed: number
   sendMessage: (text: string, model: LlmModelId) => Promise<void>
   clearMessages: () => void
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
 }
 
-export function useChat({ datasetId, jobId }: UseChatOptions = {}): UseChatReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+export function useChat({ datasetId, jobId, initialMessages }: UseChatOptions = {}): UseChatReturn {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? [])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [activeToolCall, setActiveToolCall] = useState<string | null>(null)
@@ -199,5 +202,6 @@ export function useChat({ datasetId, jobId }: UseChatOptions = {}): UseChatRetur
     tokensUsed,
     sendMessage,
     clearMessages,
+    setMessages,
   }
 }

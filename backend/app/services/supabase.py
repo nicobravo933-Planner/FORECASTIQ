@@ -180,3 +180,114 @@ def list_recent_datasets(hours: int = 48) -> list[dict[str, Any]]:
         item["id"] = item.get("dataset_id", "")
         result.append(item)
     return result
+
+
+# ── Chat conversations ────────────────────────────────────────────────────────
+
+
+def save_conversation(
+    conversation_id: str | None,
+    user_id: str,
+    title: str,
+    messages: list[dict[str, Any]],
+    model_id: str | None = None,
+) -> str:
+    """
+    Crea o actualiza una conversación de chat.
+    Retorna el id de la conversación (uuid string).
+    Si conversation_id es None, crea una nueva.
+    """
+    client = get_supabase()
+    if conversation_id:
+        # Actualiza mensajes, título y modelo — updated_at lo pone el trigger
+        client.table("chat_conversations").update(
+            {
+                "title": title,
+                "messages": messages,
+                "model_id": model_id,
+            }
+        ).eq("id", conversation_id).eq("user_id", user_id).execute()
+        return conversation_id
+    else:
+        # Inserta nueva conversación
+        response = (
+            client.table("chat_conversations")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "title": title,
+                    "messages": messages,
+                    "model_id": model_id,
+                }
+            )
+            .execute()
+        )
+        data = response.data
+        if data and isinstance(data, list) and isinstance(data[0], dict):
+            return str(data[0]["id"])
+        raise RuntimeError("Failed to create conversation — no id returned")
+
+
+def list_conversations(
+    user_id: str,
+    page: int = 1,
+    page_size: int = 30,
+) -> list[dict[str, Any]]:
+    """
+    Lista conversaciones de un usuario, ordenadas por updated_at DESC.
+    Retorna solo metadatos (sin el array messages completo para ahorrar ancho de banda).
+    """
+    client = get_supabase()
+    offset = (page - 1) * page_size
+    response = (
+        client.table("chat_conversations")
+        .select("id, title, model_id, created_at, updated_at")
+        .eq("user_id", user_id)
+        .order("updated_at", desc=True)
+        .range(offset, offset + page_size - 1)
+        .execute()
+    )
+    data = response.data
+    if not data or not isinstance(data, list):
+        return []
+    return [dict(row) for row in data if isinstance(row, dict)]
+
+
+def get_conversation(
+    conversation_id: str,
+    user_id: str,
+) -> dict[str, Any] | None:
+    """
+    Retorna una conversación completa (con messages) o None si no existe
+    o no pertenece al usuario.
+    """
+    client = get_supabase()
+    response = (
+        client.table("chat_conversations")
+        .select("*")
+        .eq("id", conversation_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+    data = response.data
+    if not data or not isinstance(data, dict):
+        return None
+    return dict(data)
+
+
+def delete_conversation(conversation_id: str, user_id: str) -> bool:
+    """
+    Borra una conversación. Retorna True si se borró, False si no existía
+    o no pertenece al usuario.
+    """
+    client = get_supabase()
+    response = (
+        client.table("chat_conversations")
+        .delete()
+        .eq("id", conversation_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    data = response.data
+    return bool(data and isinstance(data, list) and len(data) > 0)

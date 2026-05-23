@@ -12,6 +12,7 @@ const KEYS = {
   dateColumn:  "fiq_active_date_col",
   targetColumn:"fiq_active_target_col",
   freq:        "fiq_active_freq",
+  pendingMsgs: "fiq_pending_messages",  // transferencia globo → chat completo
 } as const
 
 function safeGet(key: string): string | null {
@@ -48,5 +49,18 @@ export const appStore = {
       datasetId: safeGet(KEYS.datasetId),
       jobId:     safeGet(KEYS.jobId),
     }
+  },
+
+  // ── Pending messages (globo → chat page) ─────────────────────
+  // Guarda los mensajes del globo antes de navegar al chat completo
+  savePendingMessages(msgs: unknown[]): void {
+    safeSet(KEYS.pendingMsgs, JSON.stringify(msgs))
+  },
+  // Lee y borra los mensajes pendientes (one-shot)
+  popPendingMessages(): unknown[] {
+    const raw = safeGet(KEYS.pendingMsgs)
+    if (!raw) return []
+    localStorage.removeItem(KEYS.pendingMsgs)
+    try { return JSON.parse(raw) as unknown[] } catch { return [] }
   },
 }

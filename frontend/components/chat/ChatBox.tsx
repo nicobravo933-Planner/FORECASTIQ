@@ -108,10 +108,12 @@ interface ChatBoxProps {
   activeToolCall: string | null
   isStreaming?: boolean
   onQuickSelect?: (prompt: string) => void
+  onEditMessage?: (message: ChatMessage) => void
+  onResendMessage?: (message: ChatMessage) => void
   compact?: boolean  // tighter padding for FloatingChat bubble
 }
 
-export function ChatBox({ messages, activeToolCall, isStreaming, onQuickSelect, compact }: ChatBoxProps) {
+export function ChatBox({ messages, activeToolCall, isStreaming, onQuickSelect, onEditMessage, onResendMessage, compact }: ChatBoxProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -141,7 +143,7 @@ export function ChatBox({ messages, activeToolCall, isStreaming, onQuickSelect, 
       {messages.map((msg) => {
         // Ocultar el placeholder vacío del asistente mientras llegan tokens
         if (msg.role === "assistant" && msg.isStreaming && msg.content === "") return null
-        return <MessageBubble key={msg.id} message={msg} />
+        return <MessageBubble key={msg.id} message={msg} onEdit={onEditMessage} onResend={onResendMessage} />
       })}
 
       {/* Thinking indicator — solo mientras no hay ningún token aún */}

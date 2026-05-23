@@ -257,3 +257,17 @@ export interface BatchForecastResponse {
   duration_s:  number
   predictions: BatchPredictionPoint[]
 }
+
+// ── Chat Conversations (chat history) ──────────────────────────────────────
+
+export interface ChatConversation {
+  id:         string
+  title:      string
+  model_id:   string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatConversationDetail extends ChatConversation {
+  messages: ChatMessage[]
+}
