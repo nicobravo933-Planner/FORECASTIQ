@@ -68,21 +68,31 @@ export function useCapabilities() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // 1. sessionStorage cache
+    // 1. sessionStorage cache — only use if it has tier_label (schema v2)
     try {
       const cached = sessionStorage.getItem(SESSION_KEY)
       if (cached) {
-        setCaps(JSON.parse(cached) as ServerCapabilities)
-        setLoading(false)
-        return
+        const parsed = JSON.parse(cached) as ServerCapabilities
+        if (parsed.tier_label) {          // schema v1 cache (no tier_label) → skip
+          setCaps(parsed)
+          setLoading(false)
+          return
+        }
+        // stale cache — remove and re-fetch
+        sessionStorage.removeItem(SESSION_KEY)
       }
     } catch { /* unavailable */ }
 
     // 2. Backend endpoint
     api.get<ServerCapabilities>("/api/capabilities")
       .then((data) => {
-        setCaps(data)
-        try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(data)) } catch { /* ok */ }
+        // Garantiza tier_label aunque el backend sea una versión vieja sin ese campo
+        const normalized: ServerCapabilities = {
+          ...data,
+          tier_label: data.tier_label ?? TIER_LABELS[data.tier] ?? `Backend (${data.tier})`,
+        }
+        setCaps(normalized)
+        try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(normalized)) } catch { /* ok */ }
       })
       .catch(() => {
         // 3. Env-var fallback — works in dev without backend endpoint deployed

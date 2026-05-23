@@ -181,6 +181,12 @@ export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
             loading ? <CircularProgress size="1rem" sx={{ mr: "2rem" }} /> : undefined
           }
         >
+          {/* MenuItem oculto que ancla el value actual durante la carga.
+              Sin esto MUI tira warning "out-of-range value" y React hydration falla. */}
+          {loading && value && (
+            <MenuItem value={value} sx={{ display: "none" }} />
+          )}
+
           {/* Sin resultados */}
           {!loading && !hasAny && (
             <MenuItem disabled>
