@@ -1,12 +1,14 @@
 "use client"
 
 /**
- * Dataset page — data source selection + Phase 1 upload flow.
+ * Conectar Datos — página principal de ingesta.
+ * (Antes llamada "Dataset" / "Subir CSV")
  *
- * Three tabs:
- *   0. Upload CSV  → full existing flow (DropZone → Preview → ColumnSelector → ModelRecommendation)
- *   1. Demo dataset → placeholder (Phase 9: DuckDB + Supabase Storage Parquet)
- *   2. Connect DB   → placeholder (backlog enterprise: ephemeral connection string)
+ * Cuatro tabs:
+ *   0. Archivo       → CSV, Excel, Parquet local (upload existente)
+ *   1. Base de datos → conexión efímera PostgreSQL/MySQL/SQLite
+ *   2. Cloud / Lake  → BigQuery, Snowflake, S3 (Fase 13 — bloqueado)
+ *   3. Dataset demo  → 25k SKUs en Supabase Storage vía DuckDB
  */
 
 import { useEffect, useRef } from "react"
@@ -14,13 +16,20 @@ import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Alert from "@mui/material/Alert"
 import Button from "@mui/material/Button"
+import Chip from "@mui/material/Chip"
+import Skeleton from "@mui/material/Skeleton"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
+import WifiTetheringIcon from "@mui/icons-material/WifiTethering"
+import ComputerIcon from "@mui/icons-material/Computer"
+import CloudIcon from "@mui/icons-material/Cloud"
 
 import { useDataset } from "@/hooks/useDataset"
+import { useCapabilities } from "@/hooks/useCapabilities"
 import { appStore } from "@/lib/appStore"
 import { DataSourceTabs } from "@/components/dataset/DataSourceTabs"
 import { DemoDatasetCard } from "@/components/dataset/DemoDatasetCard"
 import { ConnectDbCard } from "@/components/dataset/ConnectDbCard"
+import { CloudDataCard } from "@/components/dataset/CloudDataCard"
 import { DropZone } from "@/components/upload/DropZone"
 import { DataPreview } from "@/components/upload/DataPreview"
 import { ColumnSelector } from "@/components/upload/ColumnSelector"
@@ -28,9 +37,9 @@ import { ModelRecommendation } from "@/components/upload/ModelRecommendation"
 
 export default function DatasetPage() {
   const dataset = useDataset()
+  const { caps, loading: capsLoading } = useCapabilities()
 
   // Persist active dataset context to appStore once detection is complete.
-  // This pre-fills the Forecast page so the user never has to copy-paste the dataset ID.
   const persisted = useRef(false)
   useEffect(() => {
     if (dataset.stage === "done" && dataset.datasetId && dataset.detection && !persisted.current) {
@@ -48,14 +57,9 @@ export default function DatasetPage() {
   // ── CSV upload flow (Tab 0 content) ─────────────────────────────────────────
   const csvFlow = (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Error banner */}
       {dataset.stage === "error" && dataset.error && (
-        <Alert severity="error" onClose={dataset.reset}>
-          {dataset.error}
-        </Alert>
+        <Alert severity="error" onClose={dataset.reset}>{dataset.error}</Alert>
       )}
-
-      {/* Step 1 — DropZone */}
       {(dataset.stage === "idle" || dataset.stage === "uploading") && (
         <DropZone
           onFile={dataset.uploadFile}
@@ -64,21 +68,13 @@ export default function DatasetPage() {
           filename={dataset.uploadResponse?.filename}
         />
       )}
-
-      {/* Upload summary pill */}
       {dataset.uploadResponse && dataset.stage !== "uploading" && (
         <Box
           sx={{
-            display: "flex",
-            gap: "1rem",
-            alignItems: "center",
-            bgcolor: "background.paper",
-            borderRadius: "0.5rem",
-            px: "1rem",
-            py: "0.625rem",
-            border: "1px solid",
-            borderColor: "divider",
-            flexWrap: "wrap",
+            display: "flex", gap: "1rem", alignItems: "center",
+            bgcolor: "background.paper", borderRadius: "0.5rem",
+            px: "1rem", py: "0.625rem",
+            border: "1px solid", borderColor: "divider", flexWrap: "wrap",
           }}
         >
           <Typography variant="body2" color="text.secondary">
@@ -89,8 +85,7 @@ export default function DatasetPage() {
             {dataset.uploadResponse.columns.length} columnas
           </Typography>
           <Button
-            variant="text"
-            size="small"
+            variant="text" size="small"
             startIcon={<RestartAltIcon />}
             onClick={dataset.reset}
             sx={{ ml: "auto", color: "text.disabled", fontSize: "0.75rem" }}
@@ -99,11 +94,7 @@ export default function DatasetPage() {
           </Button>
         </Box>
       )}
-
-      {/* Step 2 — DataPreview */}
       {dataset.preview && <DataPreview preview={dataset.preview} />}
-
-      {/* Step 3 — ColumnSelector */}
       {dataset.preview && dataset.stage !== "done" && (
         <ColumnSelector
           preview={dataset.preview}
@@ -111,8 +102,6 @@ export default function DatasetPage() {
           onDetect={dataset.detectModel}
         />
       )}
-
-      {/* Step 4 — ModelRecommendation */}
       {dataset.detection && dataset.stage === "done" && (
         <ModelRecommendation
           result={dataset.detection}
@@ -124,21 +113,68 @@ export default function DatasetPage() {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
-      {/* Page header */}
-      <Box>
-        <Typography variant="h4" color="text.primary" fontWeight={700} sx={{ letterSpacing: "-0.02em" }}>
-          Dataset
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: "0.25rem" }}>
-          Elegí cómo conectar tus datos y detectamos el mejor modelo automáticamente.
-        </Typography>
+
+      {/* Header */}
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+        <Box>
+          <Typography variant="h4" color="text.primary" fontWeight={700} sx={{ letterSpacing: "-0.02em" }}>
+            Conectar Datos
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: "0.25rem" }}>
+            Subí un archivo, conectá tu base de datos o usá el dataset demo para empezar a forecasting.
+          </Typography>
+        </Box>
+
+        {/* Server tier badge */}
+        {capsLoading ? (
+          <Skeleton variant="rounded" width={140} height={28} />
+        ) : (
+          <Chip
+            icon={caps.tier === "local"
+              ? <ComputerIcon sx={{ fontSize: "0.875rem !important" }} />
+              : <CloudIcon sx={{ fontSize: "0.875rem !important" }} />
+            }
+            label={caps.tier === "local" ? "Modo local — full power" : "Modo cloud (EC2)"}
+            size="small"
+            sx={{
+              bgcolor: caps.tier === "local"
+                ? "rgba(16,185,129,0.12)"
+                : "rgba(99,102,241,0.1)",
+              color: caps.tier === "local" ? "success.main" : "primary.light",
+              border: "1px solid",
+              borderColor: caps.tier === "local"
+                ? "rgba(16,185,129,0.3)"
+                : "rgba(99,102,241,0.2)",
+              fontWeight: 600,
+              fontSize: "0.75rem",
+            }}
+          />
+        )}
       </Box>
+
+      {/* Cloud-mode info banner */}
+      {!capsLoading && caps.tier === "cloud" && (
+        <Alert
+          severity="info"
+          icon={<WifiTetheringIcon />}
+          sx={{ fontSize: "0.8125rem", "& .MuiAlert-message": { lineHeight: 1.6 } }}
+        >
+          <strong>Modo cloud activo</strong> — los modelos LightGBM + Optuna HPO y el batch Nixtla
+          requieren más RAM de la disponible en el EC2. Para habilitarlos, levantá el backend local:
+          {" "}
+          <code style={{ fontSize: "0.75rem", opacity: 0.85 }}>
+            SERVER_TIER=local uv run uvicorn app.main:app
+          </code>
+        </Alert>
+      )}
 
       {/* Tabs */}
       <DataSourceTabs
+        caps={caps}
         csvContent={csvFlow}
-        demoContent={<DemoDatasetCard />}
         dbContent={<ConnectDbCard />}
+        cloudContent={<CloudDataCard />}
+        demoContent={<DemoDatasetCard />}
       />
     </Box>
   )

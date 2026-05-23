@@ -1,9 +1,10 @@
 """
-Endpoints de datasets — Phase 1.
+Endpoints de datasets — Phase 1 + Conectar Datos.
 
   POST /api/datasets/upload         → sube CSV a Supabase Storage
   GET  /api/datasets/{id}/preview   → primeras 10 filas + tipos de columnas
   POST /api/datasets/{id}/detect    → caracteriza la serie y recomienda modelo
+  POST /api/datasets/connect-db     → conexión DB efímera: SELECT → dataset_id
 """
 
 from __future__ import annotations
@@ -301,3 +302,94 @@ async def detect_model(dataset_id: str, body: DetectRequest) -> DetectionResult:
         )
 
     return detect_best_model(series, freq=body.freq)
+
+
+# ── Connect DB ─────────────────────────────────────────────────────────
+
+
+class DbConnectRequest(BaseModel):
+    connection_string: str
+    query: str
+    engine: str = "postgresql"  # postgresql | mysql | sqlite | mssql
+
+
+class DbConnectResponse(BaseModel):
+    dataset_id: str
+    rows: int
+    columns: list[str]
+
+
+@router.post("/connect-db", response_model=DbConnectResponse, status_code=201)
+async def connect_db(
+    body: DbConnectRequest, user: OptionalUser = None
+) -> DbConnectResponse:
+    """
+    Ejecuta una query SELECT sobre la base de datos del usuario.
+    La conexión es EFÍMERA: se crea, ejecuta y descarta en esta misma función.
+    Nunca se persiste la connection_string en ningún lugar.
+
+    Seguridad:
+      - Solo se permiten queries SELECT (validación previa al ejecutar).
+      - engine.dispose() garantiza que la conexión se cierra inmediatamente.
+      - La connection_string no aparece en logs ni en trazas OTel.
+    """
+    import re
+    from sqlalchemy import create_engine, text  # type: ignore[import-untyped]
+
+    # ── Validación de seguridad: solo SELECT permitido ───────────────────────────────
+    query_stripped = body.query.strip().lstrip("-").strip()
+    if not re.match(r"(?i)^(SELECT|WITH)\b", query_stripped):
+        raise HTTPException(
+            status_code=400,
+            detail="Solo se aceptan queries de lectura (SELECT / WITH). No DDL ni DML.",
+        )
+
+    # ── Ejecutar query y descartar conexión ──────────────────────────────────────────
+    engine_sa = None
+    try:
+        engine_sa = create_engine(
+            body.connection_string,
+            connect_args={"connect_timeout": 10},  # no esperar más de 10s
+            echo=False,   # nunca loguear la connection string
+            hide_parameters=True,  # no loguear parámetros de la query
+        )
+        with engine_sa.connect() as conn:
+            result = conn.execute(text(body.query))
+            df = pd.DataFrame(result.fetchall(), columns=list(result.keys()))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error al conectar o ejecutar la query: {exc}",
+        ) from exc
+    finally:
+        # SIEMPRE descartamos la conexión — incluso si la query falló
+        if engine_sa is not None:
+            engine_sa.dispose()
+
+    if df.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="La query retornó cero filas. Verifíca los filtros.",
+        )
+    if len(df.columns) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="La query debe retornar al menos 2 columnas (fecha y valor objetivo).",
+        )
+
+    # Convertir a CSV y subirlo a Supabase Storage como si fuera un upload normal
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
+    dataset_id = upload_csv(csv_bytes, f"db_query_{body.engine}.csv")
+    register_dataset(
+        dataset_id=dataset_id,
+        filename=f"db_query_{body.engine}.csv",
+        rows=len(df),
+        columns=list(df.columns),
+        user_id=str(user.user_id) if user else None,
+    )
+
+    return DbConnectResponse(
+        dataset_id=dataset_id,
+        rows=len(df),
+        columns=list(df.columns),
+    )

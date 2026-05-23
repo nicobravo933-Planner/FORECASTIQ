@@ -1,9 +1,13 @@
 # syntax=docker/dockerfile:1
-# Dockerfile.worker — igual al API pero arranca el worker de Celery
+# Dockerfile.worker — worker Celery CLOUD (EC2)
+# Misma imagen base que el API. Corre tareas livianas (MA, HW, SARIMA).
+# Las tareas de LightGBM / Nixtla se encolan en la queue "heavy"
+# y son procesadas por el worker LOCAL de la PC del developer.
+
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc g++ curl \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -20,5 +24,6 @@ COPY app/ ./app/
 RUN chown -R appuser:appuser /app
 USER appuser
 
-# Comando del worker — Railway inyecta las env vars
-CMD ["uv", "run", "celery", "-A", "app.services.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+# Queue "default" — solo tareas estadísticas livianas
+CMD ["uv", "run", "celery", "-A", "app.services.celery_app", "worker", \
+     "--queues=default", "--loglevel=info", "--concurrency=2"]

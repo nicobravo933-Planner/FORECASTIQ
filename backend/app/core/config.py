@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = False
     app_version: str = "0.1.0"
+    # Tier determina qué features ML están habilitados:
+    #   "cloud"  → EC2 t3.micro: MA, Holt-Winters, SARIMA (modelos livianos)
+    #   "local"  → PC del developer: + LightGBM, Optuna HPO, Nixtla batch
+    server_tier: str = "cloud"  # cloud | local
 
     # CORS — lista separada por comas en .env
     cors_origins: list[str] = ["http://localhost:3000"]

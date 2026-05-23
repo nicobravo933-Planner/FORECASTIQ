@@ -69,10 +69,17 @@ def run_forecast_task(
     from app.core.telemetry import forecast_span
     from app.ml.detector import detect_best_model
     from app.ml.models.holt_winters import HoltWintersModel
-    from app.ml.models.lightgbm_model import LightGBMModel
     from app.ml.models.moving_average import MovingAverageModel
     from app.ml.models.sarima import SarimaModel
     from app.services.supabase import download_csv, save_forecast_result
+
+    # LightGBM solo disponible en tier local (worker con heavy-ml instalado)
+    try:
+        from app.ml.models.lightgbm_model import LightGBMModel  # type: ignore[import]
+        _lgbm_available = True
+    except ImportError:
+        LightGBMModel = None  # type: ignore[assignment,misc]
+        _lgbm_available = False
 
     job_id = self.request.id or str(uuid.uuid4())
 
@@ -122,12 +129,23 @@ def run_forecast_task(
             # Actualizar span con el modelo real seleccionado
             span.set_attribute("forecast.model", model_name)
 
-            model_map = {
+            model_map: dict[str, Any] = {
                 "moving_average": MovingAverageModel(),
                 "holt_winters": HoltWintersModel(),
                 "sarima": SarimaModel(),
-                "lightgbm": LightGBMModel(),
             }
+            # LightGBM solo si está disponible (tier local)
+            if _lgbm_available and LightGBMModel is not None:
+                model_map["lightgbm"] = LightGBMModel()
+            elif model_name == "lightgbm":
+                # Fallback a Holt-Winters si se pide LightGBM en cloud
+                import structlog as _sl
+                _sl.get_logger().warning(
+                    "lightgbm_not_available_fallback",
+                    tier=settings.server_tier,
+                    fallback="holt_winters",
+                )
+                model_name = "holt_winters"
             model = model_map.get(model_name, HoltWintersModel())
 
             # 4. Split train/test 80/20
@@ -192,41 +210,47 @@ def run_forecast_task(
 
             save_forecast_result(job_id=job_id, result=result, user_id=user_id)
 
-            # 9. MLflow tracking
-            from app.services.mlflow_tracker import log_forecast_run
+            # 9. MLflow tracking (solo si está disponible en este tier)
+            try:
+                from app.services.mlflow_tracker import log_forecast_run
 
-            mlflow_params = {
-                "model": model_name,
-                "freq": freq,
-                "horizon": horizon,
-                "n_obs": len(series),
-                "dataset_id": dataset_id,
-            }
-            log_forecast_run(
-                params=mlflow_params,
-                metrics={k: float(v) for k, v in metrics.items() if v is not None},
-                model_obj=model,
-                dataset_id=dataset_id,
-                user_id=user_id,
-                job_id=job_id,
-            )
+                mlflow_params = {
+                    "model": model_name,
+                    "freq": freq,
+                    "horizon": horizon,
+                    "n_obs": len(series),
+                    "dataset_id": dataset_id,
+                }
+                log_forecast_run(
+                    params=mlflow_params,
+                    metrics={k: float(v) for k, v in metrics.items() if v is not None},
+                    model_obj=model,
+                    dataset_id=dataset_id,
+                    user_id=user_id,
+                    job_id=job_id,
+                )
+            except ImportError:
+                pass  # mlflow no instalado en tier cloud — silencioso
 
             # 10. Drift detection (solo si hay suficiente historial)
             if len(series) >= 8:
-                from app.services.drift_detector import detect_drift
+                try:
+                    from app.services.drift_detector import detect_drift
 
-                # Ventana reciente = 25% de la serie (mínimo 4 puntos)
-                recent_window = max(4, len(series) // 4)
-                series_recent = series.iloc[-recent_window:]
-                series_ref = series.iloc[:-recent_window]
+                    # Ventana reciente = 25% de la serie (mínimo 4 puntos)
+                    recent_window = max(4, len(series) // 4)
+                    series_recent = series.iloc[-recent_window:]
+                    series_ref = series.iloc[:-recent_window]
 
-                if len(series_ref) >= 4:
-                    detect_drift(
-                        series_full=series_ref,
-                        series_recent=series_recent,
-                        dataset_id=dataset_id,
-                        job_id=job_id,
-                    )
+                    if len(series_ref) >= 4:
+                        detect_drift(
+                            series_full=series_ref,
+                            series_recent=series_recent,
+                            dataset_id=dataset_id,
+                            job_id=job_id,
+                        )
+                except ImportError:
+                    pass  # evidently no instalado en tier cloud — silencioso
 
                 # Alerta WAPE drift (requiere historial de runs)
                 current_wape = float(metrics.get("wape") or 0)
