@@ -9,6 +9,7 @@
 
 import { useState, useCallback } from "react"
 import { api, ApiError } from "@/lib/api"
+import { addSessionDataset } from "@/lib/sessionDatasets"
 import type { UploadResponse, DatasetPreview, DetectionResult, DataFreq } from "@/lib/types"
 
 type Stage = "idle" | "uploading" | "preview" | "detecting" | "done" | "error"
@@ -73,6 +74,13 @@ export function useDataset() {
           datasetId: res.dataset_id,
           uploadResponse: res,
           stage: "preview",
+        })
+
+        // Guardar en localStorage para que aparezca en Mis Datasets aunque no haya sesión
+        addSessionDataset({
+          dataset_id: res.dataset_id,
+          filename:   res.filename,
+          created_at: new Date().toISOString(),
         })
 
         // Automatically fetch preview after upload

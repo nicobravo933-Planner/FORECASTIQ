@@ -10,15 +10,14 @@
 
 import BarChartIcon from "@mui/icons-material/BarChart"
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
-import ChatIcon from "@mui/icons-material/Chat"
 import SmartToyIcon from "@mui/icons-material/SmartToy"
 import MenuIcon from "@mui/icons-material/Menu"
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone"
+import InsightsIcon from "@mui/icons-material/Insights"
 import ScienceIcon from "@mui/icons-material/Science"
 import SettingsIcon from "@mui/icons-material/Settings"
 import ShowChartIcon from "@mui/icons-material/ShowChart"
 import StorageIcon from "@mui/icons-material/Storage"
-import UploadFileIcon from "@mui/icons-material/UploadFile"
 import Avatar from "@mui/material/Avatar"
 import Box from "@mui/material/Box"
 import Divider from "@mui/material/Divider"
@@ -44,13 +43,13 @@ const SIDEBAR_COLLAPSED = "4rem"
 const HEADER_HEIGHT     = "4rem"   // 64px — igual al HTML
 
 const NAV_ITEMS = [
-  { label: "Mis Datasets",    href: "/dashboard/datasets", icon: <StorageIcon fontSize="small" /> },
-  { label: "Conectar Datos",  href: "/dashboard/dataset",  icon: <UploadFileIcon fontSize="small" /> },
-  { label: "Forecast",     href: "/dashboard/forecast", icon: <ShowChartIcon fontSize="small" /> },
-  { label: "Calendario",   href: "/dashboard/calendar", icon: <CalendarMonthIcon fontSize="small" /> },
-  { label: "Chat IA",      href: "/dashboard/chat",     icon: <SmartToyIcon fontSize="small" /> },
-  { label: "MLOps",        href: "/dashboard/mlops",    icon: <ScienceIcon fontSize="small" /> },
-  { label: "Batch",        href: "/dashboard/batch",    icon: <BarChartIcon fontSize="small" /> },
+  { label: "Forecast",    href: "/dashboard/forecast", icon: <ShowChartIcon     fontSize="small" /> },
+  { label: "Chat IA",     href: "/dashboard/chat",     icon: <SmartToyIcon      fontSize="small" /> },
+  { label: "Calendario",  href: "/dashboard/calendar", icon: <CalendarMonthIcon fontSize="small" /> },
+  { label: "Analytics",  href: "/dashboard/analytics",icon: <InsightsIcon      fontSize="small" /> },
+  { label: "MLOps",       href: "/dashboard/mlops",    icon: <ScienceIcon       fontSize="small" /> },
+  { label: "Batch",       href: "/dashboard/batch",    icon: <BarChartIcon      fontSize="small" /> },
+  { label: "Datos",       href: "/dashboard/data",     icon: <StorageIcon       fontSize="small" /> },
 ]
 const NAV_BOTTOM = [
   { label: "Ajustes", href: "/dashboard/settings", icon: <SettingsIcon fontSize="small" /> },
@@ -58,9 +57,7 @@ const NAV_BOTTOM = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function isActive(href: string, pathname: string): boolean {
-  if (href === "/dashboard/dataset" || href === "/dashboard/datasets")
-    return pathname === href || pathname.startsWith(href + "/")
-  return pathname.startsWith(href)
+  return pathname === href || pathname.startsWith(href + "/")
 }
 
 // ── NavItem component ─────────────────────────────────────────────────────────

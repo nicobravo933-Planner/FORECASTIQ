@@ -108,10 +108,16 @@ export function ConnectDbCard() {
         query,
         engine,
       })
-      // Store dataset_id in appStore exactly like a CSV upload would
+      // Guardar connection string en localStorage para el Data Explorer
+      try {
+        localStorage.setItem("fiq_db_connection", JSON.stringify({
+          connection_string: connectionString,
+          engine,
+        }))
+      } catch { /* storage full */ }
       appStore.setActiveDataset(result.dataset_id, "", "", "M")
       setSuccess(
-        `✅ Conexión exitosa — ${result.rows.toLocaleString("es-AR")} filas · ${result.columns.length} columnas. Ahora podés ir a Forecast.`
+        `✅ Conexión exitosa — ${result.rows.toLocaleString("es-AR")} filas · ${result.columns.length} columnas. Ahora podés ir a Forecast o explorar el esquema.`
       )
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Error al conectar la base de datos.")
@@ -302,9 +308,14 @@ export function ConnectDbCard() {
           severity="success"
           onClose={() => setSuccess(null)}
           action={
-            <Button size="small" href="/dashboard/forecast" sx={{ textTransform: "none" }}>
-              Ir a Forecast →
-            </Button>
+            <Box sx={{ display: "flex", gap: "0.5rem" }}>
+              <Button size="small" href="/dashboard/explorer?source=db" sx={{ textTransform: "none" }}>
+                Explorar esquema
+              </Button>
+              <Button size="small" href="/dashboard/forecast" sx={{ textTransform: "none" }}>
+                Ir a Forecast →
+              </Button>
+            </Box>
           }
         >
           {success}

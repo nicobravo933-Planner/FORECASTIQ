@@ -343,6 +343,19 @@ def save_hpo_cache(
     ).execute()
 
 
+def delete_dataset(dataset_id: str) -> None:
+    """Borra el CSV de Storage y la metadata de la tabla datasets."""
+    client = get_supabase()
+    # 1. Borrar archivo de Storage
+    storage_path = f"{dataset_id}.csv"
+    try:
+        client.storage.from_(BUCKET).remove([storage_path])
+    except Exception:
+        pass  # Si ya no existe en Storage, igual limpiamos la tabla
+    # 2. Borrar registro de la tabla
+    client.table("datasets").delete().eq("dataset_id", dataset_id).execute()
+
+
 def delete_hpo_cache(dataset_id: str, freq: str) -> None:
     """Invalida el cache HPO para forzar re-optimización en el próximo forecast."""
     client = get_supabase()

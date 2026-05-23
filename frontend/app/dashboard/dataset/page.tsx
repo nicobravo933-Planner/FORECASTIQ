@@ -12,11 +12,13 @@
  */
 
 import { useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Alert from "@mui/material/Alert"
 import Button from "@mui/material/Button"
 import Chip from "@mui/material/Chip"
+import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import ComputerIcon from "@mui/icons-material/Computer"
 
@@ -35,6 +37,7 @@ import { ModelRecommendation } from "@/components/upload/ModelRecommendation"
 export default function DatasetPage() {
   const dataset = useDataset()
   const { caps, loading: capsLoading } = useCapabilities()
+  const router = useRouter()
 
   // Persist active dataset context to appStore once detection is complete.
   const persisted = useRef(false)
@@ -114,6 +117,12 @@ export default function DatasetPage() {
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
         <Box>
+          <Button
+            size="small" variant="text" startIcon={<ArrowBackIcon />}
+            onClick={() => router.push("/dashboard/data")}
+            sx={{ textTransform: "none", color: "text.secondary", mb: "0.5rem", pl: 0 }}>
+            Volver a Datos
+          </Button>
           <Typography variant="h4" color="text.primary" fontWeight={700} sx={{ letterSpacing: "-0.02em" }}>
             Conectar Datos
           </Typography>

@@ -5,8 +5,13 @@ import ThemeRegistry from "@/components/ui/ThemeRegistry"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "forecastiq — Forecasting con IA",
+  title: "ForecastIQ",
   description: "Subí tus ventas, obtené forecasts automáticos y charlá con tus datos usando IA.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

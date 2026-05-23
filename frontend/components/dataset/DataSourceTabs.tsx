@@ -9,6 +9,7 @@
  */
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import Tabs from "@mui/material/Tabs"
 import Tab from "@mui/material/Tab"
 import Box from "@mui/material/Box"
@@ -41,7 +42,9 @@ export function DataSourceTabs({
   demoContent,
   cloudContent,
 }: DataSourceTabsProps) {
-  const [tab, setTab] = useState(0)
+  const searchParams = useSearchParams()
+  const initialTab = Math.min(parseInt(searchParams.get("tab") ?? "0", 10), 3)
+  const [tab, setTab] = useState(isNaN(initialTab) ? 0 : initialTab)
 
   return (
     <Box>

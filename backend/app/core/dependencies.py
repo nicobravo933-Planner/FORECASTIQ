@@ -54,6 +54,12 @@ async def _validate_session(token: str) -> CurrentUser:
         )
 
     data = resp.json()
+    if not data or not isinstance(data, dict):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesión inválida o expirada.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user = data.get("user") or {}
     session = data.get("session") or {}
 
@@ -103,7 +109,7 @@ async def get_optional_user(
     authorization: Annotated[str | None, Header()] = None,
 ) -> CurrentUser | None:
     """
-    Usuario opcional — no lanza error si no hay token.
+    Usuario opcional — no lanza error si no hay token o si la sesión es inválida.
     Usado en endpoints que funcionan anónimos pero mejoran con auth.
     """
     token = _extract_bearer(authorization)
@@ -111,7 +117,7 @@ async def get_optional_user(
         return None
     try:
         return await _validate_session(token)
-    except HTTPException:
+    except (HTTPException, Exception):
         return None
 
 

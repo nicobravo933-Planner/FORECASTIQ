@@ -34,7 +34,7 @@ async function getSessionToken(): Promise<string | null> {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, timeoutMs = 120_000): Promise<T> {
   const token = await getSessionToken()
 
   const headers: Record<string, string> = {
@@ -43,14 +43,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (token) headers["Authorization"] = `Bearer ${token}`
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
+  // Abort controller para timeout configurable (DuckDB puede tardar 30-90s)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new ApiError(res.status, body.detail ?? "Unknown error")
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, { ...init, headers, signal: controller.signal })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new ApiError(res.status, body.detail ?? "Unknown error")
+    }
+    return res.json() as Promise<T>
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError")
+      throw new ApiError(504, `Timeout: la solicitud tardó más de ${timeoutMs / 1000}s`)
+    throw e
+  } finally {
+    clearTimeout(timer)
   }
-
-  return res.json() as Promise<T>
 }
 
 export const api = {
@@ -59,6 +69,9 @@ export const api = {
 
   post: <T>(path: string, body: unknown, init?: RequestInit) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body), ...init }),
+
+  delete: <T = void>(path: string, init?: RequestInit) =>
+    request<T>(path, { method: "DELETE", ...init }),
 
   // Multipart upload — does NOT set Content-Type (browser sets boundary automatically)
   upload: <T>(path: string, formData: FormData): Promise<T> =>

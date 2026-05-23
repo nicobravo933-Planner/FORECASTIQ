@@ -17,7 +17,10 @@ import Grow from "@mui/material/Grow"
 import IconButton from "@mui/material/IconButton"
 import Paper from "@mui/material/Paper"
 import Popper from "@mui/material/Popper"
+import Popover from "@mui/material/Popover"
 import Stack from "@mui/material/Stack"
+import Tab from "@mui/material/Tab"
+import Tabs from "@mui/material/Tabs"
 import TextField from "@mui/material/TextField"
 import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
@@ -26,6 +29,8 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
 import SendIcon from "@mui/icons-material/Send"
 import SmartToyIcon from "@mui/icons-material/SmartToy"
+import EmojiEmotionsOutlinedIcon from "@mui/icons-material/EmojiEmotionsOutlined"
+import AttachFileIcon from "@mui/icons-material/AttachFile"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { ChatBox } from "./ChatBox"
@@ -41,6 +46,86 @@ const BUBBLE_MIN_W = "22rem"
 const BUBBLE_MIN_H = "24rem"
 const BUBBLE_DEF_W = "28rem"
 const BUBBLE_DEF_H = "30rem"
+
+// ── Catálogo de emojis por categoría ─────────────────────────────────────────────────
+
+const EMOJI_CATS = [
+  { label: "😀 Caras", emojis: [
+    "😀","😁","😂","😃","😄","😅","😆","😇","😈","😉","😊","😋",
+    "😌","😍","😎","😏","😐","😑","😒","😓","😔","😕","😖","😗",
+    "😘","😙","😚","😛","😜","😝","😞","😟","😠","😡","😢","😣",
+    "😤","😥","😦","😧","😨","😩","😪","😫","😬","😭","😮","😯",
+    "😰","😱","😲","😳","😴","😵","😶","🤔","🤗","🤣","🤩","🤪",
+    "🤫","🤬","🤭","🤮","🤯","🥰","🥳","🥺","🥻","🥼","🥽","🥾",
+  ]},
+  { label: "👍 Gestos", emojis: [
+    "👍","👎","👏","✌️","✍️","🤝","🙏","🤣","👊","✊","✋","🖕",
+    "🖖","👆","👇","👈","👉","☝️","👌","✏️","✂️","💪","👃","👂",
+  ]},
+  { label: "❤️ Corazones", emojis: [
+    "❤️","🧡","💛","💚","💙","💜","💗","💘","💓","💔","💕","💖",
+    "♥️","🖤","💝","❣️","💟","💯","✨","💫","🔥","💥","⚡","🌈",
+  ]},
+  { label: "📈 Trabajo", emojis: [
+    "📈","📉","📊","📋","💼","💰","💱","💲","💳","💴","💵","💶",
+    "💷","💸","💹","📝","📧","📨","📩","📪","📱","💻","🖥️","⚙️",
+    "🔍","🔎","🔗","📑","📒","📓","📔","📕","📖","📗","📘","📙",
+  ]},
+  { label: "✅ Símbolos", emojis: [
+    "✅","❌","⚠️","ℹ️","✔️","❎","✖️","✳️","✴️","❇️","‼️","⁉️",
+    "♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓",
+    "🔴","🔵","💚","🚀","🏆","🌟","⭐","👑","🍎","🎉","🎈","🤖",
+  ]},
+]
+
+// Picker de emojis con categorías
+function EmojiPicker({ anchor, onClose, onSelect }: {
+  anchor: HTMLElement | null
+  onClose: () => void
+  onSelect: (e: string) => void
+}) {
+  const [tab, setTab] = useState(0)
+  const [search, setSearch] = useState("")
+
+  const filtered = search
+    ? EMOJI_CATS.flatMap(c => c.emojis).filter(() => true)  // búsqueda futura
+    : EMOJI_CATS[tab].emojis
+
+  return (
+    <Popover open={Boolean(anchor)} anchorEl={anchor} onClose={() => { onClose(); setSearch("") }}
+      anchorOrigin={{ vertical: "top", horizontal: "left" }}
+      transformOrigin={{ vertical: "bottom", horizontal: "left" }}
+      PaperProps={{ sx: { borderRadius:"0.75rem", boxShadow:4, width:"18rem" } }}>
+      <Box sx={{ p:"0.5rem 0.625rem 0", borderBottom:"1px solid", borderColor:"divider" }}>
+        <TextField size="small" fullWidth placeholder="Buscar emoji..." value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ mb:"0.375rem", "& .MuiInputBase-input": { fontSize:"0.8125rem", py:"0.375rem" } }}/>
+        {!search && (
+          <Tabs value={tab} onChange={(_,v) => setTab(v)} variant="scrollable" scrollButtons="auto"
+            sx={{ minHeight:"2rem", "& .MuiTab-root": { minHeight:"2rem", fontSize:"1rem", p:"0.125rem 0.375rem", minWidth:"2rem" } }}>
+            {EMOJI_CATS.map((c,i) => (
+              <Tab key={i} label={c.emojis[0]} title={c.label}/>
+            ))}
+          </Tabs>
+        )}
+      </Box>
+      <Box sx={{ p:"0.5rem", display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:"0.125rem", maxHeight:"12rem", overflowY:"auto" }}>
+        {(search
+          ? EMOJI_CATS.flatMap(c => c.emojis).filter(e => {
+              // búsqueda simple por posición en la lista (sin diccionario)
+              return true  // todos pasan por ahora, mejora futura con nombre de emojis
+            })
+          : filtered
+        ).map(emoji => (
+          <IconButton key={emoji} size="small" onClick={() => { onSelect(emoji); onClose() }}
+            sx={{ fontSize:"1.25rem", p:"0.25rem", borderRadius:"0.375rem", "&:hover": { bgcolor:"action.hover" } }}>
+            {emoji}
+          </IconButton>
+        ))}
+      </Box>
+    </Popover>
+  )
+}
 
 // ── Status dot ────────────────────────────────────────────────────────────────
 function StatusDot({ status }: { status: "checking" | "online" | "offline" }) {
@@ -81,10 +166,45 @@ export function FloatingChat() {
   const fabRef    = useRef<HTMLButtonElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
   const bubbleRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Posición draggable del FAB
+  const [pos, setPos] = useState({ bottom: 28, right: 28 })  // en px
+  const dragState = useRef<{ startX: number; startY: number; startBottom: number; startRight: number } | null>(null)
+
+  const handleDragStart = (e: React.MouseEvent) => {
+    // Solo drag si NO es click (click tiene delta < 5px)
+    dragState.current = {
+      startX: e.clientX, startY: e.clientY,
+      startBottom: pos.bottom, startRight: pos.right,
+    }
+    const onMove = (ev: MouseEvent) => {
+      if (!dragState.current) return
+      const dx = ev.clientX - dragState.current.startX
+      const dy = ev.clientY - dragState.current.startY
+      setPos({
+        bottom: Math.max(8, dragState.current.startBottom - dy),
+        right:  Math.max(8, dragState.current.startRight  - dx),
+      })
+    }
+    const onUp = (ev: MouseEvent) => {
+      document.removeEventListener("mousemove", onMove)
+      document.removeEventListener("mouseup", onUp)
+      const dx = Math.abs(ev.clientX - dragState.current!.startX)
+      const dy = Math.abs(ev.clientY - dragState.current!.startY)
+      // Si movió menos de 5px, es un click — dejar que el FAB lo maneje
+      if (dx > 5 || dy > 5) e.stopPropagation()
+      dragState.current = null
+    }
+    document.addEventListener("mousemove", onMove)
+    document.addEventListener("mouseup", onUp)
+  }
 
   const [open, setOpen]   = useState(false)
   const [model, setModel] = useState<LlmModelId>(getPreferredModel)
   const [input, setInput] = useState("")
+  const [emojiAnchor, setEmojiAnchor] = useState<HTMLElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [datasetId, setDatasetId] = useState<string | null>(null)
   const [jobId, setJobId]         = useState<string | null>(null)
@@ -155,7 +275,7 @@ export function FloatingChat() {
   const unread = messages.filter((m) => m.role === "assistant").length
 
   return (
-    <Box sx={{ position: "fixed", bottom: "1.75rem", right: "1.75rem", zIndex: 1300 }}>
+    <Box ref={containerRef} sx={{ position: "fixed", bottom: `${pos.bottom}px`, right: `${pos.right}px`, zIndex: 1300 }}>
 
       {/* ── Bubble ─────────────────────────────────────────── */}
       <Popper
@@ -271,8 +391,31 @@ export function FloatingChat() {
 
               <Divider sx={{ borderColor: "rgba(59,130,246,0.1)" }} />
 
-              <Stack direction="row" alignItems="flex-end" spacing="0.375rem"
-                sx={{ px: "0.75rem", py: "0.625rem", flexShrink: 0 }}>
+              <Stack direction="row" alignItems="flex-end" spacing="0.25rem"
+                sx={{ px: "0.5rem", py: "0.5rem", flexShrink: 0 }}>
+
+                {/* Emoji */}
+                <Tooltip title="Emoji">
+                  <IconButton size="small" onClick={(e) => setEmojiAnchor(e.currentTarget)}
+                    sx={{ color:"text.secondary", mb:"0.0625rem", "&:hover": { color:"warning.main" } }}>
+                    <EmojiEmotionsOutlinedIcon sx={{ fontSize:"1.125rem" }} />
+                  </IconButton>
+                </Tooltip>
+
+                {/* Adjuntar */}
+                <Tooltip title="Adjuntar archivo">
+                  <IconButton size="small" onClick={() => fileInputRef.current?.click()}
+                    sx={{ color:"text.secondary", mb:"0.0625rem", "&:hover": { color:"primary.main" } }}>
+                    <AttachFileIcon sx={{ fontSize:"1.125rem" }} />
+                  </IconButton>
+                </Tooltip>
+                <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.png,.jpg,.pdf" style={{ display:"none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) setInput(p => p + ` [${f.name}]`)
+                    e.target.value = ""
+                  }} />
+
                 <TextField
                   inputRef={inputRef}
                   fullWidth multiline maxRows={3}
@@ -282,23 +425,31 @@ export function FloatingChat() {
                   onKeyDown={handleKeyDown}
                   disabled={isStreaming}
                   size="small"
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "0.625rem", fontSize: "0.8125rem" } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius:"1rem", fontSize:"0.8125rem" } }}
                 />
+
                 <Tooltip title={isStreaming ? "Procesando…" : "Enviar"}>
                   <span>
                     <IconButton disabled={!input.trim() || isStreaming} onClick={() => void handleSend()}
                       sx={{
                         background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
                         color: "white", width: "2rem", height: "2rem",
-                        borderRadius: "0.625rem", flexShrink: 0,
+                        borderRadius: "50%", flexShrink: 0,
                         "&:hover": { background: "linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)" },
                         "&.Mui-disabled": { bgcolor: "action.disabledBackground" },
                       }}>
-                      <SendIcon sx={{ fontSize: "0.875rem" }} />
+                      <SendIcon sx={{ fontSize:"0.875rem" }} />
                     </IconButton>
                   </span>
                 </Tooltip>
               </Stack>
+
+              {/* Emoji picker */}
+              <EmojiPicker
+                anchor={emojiAnchor}
+                onClose={() => setEmojiAnchor(null)}
+                onSelect={(e) => { setInput(p => p + e); inputRef.current?.focus() }}
+              />
             </Paper>
           </Grow>
         )}
@@ -319,14 +470,17 @@ export function FloatingChat() {
           </Box>
         )}
 
-        <Tooltip title={open ? "" : "Chat IA"} placement="left">
+        <Tooltip title={open ? "" : "Chat IA (arrastrá para mover)"} placement="left">
           <Fab
             ref={fabRef}
+            onMouseDown={handleDragStart}
             onClick={() => setOpen((v) => !v)}
             aria-label="Abrir chat IA"
             sx={{
               width: "3.5rem",
               height: "3.5rem",
+              cursor: "grab",
+              "&:active": { cursor: "grabbing" },
               background: open
                 ? "linear-gradient(135deg, #1e3a6e 0%, #1e40af 100%)"
                 : "linear-gradient(135deg, #1e3a6e 0%, #1e40af 100%)",
