@@ -7,9 +7,9 @@ El frontend usa este endpoint para:
   - Ocultar features de análisis batch/nixtla cuando no están instaladas
 
 server_tier se configura via env var SERVER_TIER:
-  "local"  → PC del developer, todas las features habilitadas
-  "ec2"    → AWS EC2 en producción, features según paquetes instalados
-  "cloud"  → Vercel/serverless, solo modelos estadísticos básicos
+  "local"  -> PC del developer, todas las features habilitadas
+  "ec2"    -> AWS EC2 en produccion, features segun paquetes instalados
+  "cloud"  -> Vercel/serverless, solo modelos estadisticos basicos
 """
 
 from fastapi import APIRouter
@@ -29,8 +29,8 @@ class FeaturesResponse(BaseModel):
 
 
 class CapabilitiesResponse(BaseModel):
-    tier: str                   # "local" | "ec2" | "cloud"
-    tier_label: str             # etiqueta legible para el header del frontend
+    tier: str  # "local" | "ec2" | "cloud"
+    tier_label: str  # etiqueta legible para el header del frontend
     models_available: list[str]
     features: FeaturesResponse
     message: str
@@ -39,6 +39,7 @@ class CapabilitiesResponse(BaseModel):
 def _check_lightgbm() -> bool:
     try:
         import lightgbm  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -47,6 +48,7 @@ def _check_lightgbm() -> bool:
 def _check_nixtla() -> bool:
     try:
         from statsforecast import StatsForecast  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -55,29 +57,28 @@ def _check_nixtla() -> bool:
 @router.get("/capabilities", response_model=CapabilitiesResponse)
 async def get_capabilities() -> CapabilitiesResponse:
     """
-    Detecta en tiempo real qué está disponible en este backend.
-    No requiere autenticación — el frontend lo llama al montar el dashboard.
+    Detecta en tiempo real que esta disponible en este backend.
+    No requiere autenticacion — el frontend lo llama al montar el dashboard.
     """
     tier = settings.server_tier.lower()  # "local" | "ec2" | "cloud"
 
-    has_lgbm   = _check_lightgbm()
+    has_lgbm = _check_lightgbm()
     has_nixtla = _check_nixtla()
 
-    # Modelos siempre disponibles (solo Python puro / statsmodels)
     base_models = ["moving_average", "holt_winters", "sarima"]
     models = base_models + (["lightgbm"] if has_lgbm else [])
 
     tier_labels = {
         "local": "Backend local",
-        "ec2":   "AWS EC2",
+        "ec2": "AWS EC2",
         "cloud": "Cloud",
     }
     tier_label = tier_labels.get(tier, f"Backend ({tier})")
 
     messages = {
         "local": "Todas las features habilitadas.",
-        "ec2":   "Producción AWS EC2. LightGBM y Nixtla disponibles según instalación.",
-        "cloud": "Modo cloud — solo modelos estadísticos básicos disponibles.",
+        "ec2": "Produccion AWS EC2. LightGBM y Nixtla disponibles segun instalacion.",
+        "cloud": "Modo cloud — solo modelos estadisticos basicos disponibles.",
     }
     message = messages.get(tier, "Backend activo.")
 
@@ -87,10 +88,10 @@ async def get_capabilities() -> CapabilitiesResponse:
         models_available=models,
         features=FeaturesResponse(
             lightgbm=has_lgbm,
-            optuna_hpo=has_lgbm,      # HPO requiere LightGBM
+            optuna_hpo=has_lgbm,  # HPO requiere LightGBM
             nixtla_batch=has_nixtla,
-            demo_dataset=True,         # siempre disponible (DuckDB + httpfs)
-            db_connect=True,           # siempre disponible (SQLAlchemy)
+            demo_dataset=True,  # siempre disponible (DuckDB + httpfs)
+            db_connect=True,  # siempre disponible (SQLAlchemy)
         ),
         message=message,
     )
