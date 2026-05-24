@@ -18,6 +18,7 @@
   <br/>
   <!-- Infrastructure -->
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Cloudflare-R2%20Storage-F38020?logo=cloudflare&logoColor=white"/>
   <img src="https://img.shields.io/badge/Redis-Upstash-00E9A3?logo=upstash&logoColor=white"/>
   <img src="https://img.shields.io/badge/Celery-worker-37814A?logo=celery&logoColor=white"/>
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white"/>
@@ -84,7 +85,7 @@
 | Feature                      | Descripción                                                                                            |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
 | 📁 **Subida CSV**            | Soltá tu CSV de ventas — no necesita formato previo. Límite 10 MB.                                     |
-| 🎲 **Dataset demo**          | Dataset 25k SKUs × 3 años disponible para explorar sin subir nada (Fase 9)                            |
+| 🎲 **Dataset demo**          | Dataset 25k SKUs × 3 años en Cloudflare R2 — explorá sin subir nada (Fase 9)          |
 | 🤖 **Selección automática**  | Detección FFT + Seasonal Mann-Kendall elige MA / Holt-Winters / SARIMA / LightGBM                      |
 | 📈 **Forecast interactivo**  | Horizontes +3 / +6 / +12 meses con intervalos de confianza                                             |
 | 📅 **Calendario de eventos** | Agregá promociones, feriados y eventos externos — impactan el forecast                                 |
@@ -217,6 +218,9 @@ Ejecutar en orden en el **SQL Editor** del Dashboard de Supabase:
 1. backend/migrations/001_forecast_jobs.sql
 2. backend/migrations/002_events.sql
 3. backend/migrations/003_add_user_id.sql
+4. backend/migrations/004_chat_conversations.sql
+5. backend/migrations/005_hpo_cache.sql
+6. backend/migrations/006_better_auth_schema.sql
 ```
 
 ### Prerrequisitos
@@ -339,7 +343,7 @@ Ver guía completa de setup en [`infra/aws/README.md`](infra/aws/README.md).
 | Frontend | Vercel | Permanente |
 | Backend + Worker | AWS EC2 t2.micro | 12 meses → luego ~$8/mes |
 | Base de datos | Supabase PostgreSQL | Permanente |
-| Storage | Supabase Storage (1 GB) | Permanente |
+| Storage demo | Cloudflare R2 (10 GB) | Egress gratuito permanente |
 | Redis | Upstash (10k req/día) | Permanente |
 | MLflow tracking | Dagshub | Permanente |
 | Observability | Grafana Cloud | Permanente |

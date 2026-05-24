@@ -10,7 +10,7 @@ Endpoints de datasets — Phase 1 + Conectar Datos + Data Explorer.
   GET  /api/datasets/demo/analyze-category → análisis vectorizado de categoría completa (StatsForecast)
   POST /api/datasets/explore/db/schema   → introspecciona esquemas/tablas/columnas/PKs/FKs de una DB
   POST /api/datasets/explore/db/query    → ejecuta SELECT paginado sobre una tabla de la DB
-  GET  /api/datasets/explore/demo        → paginación sobre el Parquet demo con filtros
+  GET  /api/datasets/explore/demo        → paginación sobre el Parquet demo (Cloudflare R2) con filtros
   GET  /api/datasets/{id}/page           → paginación sobre un CSV ya subido
 """
 
@@ -438,14 +438,12 @@ async def connect_db(body: DbConnectRequest, user: OptionalUser = None) -> DbCon
     )
 
 
-# ── Dataset Demo (DuckDB sobre Supabase Storage) ─────────────────────────────
+# ── Dataset Demo (DuckDB sobre Cloudflare R2) ───────────────────────────────
 
-# URLs públicas de los 6 chunks del Parquet 25k SKUs en Supabase Storage
-_DEMO_BASE = (
-    "https://umzqqrujfnqfearjmbyn.supabase.co/storage/v1/object/public/datasets/ventas_25k_skus"
-)
-_DEMO_CHUNKS = [f"{_DEMO_BASE}/ventas_chunk_{str(i).zfill(3)}.parquet" for i in range(1, 7)]
-_DEMO_CHUNKS_SQL = ", ".join(f"'{u}'" for u in _DEMO_CHUNKS)
+# Parquet demo alojado en Cloudflare R2 (egress gratuito)
+# Archivo unico: ventas_25k_skus.parquet — 256 MB
+_DEMO_PARQUET_URL = "https://pub-d0a335fad6124970951095c7dce170c3.r2.dev/ventas_25k_skus.parquet"
+_DEMO_CHUNKS_SQL = f"'{_DEMO_PARQUET_URL}'"
 
 # Categorías exactas según los valores en el Parquet (sin tildes)
 _CATEGORIAS = ["Electronica", "Alimentos", "Indumentaria", "Hogar", "Deportes"]
@@ -571,12 +569,8 @@ async def demo_list_skus(
 async def demo_load_sku(body: DemoLoadRequest, user: OptionalUser = None) -> DemoLoadResponse:
     """
     Carga la serie temporal completa de un SKU específico del dataset sintético.
-    DuckDB hace pushdown sobre los 6 chunks y solo descarga las filas del SKU pedido.
-    El resultado se guarda en Supabase Storage como CSV virtual con un dataset_id.
-    El usuario puede entonces correr forecast normalmente sobre ese dataset_id.
-
-    Columnas retornadas: fecha, ventas, precio, stock
-    (las suficientes para hacer forecast con o sin features externas)
+    DuckDB lee el Parquet desde Cloudflare R2 y filtra solo las filas del SKU pedido.
+    El resultado se guarda en Supabase Storage como CSV con un dataset_id.
     """
     import duckdb
 
@@ -679,7 +673,7 @@ async def demo_analyze_category(
     Retorna métricas agregadas (WAPE/BIAS por segmento) + top 20 mejores/peores SKUs.
 
     Flujo:
-      1. DuckDB lee datos de la categoría desde Supabase Storage
+      1. DuckDB lee datos de la categoría desde Cloudflare R2
       2. Agrega de diario a semanal (suma de ventas)
       3. StatsForecast AutoETS vectorizado sobre todos los SKUs
       4. Evalua con hold-out 20% por SKU
