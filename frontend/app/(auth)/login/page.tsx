@@ -276,10 +276,14 @@ export default function LoginPage() {
             También podés usar la app sin cuenta —{" "}
             <Box
               component="span"
-              onClick={() => {
-                void authClient.signIn.anonymous().then(() => {
-                  window.location.href = "/dashboard/datasets"
-                })
+              onClick={async () => {
+                try {
+                  await authClient.signIn.anonymous()
+                  window.location.href = "/dashboard/dataset"
+                } catch {
+                  // Si falla el login anónimo, redirige igual — la app funciona sin sesión
+                  window.location.href = "/dashboard/dataset"
+                }
               }}
               sx={{
                 color: "primary.main",

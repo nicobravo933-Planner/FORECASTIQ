@@ -103,7 +103,7 @@ export function DemoDatasetCard() {
         <Box>
           <Typography variant="h6" fontWeight={700} color="text.primary">Dataset demo — Ventas retail</Typography>
           <Typography variant="caption" color="text.secondary">
-            25 000 SKUs × 3 años · DuckDB → Supabase Storage
+            25 000 SKUs × 3 años · DuckDB → Cloudflare R2
           </Typography>
         </Box>
       </Box>

@@ -8,6 +8,8 @@ Features de lag generadas automáticamente:
   - lags 1..max_lag (configurable, default 13 para mensual)
   - rolling mean y std (ventanas 3, 6, 12)
   - features de calendario: mes, trimestre, día del año
+  - features de eventos (E9): columnas binarias is_black_friday, is_navidad, etc.
+    Se pasan como event_features DataFrame al fit() y predict().
 
 CI via quantile regression: entrena dos modelos extra (q=0.025, q=0.975).
 Optuna: MedianPruner, 30 trials, timeout 60s (para no bloquear la cola).
@@ -30,8 +32,19 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
 
 
-def _make_features(series: pd.Series, max_lag: int = 13) -> pd.DataFrame:
-    """Genera features temporales y de lag para el DataFrame de entrenamiento."""
+def _make_features(
+    series: pd.Series,
+    max_lag: int = 13,
+    event_features: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """
+    Genera features temporales, de lag y de eventos para el training.
+
+    event_features: DataFrame con columna 'date' (str ISO o Timestamp) y
+    columnas binarias is_* (int8). Se hace merge por fecha.
+    Si event_features es None o está vacío, el comportamiento es idéntico
+    a la versión anterior (backward-compatible).
+    """
     df = pd.DataFrame({"y": series.to_numpy()}, index=series.index)
 
     # Features de lag
@@ -49,6 +62,18 @@ def _make_features(series: pd.Series, max_lag: int = 13) -> pd.DataFrame:
     df["month"] = dt_index.month
     df["quarter"] = dt_index.quarter
     df["day_of_year"] = dt_index.day_of_year
+
+    # Features de eventos (E9) — merge por fecha si se proveen
+    if event_features is not None and not event_features.empty:
+        ev = event_features.copy()
+        ev["date"] = pd.to_datetime(ev["date"])
+        ev = ev.set_index("date")
+        # Solo columnas binarias is_*
+        ev_cols = [c for c in ev.columns if c.startswith("is_")]
+        if ev_cols:
+            df = df.join(ev[ev_cols], how="left")
+            # Fechas sin evento definido → 0 (no es NaN)
+            df[ev_cols] = df[ev_cols].fillna(0).astype("int8")
 
     return df.dropna()
 
@@ -75,6 +100,7 @@ class LightGBMModel(ForecastModel):
         dataset_id: str | None = None,
         user_id: str | None = None,
         force_reoptimize: bool = False,
+        event_features: pd.DataFrame | None = None,
     ) -> None:
         self.max_lag = max_lag
         self.ci_level = ci_level
@@ -83,6 +109,9 @@ class LightGBMModel(ForecastModel):
         self.dataset_id = dataset_id
         self.user_id = user_id
         self.force_reoptimize = force_reoptimize
+        # E9: features de eventos (columnas binarias is_*)
+        # None → sin features de eventos (backward-compatible)
+        self.event_features: pd.DataFrame | None = event_features
 
         self._model_mean: lgb.Booster | None = None
         self._model_lower: lgb.Booster | None = None
@@ -90,6 +119,7 @@ class LightGBMModel(ForecastModel):
         self._series: pd.Series | None = None
         self._freq: str | None = None
         self._best_params: dict[str, object] = {}
+        self._event_cols: list[str] = []  # nombres de columnas de eventos usadas en training
         self.used_cache: bool = False  # True si se usó cache en lugar de Optuna
 
     # ── Entrenamiento ─────────────────────────────────────────────────────────
@@ -98,7 +128,9 @@ class LightGBMModel(ForecastModel):
         self._series = series.copy()
         self._freq = normalize_freq(pd.infer_freq(pd.DatetimeIndex(series.index)) or "MS")
 
-        df = _make_features(series, self.max_lag)
+        df = _make_features(series, self.max_lag, event_features=self.event_features)
+        # Guarda las columnas de eventos usadas (necesarias en predict para alinear features)
+        self._event_cols = [c for c in df.columns if c.startswith("is_")]
         x: np.ndarray = df.drop(columns=["y"]).to_numpy()
         y: np.ndarray = df["y"].to_numpy()
 
@@ -214,7 +246,7 @@ class LightGBMModel(ForecastModel):
         preds_mean, preds_lower, preds_upper = [], [], []
 
         for future_date in future_dates:
-            df = _make_features(extended, self.max_lag)
+            df = _make_features(extended, self.max_lag, event_features=self.event_features)
             x_row = df.drop(columns=["y"]).iloc[[-1]].values
 
             pred_mean = float(self._model_mean.predict(x_row)[0])

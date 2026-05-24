@@ -10,10 +10,9 @@ En producción:
 
 from __future__ import annotations
 
-import io
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from celery import Celery
@@ -39,7 +38,87 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     result_expires=3600,
+    # Concurrencia: 1 en EC2 t3.micro (1 vCPU, 1 GB RAM)
+    # En local puede subirse a 2-4 con CELERYD_CONCURRENCY en .env
+    worker_concurrency=settings.celeryd_concurrency,
 )
+
+
+# -- Helpers ------------------------------------------------------------------
+
+
+def _extract_model_params(model: Any, model_name: str) -> dict[str, Any]:
+    """
+    Extrae los parámetros usados por el modelo post-fit.
+    Retorna un dict serializable (JSON-safe) para persistir en el resultado.
+
+    Estructura por modelo:
+      moving_average → {window_effective}
+      holt_winters   → {alpha, beta, gamma, seasonal_periods, use_seasonal}
+      sarima         → {order (p,d,q), seasonal_order (P,D,Q,s)}
+      lightgbm       → {best_params (Optuna), used_cache, max_lag}
+    """
+    try:
+        if model_name == "moving_average":
+            # Ventana efectiva calculada durante el fit
+            series = getattr(model, "_series", None)
+            window_effective = 6
+            if series is not None:
+                n = len(series)
+                window_effective = min(
+                    getattr(model, "window", 6), max(2, n // 3)
+                )
+            return {"window": window_effective}
+
+        if model_name == "holt_winters":
+            fit = getattr(model, "_model_fit", None)
+            sp = getattr(model, "_seasonal_periods", 12)
+            if fit is None:
+                return {"seasonal_periods": sp}
+            # statsmodels expone los parámetros optimizados en params_
+            params = getattr(fit, "params", {})
+            alpha = float(params.get("smoothing_level", params.get("alpha", 0.0)))
+            beta  = float(params.get("smoothing_trend", params.get("beta", 0.0)))
+            gamma = float(params.get("smoothing_seasonal", params.get("gamma", 0.0)))
+            use_seasonal = getattr(fit.model, "seasonal", None) is not None
+            return {
+                "alpha": round(alpha, 4),
+                "beta":  round(beta,  4),
+                "gamma": round(gamma, 4),
+                "seasonal_periods": sp,
+                "use_seasonal": use_seasonal,
+            }
+
+        if model_name == "sarima":
+            fit = getattr(model, "_model_fit", None)
+            if fit is None:
+                return {}
+            order = tuple(int(x) for x in fit.order)
+            seasonal_order = tuple(int(x) for x in fit.seasonal_order)
+            return {
+                "order": list(order),           # [p, d, q]
+                "seasonal_order": list(seasonal_order),  # [P, D, Q, s]
+            }
+
+        if model_name == "lightgbm":
+            best = getattr(model, "_best_params", {})
+            # Serializa solo valores primitivos — los Booster objects no son JSON-safe
+            safe_params = {
+                k: float(v) if isinstance(v, float) else int(v) if isinstance(v, int) else str(v)
+                for k, v in best.items()
+            }
+            return {
+                "best_params": safe_params,
+                "used_cache": bool(getattr(model, "used_cache", False)),
+                "max_lag": int(getattr(model, "max_lag", 13)),
+                "n_trials": int(getattr(model, "n_trials", 30)),
+                # E9: columnas de eventos usadas en el training
+                "event_cols": list(getattr(model, "_event_cols", [])),
+            }
+    except Exception:
+        pass  # Nunca romper el forecast por falla en extracción de params
+
+    return {}
 
 
 # -- Tarea principal ----------------------------------------------------------
@@ -58,6 +137,7 @@ def run_forecast_task(
     force_reoptimize: bool = False,
     test_periods: int = 0,
     cv_folds: int = 0,
+    manual_params: dict[str, object] | None = None,
 ) -> dict[str, Any]:
     """
     Pipeline completo de forecasting:
@@ -87,7 +167,8 @@ def run_forecast_task(
     from app.ml.models.holt_winters import HoltWintersModel
     from app.ml.models.moving_average import MovingAverageModel
     from app.ml.models.sarima import SarimaModel
-    from app.services.supabase import download_csv, save_forecast_result
+    from app.services.storage import load_dataset as _load_dataset
+    from app.services.supabase import save_forecast_result
 
     # LightGBM solo disponible en tier local (worker con heavy-ml instalado)
     _lgbm_cls: type | None = None
@@ -119,10 +200,9 @@ def run_forecast_task(
             horizon=horizon,
             freq=freq,
         ) as span:
-            # 1. Descarga y parseo
+            # 1. Carga y parseo
             _update(5, "Descargando datos")
-            content = download_csv(dataset_id)
-            df = pd.read_csv(io.BytesIO(content))
+            df = _load_dataset(dataset_id)
             df[date_column] = pd.to_datetime(df[date_column])
             df = df.sort_values(date_column).reset_index(drop=True)
 
@@ -153,12 +233,69 @@ def run_forecast_task(
                 "holt_winters": HoltWintersModel(),
                 "sarima": SarimaModel(),
             }
+            # E4: si hay parámetros manuales del usuario, sobreescribe los defaults
+            if manual_params:
+                mp = manual_params
+                # Holt-Winters: alpha / beta / gamma opcionales
+                if model_name == "holt_winters":
+                    hw_kwargs: dict[str, Any] = {}
+                    if "hw_alpha" in mp:
+                        hw_kwargs["alpha"] = float(mp["hw_alpha"])  # type: ignore[arg-type]
+                    if "hw_beta" in mp:
+                        hw_kwargs["beta"] = float(mp["hw_beta"])  # type: ignore[arg-type]
+                    if "hw_gamma" in mp:
+                        hw_kwargs["gamma"] = float(mp["hw_gamma"])  # type: ignore[arg-type]
+                    if hw_kwargs:
+                        model_map["holt_winters"] = HoltWintersModel(**hw_kwargs)
+                # SARIMA: order y seasonal_order opcionales
+                if model_name == "sarima":
+                    sarima_kwargs: dict[str, Any] = {}
+                    if "sarima_order" in mp:
+                        raw_order = cast(list[Any], mp["sarima_order"])
+                        sarima_kwargs["order"] = tuple(int(x) for x in raw_order)
+                    if "sarima_seasonal_order" in mp:
+                        raw_seasonal = cast(list[Any], mp["sarima_seasonal_order"])
+                        sarima_kwargs["seasonal_order"] = tuple(int(x) for x in raw_seasonal)
+                    if sarima_kwargs:
+                        model_map["sarima"] = SarimaModel(**sarima_kwargs)
             # LightGBM solo si está disponible (tier local)
             if _lgbm_available and _lgbm_cls is not None:
+                # E9: cargar features de eventos para LightGBM
+                # Si falla (Supabase no disponible, dataset sin fechas, etc.) el forecast
+                # sigue funcionando sin eventos — nunca romper el pipeline por esto.
+                _event_features_df: pd.DataFrame | None = None
+                try:
+                    from app.services.events import (
+                        events_to_features_df,
+                        get_ar_commercial_events,
+                        get_ar_holidays,
+                        list_events,
+                    )
+
+                    _all_events = list_events(user_id=user_id)
+                    _years = range(series.index.min().year, series.index.max().year + 3)
+                    for _yr in _years:
+                        _all_events.extend(get_ar_holidays(_yr))
+                        _all_events.extend(get_ar_commercial_events(_yr))
+
+                    if _all_events:
+                        _event_features_df = events_to_features_df(
+                            _all_events,
+                            pd.DatetimeIndex(series.index),
+                        )
+                except Exception as _ev_err:
+                    import structlog as _sl2
+                    _sl2.get_logger().warning(
+                        "event_features_load_failed",
+                        dataset_id=dataset_id,
+                        error=str(_ev_err),
+                    )
+
                 model_map["lightgbm"] = _lgbm_cls(
                     dataset_id=dataset_id,
                     user_id=user_id,
                     force_reoptimize=force_reoptimize,
+                    event_features=_event_features_df,
                 )
             elif model_name == "lightgbm":
                 # Fallback a Holt-Winters si se pide LightGBM en cloud
@@ -233,6 +370,9 @@ def run_forecast_task(
             # Re-entrena con toda la serie para la proyección futura
             model.fit(series)
 
+            # Extrae parámetros del modelo post-fit (para E4 ParameterExplorer)
+            model_params: dict[str, Any] = _extract_model_params(model, model_name)
+
             # 7. Rolling CV (opcional, solo si cv_folds > 0)
             _update(88, "Cross-validación rolling")
             cv_summary_dict: dict[str, Any] | None = None
@@ -305,6 +445,7 @@ def run_forecast_task(
                 "test_periods": tp,
                 "cv_folds": cv_folds,
                 "metrics": metrics,
+                "model_params": model_params,
                 "historical": historical,
                 "predictions": predictions,
                 "test_actual": test_actual_pts,

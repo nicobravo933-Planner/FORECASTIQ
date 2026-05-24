@@ -39,7 +39,7 @@ const STATUS_ITEMS = [
   { icon: <CloudDoneIcon />,   label: "Backend",      value: "AWS EC2",   sub: "Online · FastAPI 0.115",    color: "#22c55e" },
   { icon: <ScienceIcon />,     label: "Modelos ML",   value: "4 activos", sub: "MA · HW · SARIMA · LGB",    color: "#3b82f6" },
   { icon: <CheckCircleIcon />, label: "Fases",        value: "11 / 14",   sub: "PySpark completa",          color: "#8b5cf6" },
-  { icon: <StorageIcon />,     label: "Dataset demo", value: "25k SKUs",  sub: "256 MB · Supabase Storage", color: "#06b6d4" },
+  { icon: <StorageIcon />,     label: "Dataset demo", value: "25k SKUs",  sub: "256 MB · Cloudflare R2", color: "#06b6d4" },
 ]
 
 const ACTIVITY_ITEMS = [
@@ -70,10 +70,12 @@ const LOGO_OVERFLOW = "3.5rem"
 export function HomeDashboard() {
   const { data: session } = useSession()
   const router = useRouter()
-  const [now, setNow] = useState(new Date())
+  const [now, setNow] = useState<Date | null>(null)
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
 
   useEffect(() => {
+    // Initialize on client only — avoids SSR/client hydration mismatch
+    setNow(new Date())
     const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
@@ -136,7 +138,7 @@ export function HomeDashboard() {
         {/* Text block */}
         <Box sx={{ flex: 1, position: "relative", zIndex: 1 }}>
           <Typography sx={{ fontSize: "0.6875rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase", mb: "0.3rem" }}>
-            {formatDateES(now)} &middot; {formatTimeES(now)}
+            {now ? `${formatDateES(now)} \u00b7 ${formatTimeES(now)}` : "\u00a0"}
           </Typography>
           <Typography sx={{ fontSize: "1.5rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.03rem", mb: "0.3rem", lineHeight: 1.15 }}>
             {firstName

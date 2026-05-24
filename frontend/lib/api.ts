@@ -73,6 +73,9 @@ export const api = {
   delete: <T = void>(path: string, init?: RequestInit) =>
     request<T>(path, { method: "DELETE", ...init }),
 
+  patch: <T>(path: string, body: unknown, init?: RequestInit) =>
+    request<T>(path, { method: "PATCH", body: JSON.stringify(body), ...init }),
+
   // Multipart upload — does NOT set Content-Type (browser sets boundary automatically)
   upload: <T>(path: string, formData: FormData): Promise<T> =>
     getSessionToken().then((token) =>

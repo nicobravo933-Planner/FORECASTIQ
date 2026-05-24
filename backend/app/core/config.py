@@ -48,6 +48,19 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"
     celery_task_always_eager: bool = False  # True en dev → sin worker separado
+    # Concurrencia del worker — EC2 t3.micro: 1 (1 vCPU, 1 GB RAM)
+    # Local PC: 2-4 según RAM disponible
+    celeryd_concurrency: int = 1
+
+    # ── Storage ──────────────────────────────────────────────────
+    # "supabase" → uploads van a Supabase Storage (modo cloud/ec2)
+    # "local"    → uploads van a disco local, nunca salen de la máquina
+    storage_backend: str = "supabase"
+    local_storage_path: str = "./data/user_uploads"
+    # Horas hasta que se borran los datasets de usuarios en modo cloud (0 = no borrar)
+    dataset_ttl_hours: int = 24
+    # Tamaño máximo de archivo en MB — EC2: 5, Local: 50
+    max_file_size_mb: int = 5
 
     # ── LLM ──────────────────────────────────────────────────────
     openrouter_api_key: str = ""

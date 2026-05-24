@@ -26,16 +26,20 @@ import Chip from "@mui/material/Chip"
 import Tooltip from "@mui/material/Tooltip"
 import Alert from "@mui/material/Alert"
 import ToggleButton from "@mui/material/ToggleButton"
+import CircularProgress from "@mui/material/CircularProgress"
 import LockIcon from "@mui/icons-material/Lock"
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline"
 import WarningAmberIcon from "@mui/icons-material/WarningAmber"
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome"
+import SearchIcon from "@mui/icons-material/Search"
 import { useEffect, useState } from "react"
 import { useColumnPreview } from "@/hooks/useColumnPreview"
 import { useCapabilities } from "@/hooks/useCapabilities"
 import { DatasetPicker } from "@/components/forecast/DatasetPicker"
 import { HorizonSelector } from "@/components/forecast/HorizonSelector"
 import { inferFreqFromSamples, type FreqDetectionResult } from "@/lib/freqDetection"
+import { api } from "@/lib/api"
+import { appStore } from "@/lib/appStore"
 import type { DataFreq, ModelName, DatasetColumn } from "@/lib/types"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -55,6 +59,10 @@ interface ForecastConfigPanelProps {
   config:    ForecastConfig
   onChange:  (patch: Partial<ForecastConfig>) => void
   disabled?: boolean
+  /** E5: model IDs desbloqueados por quality score. Si es null, no se filtra nada. */
+  availableModelIds?: string[] | null
+  /** E6: callback cuando el usuario quiere ver el reporte de detección */
+  onOpenDetectionReport?: () => void
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -118,11 +126,37 @@ function DtypeChip({ dtype }: { dtype: string }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function ForecastConfigPanel({ config, onChange, disabled = false }: ForecastConfigPanelProps) {
+export function ForecastConfigPanel({ config, onChange, disabled = false, availableModelIds = null, onOpenDetectionReport }: ForecastConfigPanelProps) {
   const preview  = useColumnPreview(config.datasetId || null)
   const { caps } = useCapabilities()
   const isLocal  = caps.tier === "local"
   const [detectedFreq, setDetectedFreq] = useState<FreqDetectionResult | null>(null)
+
+  // E6: run detect and cache the result in appStore
+  const [detecting, setDetecting] = useState(false)
+  const [detectError, setDetectError] = useState<string | null>(null)
+
+  const handleDetect = async () => {
+    if (!config.datasetId || !config.dateCol || !config.targetCol) return
+    setDetecting(true)
+    setDetectError(null)
+    try {
+      const result = await api.post<Record<string, unknown>>(
+        `/api/datasets/${config.datasetId}/detect`,
+        { date_column: config.dateCol, target_column: config.targetCol, freq: config.freq }
+      )
+      appStore.setDetectionReport(result)
+      // Auto-apply model recommendation if user hasn't manually chosen one
+      if (result.model && config.modelOverride === "auto") {
+        onChange({ modelOverride: result.model as ModelName })
+      }
+      onOpenDetectionReport?.()
+    } catch (err) {
+      setDetectError(err instanceof Error ? err.message : "Error al analizar la serie")
+    } finally {
+      setDetecting(false)
+    }
+  }
 
   // Auto-select best columns when preview loads and fields are still empty
   useEffect(() => {
@@ -275,6 +309,48 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
         </Alert>
       )}
 
+      {/* E6: Analizar serie — visible cuando fecha y objetivo están seleccionados y son distintos */}
+      {config.datasetId && config.dateCol && config.targetCol && config.dateCol !== config.targetCol && (
+        <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <Tooltip
+            title="Corre el pipeline MAD → FFT → Mann-Kendall → CV y explica por qué se elige cada modelo"
+            placement="top"
+          >
+            <span>
+              <Chip
+                icon={detecting ? <CircularProgress size="0.875rem" /> : <SearchIcon sx={{ fontSize: "0.9rem !important" }} />}
+                label={detecting ? "Analizando..." : "Analizar serie"}
+                onClick={!disabled && !detecting ? handleDetect : undefined}
+                color="primary"
+                variant="outlined"
+                size="small"
+                sx={{
+                  cursor: disabled || detecting ? "default" : "pointer",
+                  fontSize: "0.75rem",
+                  opacity: disabled ? 0.5 : 1,
+                }}
+              />
+            </span>
+          </Tooltip>
+          {/* Si ya hay un reporte cacheado, mostrar link para reabrirlo */}
+          {!detecting && onOpenDetectionReport && (
+            <Typography
+              variant="caption"
+              color="primary.main"
+              sx={{ cursor: "pointer", textDecoration: "underline", fontSize: "0.75rem" }}
+              onClick={onOpenDetectionReport}
+            >
+              Ver último reporte
+            </Typography>
+          )}
+          {detectError && (
+            <Typography variant="caption" color="error.main" sx={{ fontSize: "0.75rem" }}>
+              {detectError}
+            </Typography>
+          )}
+        </Box>
+      )}
+
       {/* Freq + model */}
       <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
         <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
@@ -307,13 +383,21 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
           <Select value={config.modelOverride} label="Modelo"
             onChange={(e) => onChange({ modelOverride: e.target.value as ModelName | "auto" })}>
             {ALL_MODEL_OPTIONS.map((o) => {
-              const locked = o.requiresLocal && !isLocal
+              const lockedByTier    = o.requiresLocal && !isLocal
+              // E5: bloquear si quality score no lo habilita (solo si tenemos la lista)
+              const lockedByQuality = availableModelIds !== null
+                && o.value !== "auto"
+                && !availableModelIds.includes(o.value)
+              const locked = lockedByTier || lockedByQuality
+              const lockReason = lockedByTier
+                ? "Requiere backend local. No disponible en modo cloud."
+                : `Requiere mejor calidad de datos. Ve a EDA → ETL para desbloquearlo.`
               return (
                 <MenuItem key={o.value} value={o.value} disabled={locked} sx={{ opacity: locked ? 0.5 : 1 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
                     <span style={{ flex: 1 }}>{o.label}</span>
                     {locked && (
-                      <Tooltip title="Requiere backend local. No disponible en modo cloud." placement="right">
+                      <Tooltip title={lockReason} placement="right">
                         <LockIcon sx={{ fontSize: "0.875rem", color: "text.disabled" }} />
                       </Tooltip>
                     )}

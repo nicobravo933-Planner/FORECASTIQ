@@ -58,9 +58,54 @@ export interface DetectionResult {
   outlier_pct: number
   outlier_indices: number[]
   confidence: number
+  // E6: decision tree steps
+  decision_steps: DecisionStep[]
+}
+
+/** E6 — one step of the transparent detection pipeline */
+export interface DecisionStep {
+  step: number
+  label: string
+  passed: boolean
+  value: string
+  threshold: string
+  explanation: string
 }
 
 export type DataFreq = "D" | "W" | "M" | "Q"
+
+// ── Model Parameters (E4 — ParameterExplorer) ───────────────────────────────
+
+export interface HoltWintersParams {
+  alpha: number           // smoothing level (0-1)
+  beta: number            // smoothing trend (0-1)
+  gamma: number           // smoothing seasonal (0-1)
+  seasonal_periods: number
+  use_seasonal: boolean
+}
+
+export interface SarimaParams {
+  order: [number, number, number]           // [p, d, q]
+  seasonal_order: [number, number, number, number]  // [P, D, Q, s]
+}
+
+export interface MovingAverageParams {
+  window: number
+}
+
+export interface LightGBMParams {
+  best_params: Record<string, number>
+  used_cache: boolean
+  max_lag: number
+  n_trials: number
+}
+
+export type ModelParams =
+  | HoltWintersParams
+  | SarimaParams
+  | MovingAverageParams
+  | LightGBMParams
+  | Record<string, unknown>  // fallback para tipos futuros
 
 // ── Forecast ────────────────────────────────────────────────────
 export type ForecastStatus = "pending" | "started" | "done" | "failed"
@@ -77,6 +122,7 @@ export interface ForecastRunRequest {
   force_reoptimize?: boolean
   test_periods?: number   // 0 = hold-out auto 20%; N = hold-out manual N períodos
   cv_folds?: number       // 0 = sin CV; 2–5 = TimeSeriesSplit k folds
+  manual_params?: Record<string, unknown> | null  // E4: parámetros manuales del usuario
 }
 
 export interface ForecastStatusResponse {
@@ -143,6 +189,7 @@ export interface ForecastResult {
   test_periods: number
   cv_folds: number
   metrics: ForecastMetrics
+  model_params: ModelParams  // parámetros usados por el modelo (E4)
   historical: HistoricalPoint[]
   predictions: PredictionPoint[]
   // Hold-out manual (Paso 2) — empty arrays when test_periods === 0
@@ -220,6 +267,9 @@ export interface CalendarEvent {
   end_date: string
   impact_pct: number | null
   is_global: boolean
+  user_id?: string | null
+  dataset_id?: string | null
+  source: "manual" | "auto"   // auto = generado algorítmicamente (Black Friday, etc.)
 }
 
 // ── Forecast Compare ────────────────────────────────────────────
@@ -295,6 +345,45 @@ export interface BatchForecastResponse {
   model_used:  string
   duration_s:  number
   predictions: BatchPredictionPoint[]
+}
+
+// ── E7: Benchmark multi-modelo ─────────────────────────────────────────────
+
+export interface BenchmarkModelResult {
+  model:       string
+  label:       string
+  wape:        number | null
+  mae:         number | null
+  bias:        number | null
+  rmse:        number | null
+  fva:         number | null   // FVA vs Seasonal Naive (%)
+  is_winner:   boolean
+  is_baseline: boolean         // true = Seasonal Naive
+  error:       string | null
+}
+
+export interface BenchmarkResult {
+  dataset_id:   string
+  freq:         string
+  horizon:      number
+  n_obs:        number
+  test_periods: number
+  models:       BenchmarkModelResult[]
+  winner:       string | null
+  winner_label: string | null
+  naive_wape:   number | null
+  conclusion:   string
+  run_at:       string
+}
+
+export interface BenchmarkRunRequest {
+  dataset_id:   string
+  date_column:  string
+  target_column: string
+  freq:         string
+  horizon:      number
+  test_periods?: number
+  models?:      string[]
 }
 
 // ── Chat Conversations (chat history) ──────────────────────────────────────

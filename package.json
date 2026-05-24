@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@mui/x-charts": "^9.3.0",
+    "@mui/x-data-grid": "^9.3.0",
+    "@mui/x-date-pickers": "^9.3.0"
+  }
+}

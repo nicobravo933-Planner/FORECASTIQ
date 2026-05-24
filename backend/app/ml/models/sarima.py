@@ -28,8 +28,13 @@ class SarimaModel(ForecastModel):
     name = "sarima"
     requires_min_observations = 36  # mínimo para estimar correctamente
 
-    def __init__(self, ci_level: float = 0.95) -> None:
+    def __init__(self, ci_level: float = 0.95,
+                 order: tuple[int, int, int] | None = None,
+                 seasonal_order: tuple[int, int, int, int] | None = None) -> None:
         self.ci_level = ci_level
+        # E4: órdenes manuales — None = auto_arima los selecciona
+        self.manual_order = order
+        self.manual_seasonal_order = seasonal_order
         self._model_fit = None
         self._series: pd.Series | None = None
         self._freq: str | None = None
@@ -42,22 +47,36 @@ class SarimaModel(ForecastModel):
 
         # stepwise=True acelera mucho la búsqueda (esencial en producción)
         # max_p/max_q limitados para evitar overfitting en series cortas
-        self._model_fit = pm.auto_arima(
-            series.values,
-            m=m,
-            seasonal=m > 1,
-            stepwise=True,
-            information_criterion="aic",
-            max_p=3,
-            max_q=3,
-            max_P=2,
-            max_Q=2,
-            d=None,  # auto-detecta diferenciación
-            D=None,  # auto-detecta diferenciación estacional
-            error_action="ignore",
-            suppress_warnings=True,
-            n_jobs=1,  # determinista — importante para reproducibilidad
-        )
+        if self.manual_order is not None:
+            # E4: usuario especificó orden — ajuste directo sin búsqueda
+            p, d, q = self.manual_order
+            if self.manual_seasonal_order is not None:
+                P, D, Q, s = self.manual_seasonal_order
+            else:
+                P, D, Q, s = 1, 1, 1, m
+            import pmdarima as _pm
+            self._model_fit = _pm.ARIMA(
+                order=(p, d, q),
+                seasonal_order=(P, D, Q, s),
+                suppress_warnings=True,
+            ).fit(series.values)
+        else:
+            self._model_fit = pm.auto_arima(
+                series.values,
+                m=m,
+                seasonal=m > 1,
+                stepwise=True,
+                information_criterion="aic",
+                max_p=3,
+                max_q=3,
+                max_P=2,
+                max_Q=2,
+                d=None,  # auto-detecta diferenciación
+                D=None,  # auto-detecta diferenciación estacional
+                error_action="ignore",
+                suppress_warnings=True,
+                n_jobs=1,  # determinista — importante para reproducibilidad
+            )
 
     def predict(self, horizon: int) -> pd.DataFrame:
         if self._model_fit is None or self._series is None:

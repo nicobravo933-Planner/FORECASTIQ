@@ -33,9 +33,15 @@ class HoltWintersModel(ForecastModel):
     name = "holt_winters"
     requires_min_observations = 24  # necesita al menos 2 ciclos estacionales
 
-    def __init__(self, ci_level: float = 0.95, n_simulations: int = 1000) -> None:
+    def __init__(self, ci_level: float = 0.95, n_simulations: int = 1000,
+                 alpha: float | None = None, beta: float | None = None,
+                 gamma: float | None = None) -> None:
         self.ci_level = ci_level
         self.n_simulations = n_simulations
+        # Parámetros manuales (E4) — None = optimizado automáticamente por statsmodels
+        self.manual_alpha = alpha
+        self.manual_beta  = beta
+        self.manual_gamma = gamma
 
         self._model_fit = None
         self._series: pd.Series | None = None
@@ -59,7 +65,14 @@ class HoltWintersModel(ForecastModel):
             seasonal_periods=self._seasonal_periods if use_seasonal else None,
             initialization_method="estimated",
         )
-        self._model_fit = model.fit(optimized=True, remove_bias=True)
+        self._model_fit = model.fit(
+            optimized=True,
+            remove_bias=True,
+            # E4: si hay valores manuales, los pasa como semilla (statsmodels los usa como punto de partida o fijo)
+            smoothing_level=self.manual_alpha,
+            smoothing_trend=self.manual_beta,
+            smoothing_seasonal=self.manual_gamma,
+        )
 
     def predict(self, horizon: int) -> pd.DataFrame:
         if self._model_fit is None or self._series is None:

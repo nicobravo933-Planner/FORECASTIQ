@@ -1,0 +1,13 @@
+// Re-exports de todos los capítulos de la enciclopedia
+export { Chapter01 } from "./01-why-forecast"
+export { Chapter02 } from "./02-understanding-data"
+export { Chapter03 } from "./03-abc-xyz"
+export { Chapter04 } from "./04-metrics"
+export { Chapter05 } from "./05-naive-moving-average"
+export { Chapter06 } from "./06-exponential-smoothing"
+export { Chapter07 } from "./07-arima-sarima"
+export { Chapter08 } from "./08-feature-engineering"
+export { Chapter09 } from "./09-lightgbm"
+export { Chapter10 } from "./10-cross-validation"
+export { Chapter11 } from "./11-fva"
+export { Chapter12 } from "./12-human-biases"

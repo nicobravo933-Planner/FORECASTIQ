@@ -8,7 +8,7 @@ Endpoints de forecast — Phase 2.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -38,6 +38,7 @@ class ForecastRunRequest(BaseModel):
         default=0, ge=0, le=24
     )  # 0 = hold-out auto 20%; N = hold-out manual N períodos
     cv_folds: int = Field(default=0, ge=0, le=5)  # 0 = sin CV; 2–5 = TimeSeriesSplit k folds
+    manual_params: dict[str, object] | None = None  # E4: parámetros manuales del usuario
 
 
 class ForecastRunResponse(BaseModel):
@@ -111,6 +112,7 @@ class ForecastResultResponse(BaseModel):
     test_periods: int = 0
     cv_folds: int = 0
     metrics: ForecastMetrics
+    model_params: dict[str, object] = {}  # parámetros usados por el modelo (E4)
     historical: list[HistoricalPoint]
     predictions: list[PredictionPoint]
     # Hold-out manual (Paso 2) — empty when test_periods == 0
@@ -190,6 +192,7 @@ async def run_forecast(
         force_reoptimize=body.force_reoptimize,
         test_periods=body.test_periods,
         cv_folds=body.cv_folds,
+        manual_params=body.manual_params,
     )
     job_id: str = str(task.id)
     return ForecastRunResponse(job_id=job_id, status="done" if _eager_mode() else "pending")
@@ -264,6 +267,7 @@ async def get_forecast_result_endpoint(job_id: str) -> ForecastResultResponse:
         test_periods=data.get("test_periods", 0),
         cv_folds=data.get("cv_folds", 0),
         metrics=ForecastMetrics(**(data.get("metrics") or {})),
+        model_params=data.get("model_params") or {},
         historical=[HistoricalPoint(**p) for p in (data.get("historical") or [])],
         predictions=[PredictionPoint(**p) for p in (data.get("predictions") or [])],
         test_actual=[HistoricalPoint(**p) for p in (data.get("test_actual") or [])],
@@ -384,3 +388,253 @@ async def invalidate_hpo_cache(dataset_id: str, freq: str = "ME") -> None:
     from app.services.supabase import delete_hpo_cache
 
     delete_hpo_cache(dataset_id, freq)
+
+
+# ── E7: Benchmark multi-modelo ────────────────────────────────────────────────
+
+
+class BenchmarkRunRequest(BaseModel):
+    dataset_id: str
+    date_column: str
+    target_column: str
+    freq: str = "M"
+    horizon: int = Field(default=12, ge=1, le=60)
+    test_periods: int = Field(default=0, ge=0, le=24)
+    # Modelos a correr. Si está vacío, se eligen automáticamente según disponibilidad.
+    models: list[str] = []
+
+
+class BenchmarkModelResult(BaseModel):
+    model: str
+    label: str
+    wape: float | None = None
+    mae: float | None = None
+    bias: float | None = None
+    rmse: float | None = None
+    fva: float | None = None       # FVA vs Seasonal Naive (None para el Naive mismo)
+    is_winner: bool = False        # True = menor WAPE entre los no-naive
+    is_baseline: bool = False      # True = Seasonal Naive
+    error: str | None = None       # Si el modelo falló al correr
+
+
+class BenchmarkResult(BaseModel):
+    dataset_id: str
+    freq: str
+    horizon: int
+    n_obs: int
+    test_periods: int
+    models: list[BenchmarkModelResult]
+    winner: str | None = None      # model id del ganador (menor WAPE)
+    winner_label: str | None = None
+    naive_wape: float | None = None  # WAPE del Seasonal Naive (denominador del FVA)
+    conclusion: str = ""           # texto educativo automático
+    run_at: str = ""
+
+
+@router.post("/benchmark", response_model=BenchmarkResult)
+async def run_benchmark(
+    body: BenchmarkRunRequest,
+) -> BenchmarkResult:
+    """
+    E7 — Benchmarking multi-modelo.
+
+    Corre MA + HW + SARIMA + Seasonal Naive en paralelo (ThreadPoolExecutor)
+    y retorna tabla comparativa con WAPE/MAE/BIAS/RMSE/FVA.
+
+    Seasonal Naive siempre se incluye como baseline obligatorio.
+    LightGBM se agrega si está disponible en el tier local.
+    FVA = (WAPE_naive - WAPE_model) / WAPE_naive * 100 — positivo = el modelo mejora.
+
+    Timeout por modelo: 90 segundos (SARIMA puede ser lento en series largas).
+    """
+    import concurrent.futures
+    from datetime import datetime
+
+    import pandas as pd
+
+    from app.ml.models.base import ForecastModel as _ForecastModel
+    from app.ml.models.holt_winters import HoltWintersModel
+    from app.ml.models.moving_average import MovingAverageModel
+    from app.ml.models.sarima import SarimaModel
+    from app.ml.models.seasonal_naive import SeasonalNaiveModel
+    from app.services.storage import load_dataset as _load_dataset
+
+    # LightGBM solo en tier local
+    _lgbm_cls: type | None = None
+    try:
+        from app.ml.models.lightgbm_model import LightGBMModel as _LgbmCls
+        _lgbm_cls = _LgbmCls
+    except ImportError:
+        pass
+
+    # Normalizar frecuencia (Pandas 2.2+)
+    freq_alias = {"M": "ME", "Q": "QE", "A": "YE", "Y": "YE"}
+    freq = freq_alias.get(body.freq, body.freq)
+
+    # ── Cargar y preparar serie ──────────────────────────────────────────────
+    try:
+        df = _load_dataset(body.dataset_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    df[body.date_column] = pd.to_datetime(df[body.date_column])
+    df = df.sort_values(body.date_column).reset_index(drop=True)
+    series = pd.to_numeric(df[body.target_column], errors="coerce")
+    series = series.interpolate(method="linear").ffill().bfill()
+    series.index = pd.DatetimeIndex(df[body.date_column])
+    series = series.asfreq(freq, method="ffill")
+
+    # Winsorización p5/p95
+    p5  = float(series.quantile(0.05))
+    p95 = float(series.quantile(0.95))
+    series = series.clip(lower=p5, upper=p95)
+
+    n = len(series)
+
+    # ── Split train/test ─────────────────────────────────────────────────────
+    if body.test_periods > 0:
+        tp = min(body.test_periods, n - 4)
+        split = n - tp
+    else:
+        split = max(int(n * 0.8), n - body.horizon)
+        tp = n - split
+
+    train = series.iloc[:split]
+    test  = series.iloc[split:]
+
+    # ── Definir modelos a correr ─────────────────────────────────────────────
+    MODEL_LABELS: dict[str, str] = {
+        "seasonal_naive": "Seasonal Naive (baseline)",
+        "moving_average": "Promedio Móvil",
+        "holt_winters":   "Holt-Winters",
+        "sarima":         "SARIMA",
+        "lightgbm":       "LightGBM",
+    }
+
+    # Siempre incluir Naive + los modelos solicitados (o todos los disponibles si lista vacía)
+    default_models = ["seasonal_naive", "moving_average", "holt_winters", "sarima"]
+    if _lgbm_cls is not None:
+        default_models.append("lightgbm")
+
+    model_ids = body.models if body.models else default_models
+    # Naive siempre presente aunque no esté en la lista
+    if "seasonal_naive" not in model_ids:
+        model_ids = ["seasonal_naive"] + model_ids
+
+    def _build_model(model_id: str) -> _ForecastModel:
+        """Instancia el modelo según su id."""
+        if model_id == "seasonal_naive":
+            return SeasonalNaiveModel()
+        if model_id == "moving_average":
+            return MovingAverageModel()
+        if model_id == "holt_winters":
+            return HoltWintersModel()
+        if model_id == "sarima":
+            return SarimaModel()
+        if model_id == "lightgbm" and _lgbm_cls is not None:
+            instance = _lgbm_cls(dataset_id=body.dataset_id, user_id=None, force_reoptimize=False)
+            return cast(_ForecastModel, instance)
+        raise ValueError(f"Modelo desconocido: {model_id}")
+
+    def _run_one(model_id: str) -> BenchmarkModelResult:
+        """
+        Entrena y evalúa un modelo. Retorna BenchmarkModelResult.
+        En caso de fallo: retorna el resultado con campo error completado.
+        """
+        try:
+            model = _build_model(model_id)
+            model.fit(train)
+            metrics = model.evaluate(test) if len(test) > 0 else {}
+            return BenchmarkModelResult(
+                model=model_id,
+                label=MODEL_LABELS.get(model_id, model_id),
+                wape=metrics.get("wape"),
+                mae=metrics.get("mae"),
+                bias=metrics.get("bias"),
+                rmse=metrics.get("rmse"),
+                is_baseline=(model_id == "seasonal_naive"),
+            )
+        except Exception as exc:  # noqa: BLE001
+            return BenchmarkModelResult(
+                model=model_id,
+                label=MODEL_LABELS.get(model_id, model_id),
+                is_baseline=(model_id == "seasonal_naive"),
+                error=str(exc)[:200],
+            )
+
+    # ── Ejecutar modelos en paralelo ─────────────────────────────────────────
+    results: list[BenchmarkModelResult] = []
+    timeout_secs = 90  # SARIMA puede ser lento en series largas
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        future_map = {executor.submit(_run_one, mid): mid for mid in model_ids}
+        for future in concurrent.futures.as_completed(future_map, timeout=timeout_secs * len(model_ids)):
+            try:
+                results.append(future.result(timeout=timeout_secs))
+            except concurrent.futures.TimeoutError:
+                mid = future_map[future]
+                results.append(BenchmarkModelResult(
+                    model=mid,
+                    label=MODEL_LABELS.get(mid, mid),
+                    is_baseline=(mid == "seasonal_naive"),
+                    error="Timeout — modelo demasiado lento para esta serie.",
+                ))
+
+    # ── Calcular FVA ─────────────────────────────────────────────────────────
+    naive_result = next((r for r in results if r.model == "seasonal_naive"), None)
+    naive_wape = naive_result.wape if naive_result else None
+
+    for r in results:
+        if r.model == "seasonal_naive" or r.wape is None:
+            r.fva = None
+            continue
+        if naive_wape and naive_wape > 0:
+            r.fva = round((naive_wape - r.wape) / naive_wape * 100, 2)
+        else:
+            r.fva = None
+
+    # ── Determinar ganador (menor WAPE entre los no-naive con éxito) ─────────
+    candidates = [
+        r for r in results
+        if not r.is_baseline and r.wape is not None and r.error is None
+    ]
+    winner_result: BenchmarkModelResult | None = None
+    if candidates:
+        winner_result = min(candidates, key=lambda r: r.wape or float("inf"))
+        winner_result.is_winner = True
+
+    # Ordenar: Naive primero, luego por WAPE ascendente (None al final)
+    results.sort(
+        key=lambda r: (not r.is_baseline, r.wape if r.wape is not None else float("inf"))
+    )
+
+    # ── Conclusión educativa automática ──────────────────────────────────────
+    conclusion = ""
+    if winner_result and winner_result.wape is not None:
+        fva_str = ""
+        if winner_result.fva is not None:
+            fva_sign = "+" if winner_result.fva >= 0 else ""
+            fva_str = f" Mejora del {fva_sign}{winner_result.fva:.1f}% sobre el Seasonal Naive."
+        conclusion = (
+            f"{winner_result.label} ganó con WAPE={winner_result.wape * 100:.1f}%.{fva_str}"
+        )
+        if winner_result.fva is not None and winner_result.fva < 0:
+            conclusion += " ⚠️ FVA negativo: el modelo pierde contra el Naive. Considerá usar Seasonal Naive directamente."
+        elif naive_wape and winner_result.wape and winner_result.wape < naive_wape:
+            conclusion += " El modelo agrega valor real vs el baseline."
+    elif naive_result and naive_result.wape is not None:
+        conclusion = f"Solo el Seasonal Naive completó con éxito. WAPE={naive_result.wape * 100:.1f}%."
+
+    return BenchmarkResult(
+        dataset_id=body.dataset_id,
+        freq=body.freq,
+        horizon=body.horizon,
+        n_obs=n,
+        test_periods=tp,
+        models=results,
+        winner=winner_result.model if winner_result else None,
+        winner_label=winner_result.label if winner_result else None,
+        naive_wape=naive_wape,
+        conclusion=conclusion,
+        run_at=datetime.utcnow().isoformat(),
+    )

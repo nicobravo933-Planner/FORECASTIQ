@@ -46,7 +46,7 @@ services:
         condition: service_healthy
     # Queue "default" — solo modelos estadísticos (MA, HW, SARIMA)
     # Queue "heavy" la procesa el worker LOCAL de la PC (uv run celery -Q heavy)
-    command: uv run celery -A app.services.celery_app worker --queues=default --loglevel=info --concurrency=2
+    command: uv run celery -A app.services.celery_app worker --queues=default --loglevel=info --concurrency=${CELERYD_CONCURRENCY:-1}
     restart: unless-stopped
 
   celery_beat:

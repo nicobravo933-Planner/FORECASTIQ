@@ -1,0 +1,128 @@
+"use client"
+import Box from "@mui/material/Box"
+import Typography from "@mui/material/Typography"
+import Divider from "@mui/material/Divider"
+import Alert from "@mui/material/Alert"
+import { PythonCodeBlock } from "../PythonCodeBlock"
+import { WhenToUseCard } from "../WhenToUseCard"
+
+const LGB_CODE = `import lightgbm as lgb
+import optuna
+from sklearn.model_selection import TimeSeriesSplit
+
+def objective(trial, X, y):
+    params = {
+        'n_estimators':     trial.suggest_int('n_estimators', 100, 1000),
+        'max_depth':        trial.suggest_int('max_depth', 3, 8),
+        'learning_rate':    trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
+        'num_leaves':       trial.suggest_int('num_leaves', 15, 127),
+        'min_child_samples':trial.suggest_int('min_child_samples', 5, 50),
+        'subsample':        trial.suggest_float('subsample', 0.6, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'reg_alpha':        trial.suggest_float('reg_alpha', 1e-4, 10, log=True),
+    }
+    tscv   = TimeSeriesSplit(n_splits=5)
+    scores = []
+    for train_idx, val_idx in tscv.split(X):
+        X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_tr, y_val = y.iloc[train_idx], y.iloc[val_idx]
+        model = lgb.LGBMRegressor(**params, random_state=42, verbose=-1)
+        model.fit(X_tr, y_tr)
+        pred  = model.predict(X_val)
+        wape  = np.abs(y_val - pred).sum() / np.abs(y_val).sum()
+        scores.append(wape)
+    return np.mean(scores)
+
+# Búsqueda bayesiana de hiperparámetros
+study = optuna.create_study(direction='minimize', pruner=optuna.pruners.MedianPruner())
+study.optimize(lambda t: objective(t, X_train, y_train), n_trials=50, show_progress_bar=True)
+best_params = study.best_params`
+
+export function Chapter09() {
+  return (
+    <Box>
+      <Typography variant="h4" sx={{ fontWeight: 800, mb: "0.5rem" }}>🤖 LightGBM y Machine Learning</Typography>
+      <Typography sx={{ color: "text.secondary", fontSize: "1rem", mb: "2rem", fontStyle: "italic" }}>
+        Gradient boosting sobre features de series de tiempo + Optuna HPO
+      </Typography>
+
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.1 ¿Por qué Gradient Boosting?</Typography>
+      <Typography sx={{ mb: "1.5rem", lineHeight: 1.8 }}>
+        Los modelos estadísticos (SARIMA, Holt-Winters) son excelentes para series univariadas limpias. Pero
+        cuando tenés <strong>alta variabilidad</strong> (CV &gt; 1.0), muchas variables externas, o patrones
+        no lineales, el Gradient Boosting gana. LightGBM en particular es:
+      </Typography>
+      {[
+        ["⚡ Rápido", "Usa histogramas para el split — 10-100x más rápido que XGBoost en datasets grandes"],
+        ["🎯 Preciso", "Generalmente gana en benchmarks de series de tiempo con features bien construidos"],
+        ["🔧 Flexible", "Acepta cualquier variable externa como feature — precios, clima, promociones"],
+        ["📊 Interpretable", "Feature importance nativa — sabés qué variables importan más"],
+      ].map(([icon, desc]) => (
+        <Box key={icon as string} sx={{ display: "flex", gap: "0.75rem", mb: "0.75rem" }}>
+          <Typography sx={{ minWidth: "6.5rem", fontWeight: 600, fontSize: "0.875rem" }}>{icon as string}</Typography>
+          <Typography sx={{ color: "text.secondary", fontSize: "0.875rem", lineHeight: 1.7 }}>{desc as string}</Typography>
+        </Box>
+      ))}
+
+      <Divider sx={{ my: "1.5rem" }} />
+
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.2 El flujo de entrenamiento</Typography>
+      {[
+        "1. Feature Engineering (Cap. 8) → crear lags, rolling stats, variables de calendario",
+        "2. TimeSeriesSplit → validación cruzada temporal (nunca K-fold aleatorio)",
+        "3. Optuna → búsqueda bayesiana de hiperparámetros minimizando WAPE",
+        "4. Entrenamiento final con los mejores parámetros en todos los datos históricos",
+        "5. Predicción recursiva → se predice período a período usando predicciones previas como lags",
+      ].map((step, i) => (
+        <Box key={i} sx={{ display: "flex", gap: "0.75rem", mb: "0.625rem", alignItems: "flex-start" }}>
+          <Box sx={{ width: "1.5rem", height: "1.5rem", borderRadius: "50%", bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, mt: "0.0625rem" }}>
+            <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: "#fff" }}>{i + 1}</Typography>
+          </Box>
+          <Typography sx={{ fontSize: "0.875rem", lineHeight: 1.7 }}>{step.slice(3)}</Typography>
+        </Box>
+      ))}
+
+      <Divider sx={{ my: "1.5rem" }} />
+
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.3 Optuna — Búsqueda bayesiana</Typography>
+      <Typography sx={{ mb: "1rem", lineHeight: 1.8 }}>
+        Los hiperparámetros de LightGBM tienen un impacto enorme en la precisión. En lugar de un Grid Search
+        (fuerza bruta) u Random Search (aleatorio), Optuna usa <strong>optimización bayesiana</strong>:
+        aprende qué zonas del espacio de hiperparámetros son prometedoras y las explora más.
+      </Typography>
+      <Alert severity="info" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
+        Con <code>n_trials=50</code> y <code>MedianPruner</code>, Optuna encuentra parámetros muy buenos
+        en minutos. El pruner mata los trials malos temprano, ahorrando tiempo de cómputo.
+      </Alert>
+
+      <PythonCodeBlock code={LGB_CODE} title="LightGBM + Optuna + TimeSeriesSplit" />
+
+      <Divider sx={{ my: "1.5rem" }} />
+
+      <WhenToUseCard
+        model="LightGBM"
+        minObservations={104}
+        requirements={[
+          { condition: "Observaciones", value: "≥ 104 (para features de lag_12)" },
+          { condition: "CV (std/media)", value: "> 1.0 (demanda errática)" },
+          { condition: "Variables externas", value: "Opcional — potencia el modelo" },
+          { condition: "Quality Score", value: "≥ 80 pts para mejores resultados" },
+        ]}
+        proscons={{
+          pros: [
+            "Captura patrones no lineales",
+            "Acepta variables externas (precios, clima)",
+            "Feature importance interpretable",
+            "Optuna optimiza automáticamente",
+          ],
+          cons: [
+            "Necesita Feature Engineering previo",
+            "Riesgo de overfitting sin CV temporal",
+            "No da intervalos de confianza nativos",
+            "Predicción recursiva acumula error",
+          ],
+        }}
+      />
+    </Box>
+  )
+}

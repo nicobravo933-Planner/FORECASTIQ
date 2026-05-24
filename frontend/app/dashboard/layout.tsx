@@ -7,6 +7,8 @@
  * Toggle: hamburger en header
  */
 
+import AssessmentIcon from "@mui/icons-material/Assessment"
+import CleaningServicesIcon from "@mui/icons-material/CleaningServices"
 import BarChartIcon from "@mui/icons-material/BarChart"
 import GitHubIcon from "@mui/icons-material/GitHub"
 import LinkedInIcon from "@mui/icons-material/LinkedIn"
@@ -20,6 +22,7 @@ import InsightsIcon from "@mui/icons-material/Insights"
 import ScienceIcon from "@mui/icons-material/Science"
 import SettingsIcon from "@mui/icons-material/Settings"
 import ShowChartIcon from "@mui/icons-material/ShowChart"
+import MenuBookIcon from "@mui/icons-material/MenuBook"
 import StorageIcon from "@mui/icons-material/Storage"
 import Avatar from "@mui/material/Avatar"
 import Box from "@mui/material/Box"
@@ -51,6 +54,9 @@ const HEADER_HEIGHT     = "4rem"
 
 const NAV_ITEMS = [
   { label: "Inicio",     href: "/dashboard/home",    icon: <HomeIcon          fontSize="small" /> },
+  { label: "EDA",        href: "/dashboard/eda",     icon: <AssessmentIcon       fontSize="small" /> },
+  { label: "ETL",        href: "/dashboard/etl",     icon: <CleaningServicesIcon fontSize="small" /> },
+  { label: "Enciclopedia", href: "/dashboard/encyclopedia", icon: <MenuBookIcon fontSize="small" /> },
   { label: "Forecast",   href: "/dashboard/forecast", icon: <ShowChartIcon     fontSize="small" /> },
   { label: "Chat IA",    href: "/dashboard/chat",     icon: <SmartToyIcon      fontSize="small" /> },
   { label: "Calendario", href: "/dashboard/calendar", icon: <CalendarMonthIcon fontSize="small" /> },

@@ -20,6 +20,15 @@ interface CreateEventPayload {
   start_date: string
   end_date: string
   impact_pct: number | null
+  dataset_id?: string | null
+}
+
+interface UpdateEventPayload {
+  name?: string
+  type?: EventType
+  start_date?: string
+  end_date?: string
+  impact_pct?: number | null
 }
 
 interface UseEventsReturn {
@@ -29,6 +38,7 @@ interface UseEventsReturn {
   year: number
   setYear: (y: number) => void
   createEvent: (payload: CreateEventPayload) => Promise<void>
+  updateEvent: (id: string, payload: UpdateEventPayload) => Promise<void>
   deleteEvent: (id: string) => Promise<void>
   refresh: () => void
 }
@@ -66,6 +76,11 @@ export function useEvents(): UseEventsReturn {
     [],
   )
 
+  const updateEvent = useCallback(async (id: string, payload: UpdateEventPayload) => {
+    const updated = await api.patch<CalendarEvent>(`/api/events/${id}`, payload)
+    setEvents((prev) => prev.map((e) => (e.id === id ? updated : e)))
+  }, [])
+
   const deleteEvent = useCallback(async (id: string) => {
     await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/events/${id}`, {
       method: "DELETE",
@@ -80,6 +95,7 @@ export function useEvents(): UseEventsReturn {
     year,
     setYear,
     createEvent,
+    updateEvent,
     deleteEvent,
     refresh: fetchEvents,
   }

@@ -54,3 +54,21 @@ export function ImpactBadge({ impact_pct }: ImpactBadgeProps) {
 // Re-export event type config for use in other components
 export { TYPE_CONFIG }
 export type { EventType }
+
+// Badge para eventos auto-generados (Black Friday, Hot Sale, etc.)
+export function AutoBadge() {
+  return (
+    <Chip
+      label="Auto"
+      size="small"
+      variant="outlined"
+      sx={{
+        fontSize: "0.65rem",
+        fontWeight: 600,
+        borderColor: "primary.light",
+        color: "primary.main",
+        height: "1.1rem",
+      }}
+    />
+  )
+}

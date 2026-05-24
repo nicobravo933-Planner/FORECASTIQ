@@ -24,18 +24,25 @@ import Chip from "@mui/material/Chip"
 import Skeleton from "@mui/material/Skeleton"
 import Divider from "@mui/material/Divider"
 import Tooltip from "@mui/material/Tooltip"
+import CircularProgress from "@mui/material/CircularProgress"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import PlayArrowIcon from "@mui/icons-material/PlayArrow"
 import EventIcon from "@mui/icons-material/Event"
 import TuneIcon from "@mui/icons-material/Tune"
 import PsychologyIcon from "@mui/icons-material/Psychology"
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows"
 import { useForecast } from "@/hooks/useForecast"
 import { appStore } from "@/lib/appStore"
 import { ForecastConfigPanel, type ForecastConfig } from "@/components/forecast/ForecastConfigPanel"
 import { ForecastChart } from "@/components/forecast/ForecastChart"
 import { MetricsCard } from "@/components/forecast/MetricsCard"
 import { CvResultsCard } from "@/components/forecast/CvResultsCard"
-import type { DataFreq, ModelName, PredictionPoint } from "@/lib/types"
+import { ParameterExplorer, type ManualParams } from "@/components/forecast/ParameterExplorer"
+import { ModelGatingPanel } from "@/components/forecast/ModelGatingPanel"
+import { DetectionReportModal } from "@/components/forecast/DetectionReportModal"
+import { BenchmarkTable } from "@/components/forecast/BenchmarkTable"
+import { ExportButton } from "@/components/dataset/ExportButton"
+import type { DataFreq, ModelName, PredictionPoint, DetectionResult, BenchmarkResult } from "@/lib/types"
 import { api } from "@/lib/api"
 
 const MODEL_LABELS: Record<ModelName, string> = {
@@ -65,6 +72,59 @@ export default function ForecastPage() {
   const [forceReoptimize, setForceReoptimize] = useState(false)
   const [hpoCache, setHpoCache] = useState<{ wape: number | null; optimized_at: string | null } | null>(null)
 
+  // E5: quality score del dataset activo (leído desde appStore)
+  const [qualityData, setQualityData] = useState<{
+    score: number
+    label: string
+    modelIds: string[]
+  } | null>(() => {
+    // Solo inicializar en cliente
+    if (typeof window === "undefined") return null
+    return appStore.getQualityScore()
+  })
+
+  // E6: detection report modal
+  const [detectionModalOpen, setDetectionModalOpen] = useState(false)
+  const [detectionReport, setDetectionReport] = useState<DetectionResult | null>(() => {
+    if (typeof window === "undefined") return null
+    const raw = appStore.getDetectionReport()
+    return raw ? (raw as unknown as DetectionResult) : null
+  })
+
+  // E7: benchmark state
+  const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null)
+  const [benchmarkRunning, setBenchmarkRunning] = useState(false)
+  const [benchmarkError, setBenchmarkError] = useState<string | null>(null)
+
+  const handleRunBenchmark = async () => {
+    if (!config.datasetId || !config.dateCol || !config.targetCol) return
+    setBenchmarkRunning(true)
+    setBenchmarkError(null)
+    setBenchmarkResult(null)
+    try {
+      const res = await api.post<BenchmarkResult>("/api/forecast/benchmark", {
+        dataset_id:    config.datasetId,
+        date_column:   config.dateCol,
+        target_column: config.targetCol,
+        freq:          config.freq,
+        horizon:       config.horizon,
+        test_periods:  config.testPeriods,
+      })
+      setBenchmarkResult(res)
+    } catch (err) {
+      setBenchmarkError(err instanceof Error ? err.message : "Error al correr el benchmark")
+    } finally {
+      setBenchmarkRunning(false)
+    }
+  }
+
+  const handleOpenDetectionReport = () => {
+    // Re-read from store in case it was just updated by ForecastConfigPanel
+    const raw = appStore.getDetectionReport()
+    if (raw) setDetectionReport(raw as unknown as DetectionResult)
+    setDetectionModalOpen(true)
+  }
+
   // Pre-select cached model if we already ran forecast for this dataset
   useEffect(() => {
     if (!config.datasetId) return
@@ -73,6 +133,13 @@ export default function ForecastPage() {
       patchConfig({ modelOverride: cached as typeof config.modelOverride })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.datasetId])
+
+  // E5: re-leer quality score cuando cambia el dataset
+  useEffect(() => {
+    if (!config.datasetId) return
+    const q = appStore.getQualityScore()
+    setQualityData(q)
   }, [config.datasetId])
 
   const patchConfig = (patch: Partial<ForecastConfig>) =>
@@ -108,6 +175,38 @@ export default function ForecastPage() {
   const [compareData, setCompareData]     = useState<PredictionPoint[] | null>(null)
   const [eventsCount, setEventsCount]     = useState(0)
   const [loadingCompare, setLoadingCompare] = useState(false)
+
+  // E4: overfitting detection — warn when train WAPE << test WAPE
+  const overfitWarning: string | null = (() => {
+    if (!forecast.result?.metrics) return null
+    const { wape } = forecast.result.metrics
+    if (wape === null || wape === undefined) return null
+    // Si test WAPE > 1.5× auto 20% umbral, es sospechoso
+    // La heurística real compara con train WAPE, pero el backend no lo expone aún.
+    // Por ahora: WAPE > 40% siempre es una señal de alerta para el usuario.
+    if (wape > 0.40) {
+      return `WAPE = ${(wape * 100).toFixed(1)}% — El error es alto. Si usás Holt-Winters o SARIMA, probá bajar α o usar menos lags. Si usás LightGBM, revisá si hay overfitting: corré Rolling CV para comparar train vs test.`
+    }
+    return null
+  })()
+
+  // E4: re-run con parámetros manuales
+  const handleRerunWithParams = (manualParams: ManualParams) => {
+    appStore.setActiveDataset(config.datasetId, config.dateCol, config.targetCol, config.freq)
+    forecast.runForecast({
+      dataset_id:     config.datasetId.trim(),
+      date_column:    config.dateCol.trim(),
+      target_column:  config.targetCol.trim(),
+      freq:           config.freq,
+      horizon:        config.horizon,
+      model_override: forecast.result?.model_used ?? (config.modelOverride === "auto" ? null : config.modelOverride),
+      test_periods:   config.testPeriods,
+      cv_folds:       config.cvFolds,
+      manual_params:  manualParams as Record<string, unknown>,
+    })
+    setEventsOn(false)
+    setCompareData(null)
+  }
 
   const handleEventsToggle = async (checked: boolean) => {
     setEventsOn(checked)
@@ -211,12 +310,24 @@ export default function ForecastPage() {
         {/* ── LEFT: config panel ──────────────────────────────────────────── */}
         {/* When results are shown this Box spans full width — the RIGHT Box follows below */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem", gridColumn: showResults ? "1 / -1" : undefined }}>
+          {/* E5: Model Gating Panel — siempre visible cuando hay dataset activo */}
+          {config.datasetId && (
+            <ModelGatingPanel
+              qualityScore={qualityData?.score ?? null}
+              qualityLabel={qualityData?.label ?? null}
+              availableModelIds={qualityData?.modelIds ?? []}
+              selectedModel={config.modelOverride}
+              onSelectModel={(id) => patchConfig({ modelOverride: id as ModelName | "auto" })}
+            />
+          )}
           {(isIdle || isFailed) && (
             <Paper variant="outlined" sx={{ p: "1.5rem" }}>
               <ForecastConfigPanel
                 config={config}
                 onChange={patchConfig}
                 disabled={isRunning}
+                availableModelIds={qualityData?.modelIds ?? null}
+                onOpenDetectionReport={handleOpenDetectionReport}
               />
 
               <Divider sx={{ my: "1.25rem" }} />
@@ -425,6 +536,65 @@ export default function ForecastPage() {
                 modelUsed={forecast.result!.model_used}
                 testPeriods={forecast.result!.test_periods}
               />
+              {/* E8: export the dataset used for this forecast */}
+              {config.datasetId && (
+                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                  <ExportButton
+                    datasetId={config.datasetId}
+                    showBoth
+                    variant="outlined"
+                    size="small"
+                  />
+                </Box>
+              )}
+              {/* E6 + E7: action chips row */}
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.625rem", flexWrap: "wrap" }}>
+                <Chip
+                  icon={<PsychologyIcon sx={{ fontSize: "0.9rem !important" }} />}
+                  label="¿Por qué este modelo?"
+                  onClick={handleOpenDetectionReport}
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                  sx={{ cursor: "pointer", fontSize: "0.75rem" }}
+                />
+                {/* E7: Benchmark button */}
+                <Tooltip title="Corre MA + HW + SARIMA + Seasonal Naive en paralelo y compara sus métricas">
+                  <span>
+                    <Chip
+                      icon={
+                        benchmarkRunning
+                          ? <CircularProgress size="0.875rem" sx={{ color: "secondary.main" }} />
+                          : <CompareArrowsIcon sx={{ fontSize: "0.9rem !important" }} />
+                      }
+                      label={benchmarkRunning ? "Comparando..." : "Comparar modelos"}
+                      onClick={!benchmarkRunning ? handleRunBenchmark : undefined}
+                      color="secondary"
+                      variant="outlined"
+                      size="small"
+                      sx={{ cursor: benchmarkRunning ? "default" : "pointer", fontSize: "0.75rem" }}
+                    />
+                  </span>
+                </Tooltip>
+              </Box>
+              {/* E7: Benchmark error */}
+              {benchmarkError && (
+                <Alert severity="error" sx={{ fontSize: "0.8125rem" }}>{benchmarkError}</Alert>
+              )}
+              {/* E7: Benchmark results table */}
+              {benchmarkResult && (
+                <BenchmarkTable result={benchmarkResult} />
+              )}
+              {/* E4: Parameter Explorer */}
+              {forecast.result!.model_params && Object.keys(forecast.result!.model_params).length > 0 && (
+                <ParameterExplorer
+                  modelUsed={forecast.result!.model_used}
+                  modelParams={forecast.result!.model_params}
+                  overfitWarning={overfitWarning}
+                  onRerun={handleRerunWithParams}
+                  disabled={isRunning}
+                />
+              )}
               {/* CV results — solo si se solicitaron folds */}
               {forecast.result!.cv_summary && (
                 <CvResultsCard
@@ -444,6 +614,14 @@ export default function ForecastPage() {
         </Box>
 
       </Box>
+
+      {/* E6: Detection Report Modal */}
+      <DetectionReportModal
+        open={detectionModalOpen}
+        onClose={() => setDetectionModalOpen(false)}
+        report={detectionReport}
+      />
+
     </Box>
   )
 }

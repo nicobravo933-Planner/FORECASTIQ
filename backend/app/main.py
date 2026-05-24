@@ -13,6 +13,7 @@ from app.api.capabilities import router as capabilities_router
 from app.api.chat import router as chat_router
 from app.api.conversations import router as conversations_router
 from app.api.datasets import router as datasets_router
+from app.api.eda import router as eda_router
 from app.api.events import router as events_router
 from app.api.forecast import router as forecast_router
 from app.api.health import router as health_router
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(health_router)
+    app.include_router(eda_router)
     app.include_router(capabilities_router)
     app.include_router(datasets_router)
     app.include_router(forecast_router)

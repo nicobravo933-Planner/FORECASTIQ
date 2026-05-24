@@ -13,6 +13,7 @@ Endpoints de datasets — Phase 1 + Conectar Datos + Data Explorer.
   POST /api/datasets/explore/db/query    → ejecuta SELECT paginado sobre una tabla de la DB
   GET  /api/datasets/explore/demo        → paginación sobre el Parquet demo (Cloudflare R2) con filtros
   GET  /api/datasets/{id}/page           → paginación sobre un CSV ya subido
+  GET  /api/datasets/{id}/export         → descarga el dataset como Parquet o CSV (E8)
 """
 
 from __future__ import annotations
@@ -22,23 +23,31 @@ from typing import Any, cast
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 
+from app.core.config import settings as _settings
 from app.core.dependencies import OptionalUser
 from app.ml.detector import DetectionResult, detect_best_model
 from app.services.redis_cache import check_upload_rate_limit
+from app.services.storage import (
+    load_dataset,
+    new_dataset_id,
+    save_dataset,
+)
 from app.services.supabase import (
     delete_dataset,
-    download_csv,
     list_user_datasets,
     register_dataset,
-    upload_csv,
 )
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
-# Tamaño máximo de archivo: 10 MB
-MAX_FILE_SIZE = 10 * 1024 * 1024
+
+# Tamaño máximo leído desde config — EC2: 5 MB, local: 50 MB
+def _max_file_size() -> int:
+    return _settings.max_file_size_mb * 1024 * 1024
+
 
 # Extensiones soportadas y su tipo MIME aceptado
 _ACCEPTED_TYPES = {
@@ -336,26 +345,24 @@ async def upload_dataset(
 
     content = await file.read()
 
-    if len(content) > MAX_FILE_SIZE:
+    if len(content) > _max_file_size():
         raise HTTPException(
             status_code=400,
-            detail=f"El archivo supera el límite de {MAX_FILE_SIZE // (1024 * 1024)} MB.",
+            detail=f"El archivo supera el límite de {_settings.max_file_size_mb} MB.",
         )
 
     # Parsear según formato detectado
     df = _parse_any(content, fmt)
 
-    # Siempre almacenamos como CSV internamente — formato único para el pipeline
-    # Esto simplifica preview, detect, analyze-multi y todo lo demás.
-    upload_filename = filename if fmt == "csv" else filename.rsplit(".", 1)[0] + "_converted.csv"
-    csv_bytes = df.to_csv(index=False).encode("utf-8")
-
-    dataset_id = upload_csv(csv_bytes, upload_filename)
+    # Guardar via storage.py (supabase o local según STORAGE_BACKEND)
+    # Siempre se guarda como Parquet comprimido — más eficiente que CSV
+    dataset_id = new_dataset_id()
+    save_dataset(df, dataset_id)
 
     # Registra metadata
     register_dataset(
         dataset_id=dataset_id,
-        filename=upload_filename,
+        filename=filename,
         rows=len(df),
         columns=list(df.columns),
         user_id=str(user.user_id) if user else None,
@@ -363,7 +370,7 @@ async def upload_dataset(
 
     return UploadResponse(
         dataset_id=dataset_id,
-        filename=upload_filename,
+        filename=filename,
         rows=len(df),
         columns=list(df.columns),
     )
@@ -377,14 +384,12 @@ async def preview_dataset(dataset_id: str) -> PreviewResponse:
     - Info de cada columna: tipo inferido, nulls, valores de muestra
     """
     try:
-        content = download_csv(dataset_id)
-    except Exception as exc:
+        df = load_dataset(dataset_id)
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404,
             detail=f"Dataset '{dataset_id}' no encontrado.",
         ) from exc
-
-    df = _parse_csv(content)
 
     columns_info = [
         ColumnInfo(
@@ -417,14 +422,12 @@ async def detect_model(dataset_id: str, body: DetectRequest) -> DetectionResult:
     Requiere que el usuario especifique la columna de fecha y la columna objetivo.
     """
     try:
-        content = download_csv(dataset_id)
-    except Exception as exc:
+        df = load_dataset(dataset_id)
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404,
             detail=f"Dataset '{dataset_id}' no encontrado.",
         ) from exc
-
-    df = _parse_csv(content)
 
     # Validar columnas
     if body.date_column not in df.columns:
@@ -474,6 +477,10 @@ async def detect_model(dataset_id: str, body: DetectRequest) -> DetectionResult:
 # ── Connect DB ─────────────────────────────────────────────────────────
 
 
+# Engines bloqueados en cloud (requieren binarios del sistema no disponibles en EC2)
+_CLOUD_BLOCKED_ENGINES = {"oracle", "mssql"}
+
+
 class DbConnectRequest(BaseModel):
     connection_string: str
     query: str
@@ -501,6 +508,19 @@ async def connect_db(body: DbConnectRequest, user: OptionalUser = None) -> DbCon
     import re
 
     from sqlalchemy import create_engine, text
+
+    # Bloquear Oracle/MSSQL fuera de modo local
+    if _settings.server_tier != "local" and body.engine in _CLOUD_BLOCKED_ENGINES:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"El driver '{body.engine}' requiere Oracle Instant Client o ODBC Driver "
+                "(binarios no instalados en el servidor cloud). "
+                "Us\u00e1 PostgreSQL, MySQL o SQLite, o ejecut\u00e1 ForecastIQ localmente."
+            ),
+        )
+
+    # Solo SELECT—nunca DDL/DML
 
     # ── Validación de seguridad: solo SELECT permitido ───────────────────────────────
     query_stripped = body.query.strip().lstrip("-").strip()
@@ -543,12 +563,13 @@ async def connect_db(body: DbConnectRequest, user: OptionalUser = None) -> DbCon
             detail="La query debe retornar al menos 2 columnas (fecha y valor objetivo).",
         )
 
-    # Convertir a CSV y subirlo a Supabase Storage como si fuera un upload normal
-    csv_bytes = df.to_csv(index=False).encode("utf-8")
-    dataset_id = upload_csv(csv_bytes, f"db_query_{body.engine}.csv")
+    # Guardar via storage.py igual que un upload normal
+    db_filename = f"db_query_{body.engine}.csv"
+    dataset_id = new_dataset_id()
+    save_dataset(df, dataset_id)
     register_dataset(
         dataset_id=dataset_id,
-        filename=f"db_query_{body.engine}.csv",
+        filename=db_filename,
         rows=len(df),
         columns=list(df.columns),
         user_id=str(user.user_id) if user else None,
@@ -731,10 +752,10 @@ async def demo_load_sku(body: DemoLoadRequest, user: OptionalUser = None) -> Dem
     date_max = str(df["fecha"].max())[:10]
     date_range = f"{date_min} → {date_max}"
 
-    # Guardar como CSV en Supabase Storage (mismo pipeline que upload normal)
+    # Guardar via storage.py (mismo pipeline que upload normal)
     filename = f"demo_{body.sku_id.replace('-', '_')}.csv"
-    csv_bytes = df.to_csv(index=False).encode("utf-8")
-    dataset_id = upload_csv(csv_bytes, filename)
+    dataset_id = new_dataset_id()
+    save_dataset(df, dataset_id)
     register_dataset(
         dataset_id=dataset_id,
         filename=filename,
@@ -1092,12 +1113,11 @@ async def analyze_multi(
         raise HTTPException(status_code=400, detail=f"Modelo inválido. Opciones: {sorted(valid_m)}")
 
     try:
-        content = download_csv(dataset_id)
-    except Exception as exc:
+        df = load_dataset(dataset_id)
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404, detail=f"Dataset '{dataset_id}' no encontrado."
         ) from exc
-    df = _parse_csv(content)
 
     for lbl, col in [
         ("Fecha", body.date_col),
@@ -1562,13 +1582,11 @@ async def page_dataset(
     Soporta búsqueda por columna (contains, case-insensitive).
     """
     try:
-        content = download_csv(dataset_id)
-    except Exception as exc:
+        df = load_dataset(dataset_id)
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404, detail=f"Dataset '{dataset_id}' no encontrado."
         ) from exc
-
-    df = _parse_csv(content)
 
     # Filtrar si hay búsqueda
     if search_text and search_column and search_column in df.columns:
@@ -1589,4 +1607,65 @@ async def page_dataset(
         pages=pages,
         columns=list(df.columns),
         rows=rows,
+    )
+
+
+# ── Export (E8) ───────────────────────────────────────────────────────────────
+
+
+@router.get("/{dataset_id}/export")
+async def export_dataset(
+    dataset_id: str,
+    format: str = "parquet",  # "parquet" | "csv"
+) -> Response:
+    """
+    Descarga el dataset procesado (post-ETL si corresponde) como archivo.
+
+    Formatos:
+      parquet → Parquet snappy comprimido — ideal para ML, 3-5x más compacto que CSV.
+      csv     → CSV UTF-8 estándar — compatible con Excel y cualquier herramienta.
+
+    El archivo ya está guardado en storage como Parquet desde el upload.
+    No hay conversión costosa — solo lectura de disco/supabase.
+    Límite implícito: mismo que el upload (5 MB en EC2, 50 MB en local).
+    """
+    try:
+        df = load_dataset(dataset_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dataset '{dataset_id}' no encontrado.",
+        ) from exc
+
+    fmt = format.lower().strip()
+
+    if fmt == "csv":
+        # Convertir a CSV en memoria — sin tocar disco
+        csv_bytes = df.to_csv(index=False).encode("utf-8")
+        return Response(
+            content=csv_bytes,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="forecastiq_{dataset_id[:8]}.csv"',
+                "Content-Length": str(len(csv_bytes)),
+            },
+        )
+
+    if fmt == "parquet":
+        # Re-serializar desde el DataFrame (mantiene la abstracción de storage limpia)
+        buf = io.BytesIO()
+        df.to_parquet(buf, index=False, compression="snappy", engine="pyarrow")
+        parquet_bytes = buf.getvalue()
+        return Response(
+            content=parquet_bytes,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="forecastiq_{dataset_id[:8]}.parquet"',
+                "Content-Length": str(len(parquet_bytes)),
+            },
+        )
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Formato '{format}' no soportado. Usá 'parquet' o 'csv'.",
     )

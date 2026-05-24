@@ -15,6 +15,10 @@ const KEYS = {
   detectedModel: "fiq_detected_model",      // cached model recommendation per dataset
   detectedDsId:  "fiq_detected_dataset_id", // which dataset the cache belongs to
   pendingMsgs:   "fiq_pending_messages",    // transferencia globo → chat completo
+  qualityScore:  "fiq_quality_score",       // E5: quality score del dataset activo (0-100)
+  qualityLabel:  "fiq_quality_label",       // E5: "poor" | "fair" | "good" | "excellent"
+  modelsAvail:   "fiq_models_available",    // E5: JSON array de model ids disponibles
+  detectionReport: "fiq_detection_report",  // E6: DetectionResult cacheado del último detect
 } as const
 
 function safeGet(key: string): string | null {
@@ -70,6 +74,46 @@ export const appStore = {
       datasetId: safeGet(KEYS.datasetId),
       jobId:     safeGet(KEYS.jobId),
     }
+  },
+
+  // ── E5: Quality score + modelos disponibles ────────────────────────────────
+  // Persiste el último quality score calculado para el dataset activo.
+  // El Forecast page lo lee para bloquear/desbloquear modelos sin re-llamar al backend.
+  setQualityScore(score: number, label: string, modelIds: string[]): void {
+    safeSet(KEYS.qualityScore, String(score))
+    safeSet(KEYS.qualityLabel, label)
+    safeSet(KEYS.modelsAvail, JSON.stringify(modelIds))
+  },
+  getQualityScore(): { score: number; label: string; modelIds: string[] } | null {
+    const raw = safeGet(KEYS.qualityScore)
+    if (!raw) return null
+    return {
+      score:    parseInt(raw, 10),
+      label:    safeGet(KEYS.qualityLabel) ?? "poor",
+      modelIds: JSON.parse(safeGet(KEYS.modelsAvail) ?? "[]") as string[],
+    }
+  },
+  clearQualityScore(): void {
+    if (typeof window === "undefined") return
+    localStorage.removeItem(KEYS.qualityScore)
+    localStorage.removeItem(KEYS.qualityLabel)
+    localStorage.removeItem(KEYS.modelsAvail)
+  },
+
+  // ── E6: Detection report cache ──────────────────────────────────────────
+  // Persists the full DetectionResult so DetectionReportModal can render
+  // without re-calling the backend when navigating back to /forecast.
+  setDetectionReport(report: Record<string, unknown>): void {
+    safeSet(KEYS.detectionReport, JSON.stringify(report))
+  },
+  getDetectionReport(): Record<string, unknown> | null {
+    const raw = safeGet(KEYS.detectionReport)
+    if (!raw) return null
+    try { return JSON.parse(raw) as Record<string, unknown> } catch { return null }
+  },
+  clearDetectionReport(): void {
+    if (typeof window === "undefined") return
+    localStorage.removeItem(KEYS.detectionReport)
   },
 
   // ── Pending messages (globo → chat page) ─────────────────────────────────
