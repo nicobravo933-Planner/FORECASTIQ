@@ -5,15 +5,17 @@
 
 import { betterAuth } from "better-auth"
 import { anonymous } from "better-auth/plugins"
+import { Pool } from "pg"
 
 export const auth = betterAuth({
-  // Secret used to sign sessions — must match BETTER_AUTH_SECRET in .env.local
   secret: process.env.BETTER_AUTH_SECRET!,
-
-  // Base URL for redirect callbacks
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
 
-  // OAuth providers
+  // Conexión a Supabase PostgreSQL
+  database: new Pool({
+    connectionString: process.env.DATABASE_URL,
+  }),
+
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -25,18 +27,14 @@ export const auth = betterAuth({
     },
   },
 
-  // Where to redirect after login / logout
   redirects: {
     afterSignIn: "/dashboard/dataset",
     afterSignOut: "/login",
   },
 
-  // Plugins
   plugins: [
     anonymous({
-      // El invitado puede luego vincular su cuenta OAuth sin perder datos
       onLinkAccount: async ({ anonymousUser, newUser }) => {
-        // Aquí se podría migrar datasets del invitado al usuario real
         console.log(`Guest ${anonymousUser.user.id} linked to ${newUser.user.id}`)
       },
     }),
