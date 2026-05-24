@@ -75,6 +75,8 @@ export interface ForecastRunRequest {
   horizon: number
   model_override?: ModelName | null
   force_reoptimize?: boolean
+  test_periods?: number   // 0 = hold-out auto 20%; N = hold-out manual N períodos
+  cv_folds?: number       // 0 = sin CV; 2–5 = TimeSeriesSplit k folds
 }
 
 export interface ForecastStatusResponse {
@@ -105,6 +107,32 @@ export interface ForecastMetrics {
   fva: number | null
 }
 
+// ── CV Results (Paso 3) ───────────────────────────────────────────────
+
+export interface CvFold {
+  fold:        number
+  train_size:  number
+  test_size:   number
+  train_start: string
+  train_end:   string
+  test_start:  string
+  test_end:    string
+  wape:        number | null
+  mae:         number | null
+  bias:        number | null
+  rmse:        number | null
+}
+
+export interface CvSummary {
+  n_folds:   number
+  wape_mean: number | null
+  wape_std:  number | null
+  mae_mean:  number | null
+  mae_std:   number | null
+  bias_mean: number | null
+  folds:     CvFold[]
+}
+
 export interface ForecastResult {
   job_id: string
   status: ForecastStatus
@@ -112,9 +140,19 @@ export interface ForecastResult {
   model_used: ModelName
   freq: DataFreq
   horizon: number
+  test_periods: number
+  cv_folds: number
   metrics: ForecastMetrics
   historical: HistoricalPoint[]
   predictions: PredictionPoint[]
+  // Hold-out manual (Paso 2) — empty arrays when test_periods === 0
+  test_actual: HistoricalPoint[]
+  test_predicted: PredictionPoint[]
+  train_end_date: string | null
+  test_start_date: string | null
+  // Rolling CV (Paso 3) — null when cv_folds === 0
+  cv_summary: CvSummary | null
+  cv_warning: string | null
   created_at: string
 }
 

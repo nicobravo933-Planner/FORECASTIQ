@@ -151,3 +151,139 @@ async def batch_forecast(
         duration_s=result["duration_s"],
         predictions=[BatchPredictionPoint(**p) for p in result["predictions"]],
     )
+
+
+# ── Batch forecast desde dataset_id (alternativa a inline records) ──────────────
+
+
+class BatchFromDatasetRequest(BaseModel):
+    """Corre batch forecast sobre un CSV ya subido a Supabase Storage."""
+
+    dataset_id: str
+    date_col: str = "fecha"
+    target_col: str = "ventas"
+    id_col: str | None = None  # si None → serie única (se asigna unique_id="serie")
+    freq: str = Field(default="M", pattern="^(D|W|W-MON|ME|M|MS|QE|Q|QS|YE|Y)$")
+    horizon: int = Field(default=12, ge=1, le=365)
+    cluster_abc_col: str | None = None
+    cluster_xyz_col: str | None = None
+
+
+@router.post(
+    "/forecast-dataset",
+    response_model=BatchForecastResponse,
+    summary="Batch forecast desde dataset_id",
+    description=(
+        "Descarga el CSV desde Supabase Storage y corre el forecast vectorizado. "
+        "No transmite los datos crudos en el request — útil para datasets grandes."
+    ),
+)
+async def batch_forecast_from_dataset(
+    request: Request,
+    body: BatchFromDatasetRequest,
+    current_user: Annotated[OptionalUser, Depends(get_optional_user)],
+) -> BatchForecastResponse:
+    """Carga el CSV por dataset_id y corre el mismo pipeline vectorizado de /forecast."""
+    import io
+
+    import pandas as pd
+
+    # Rate limit — mismo bucket
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = current_user.user_id if current_user else None
+    identifier = f"{client_ip}:{user_id or 'anon'}"
+    rl = check_forecast_rate_limit(identifier)
+    if not rl.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Límite de forecasts alcanzado. Intentá de nuevo en {rl.reset_in} segundos.",
+            headers={"Retry-After": str(rl.reset_in)},
+        )
+
+    # Descargar CSV desde Supabase Storage
+    try:
+        from app.services.supabase import download_csv
+
+        content = download_csv(body.dataset_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dataset '{body.dataset_id}' no encontrado.",
+        ) from exc
+
+    # Parsear CSV
+    try:
+        df = pd.read_csv(io.BytesIO(content))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Error al leer el CSV: {exc}") from exc
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="El dataset está vacío.")
+
+    # Validar columnas requeridas
+    for label, col in [("Fecha", body.date_col), ("Valor", body.target_col)]:
+        if col not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Columna {label} '{col}' no encontrada. Disponibles: {list(df.columns)}",
+            )
+
+    # Si no hay id_col, tratar como serie única
+    if not body.id_col or body.id_col not in df.columns:
+        df["__unique_id"] = "serie"
+        id_col_eff = "__unique_id"
+    else:
+        id_col_eff = body.id_col
+
+    # Normalizar alias de frecuencia (el frontend puede mandar M o MS)
+    freq_alias = {"M": "MS", "Q": "QS", "W": "W-MON"}
+    freq_eff = freq_alias.get(body.freq, body.freq)
+
+    # Convertir a records para reutilizar run_batch_forecast
+    # df.to_dict retorna dict[Hashable, Any] — normalizamos claves a str para el type checker
+    records: list[dict[str, Any]] = [
+        {str(k): v for k, v in row.items()} for row in df.to_dict(orient="records")
+    ]
+
+    if len(records) > 50_000:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Máximo 50.000 registros por request. El dataset tiene {len(records):,}.",
+        )
+
+    log.info(
+        "batch_forecast_from_dataset",
+        dataset_id=body.dataset_id,
+        n_records=len(records),
+        freq=freq_eff,
+        horizon=body.horizon,
+    )
+
+    try:
+        from app.services.nixtla_forecaster import run_batch_forecast
+
+        result = run_batch_forecast(
+            records=records,
+            date_col=body.date_col,
+            target_col=body.target_col,
+            id_col=id_col_eff,
+            cluster_abc_col=body.cluster_abc_col,
+            cluster_xyz_col=body.cluster_xyz_col,
+            freq=freq_eff,
+            horizon=body.horizon,
+        )
+    except Exception as exc:
+        log.error("batch_forecast_from_dataset_failed", error=str(exc))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al ejecutar el forecast: {exc}",
+        ) from exc
+
+    return BatchForecastResponse(
+        n_series=result["n_series"],
+        horizon=result["horizon"],
+        freq=result["freq"],
+        model_used=result["model_used"],
+        duration_s=result["duration_s"],
+        predictions=[BatchPredictionPoint(**p) for p in result["predictions"]],
+    )

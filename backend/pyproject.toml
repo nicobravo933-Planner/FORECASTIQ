@@ -45,6 +45,7 @@ dependencies = [
     # ── Utils ────────────────────────────────────────────────
     "python-dotenv>=1.0.0",
     "pyarrow>=17.0.0",                # Parquet read/write (datasets + Spark interop)
+    "openpyxl>=3.1.0",                # Excel .xlsx read/write (pd.read_excel engine)
     "orjson>=3.10.0",                 # faster JSON serialization
     "tenacity>=8.5.0",                # retry logic for LLM calls
     "sentry-sdk[fastapi]>=2.13.0",    # error monitoring

@@ -22,6 +22,9 @@ export async function POST(req: NextRequest) {
   console.log("[auth] POST", req.nextUrl.pathname)
   console.log("[auth] DATABASE_URL set:", !!process.env.DATABASE_URL)
   console.log("[auth] BETTER_AUTH_SECRET set:", !!process.env.BETTER_AUTH_SECRET)
+  // DEBUG TEMP: show first 6 chars of password to confirm which value is loaded
+  const pw = process.env.SUPABASE_DB_PASSWORD ?? "(undefined)"
+  console.log("[auth] SUPABASE_DB_PASSWORD prefix:", pw.slice(0, 6))
   try {
     const res = await handler.POST(req)
     console.log("[auth] POST response status:", res.status)

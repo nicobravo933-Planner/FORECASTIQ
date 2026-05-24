@@ -253,14 +253,16 @@ Transform     → dbt — modelos SQL versionados
 
 ### Estado actual
 
-| Fuente | Estado | Notas |
-|--------|--------|-------|
-| CSV Upload (≤10 MB) | ✅ Funciona | Supabase Storage |
-| Dataset Demo 25k SKUs | ✅ Funciona | Cloudflare R2 + DuckDB |
-| Conectar DB (PostgreSQL/MySQL/SQLite) | ✅ Funciona | Conexión efímera, solo SELECT |
-| Parquet upload (local) | 🔜 Backlog | Solo modo local/ec2 |
-| BigQuery / Snowflake | ⏳ Fase 13 | — |
-| S3 / R2 directo | ⏳ Backlog | — |
+| Fuente | Local | EC2 | Vercel | Lo que se necesita |
+|--------|-------|-----|--------|---------------------|
+| CSV Upload (≤10 MB) | ✅ | ✅ | N/A | — |
+| Excel .xlsx Upload (≤10 MB) | ✅ | ✅ | N/A | openpyxl (ya en deps base) |
+| Parquet Upload (≤10 MB) | ✅ | ✅ | N/A | pyarrow (ya en deps base) |
+| Dataset Demo 25k SKUs | ✅ | ✅ | N/A | Cloudflare R2 + DuckDB |
+| Conectar DB (PostgreSQL/MySQL/SQLite/SQL Server) | ✅ | ✅ | N/A | SQLAlchemy + drivers base |
+| Conectar DB Oracle | ⚠️ | ⚠️ | N/A | Requiere cx_Oracle/oracledb (no instalado por defecto) |
+| BigQuery / Snowflake | ⏳ Fase 13 | ⏳ | N/A | — |
+| S3 / R2 directo | ⏳ Backlog | ⏳ | N/A | — |
 
 ### Notas sobre Storage
 

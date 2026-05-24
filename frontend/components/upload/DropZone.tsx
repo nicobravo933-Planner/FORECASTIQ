@@ -1,8 +1,9 @@
 "use client"
 
 /**
- * DropZone — drag-and-drop CSV upload area.
- * Calls onFile(file) when a valid CSV is dropped or selected.
+ * DropZone — drag-and-drop file upload area.
+ * Acepta: CSV (.csv), Excel (.xlsx, .xls), Parquet (.parquet)
+ * Calls onFile(file) when a valid file is dropped or selected.
  */
 
 import { useCallback, useState } from "react"
@@ -78,7 +79,7 @@ export function DropZone({ onFile, uploading, uploadProgress, filename }: DropZo
           ? filename
           : uploading
           ? "Subiendo archivo…"
-          : "Arrastrá tu CSV aquí"}
+          : "Arrastrá tu archivo aquí"}
       </Typography>
 
       <Typography
@@ -86,7 +87,7 @@ export function DropZone({ onFile, uploading, uploadProgress, filename }: DropZo
         color={dragOver ? "background.default" : "text.secondary"}
         textAlign="center"
       >
-        {done ? "Archivo subido correctamente" : "o seleccioná desde tu computadora · máx. 10 MB"}
+        {done ? "Archivo subido correctamente" : "o seleccioná desde tu computadora · CSV, Excel (.xlsx) o Parquet · máx. 10 MB"}
       </Typography>
 
       {uploading && (
@@ -112,7 +113,7 @@ export function DropZone({ onFile, uploading, uploadProgress, filename }: DropZo
           Seleccionar archivo
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,.xls,.parquet,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/octet-stream"
             hidden
             onChange={handleChange}
           />

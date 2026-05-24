@@ -29,8 +29,10 @@ import AutoGraphIcon from "@mui/icons-material/AutoGraph"
 import UploadFileIcon from "@mui/icons-material/UploadFile"
 import StorageIcon from "@mui/icons-material/Storage"
 import AddIcon from "@mui/icons-material/Add"
+import ManageSearchIcon from "@mui/icons-material/ManageSearch"
 import { api } from "@/lib/api"
 import { getSessionIds } from "@/lib/sessionDatasets"
+import { DemoSkuSearchDialog, type LoadedSku } from "@/components/forecast/DemoSkuSearchDialog"
 import type { DatasetListItem } from "@/lib/types"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ function sourceLabel(source: PickerDataset["source"]) {
 export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
   const [datasets, setDatasets] = useState<PickerDataset[]>([])
   const [loading, setLoading]   = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   const loadDatasets = useCallback(async () => {
     setLoading(true)
@@ -138,6 +141,24 @@ export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
 
   useEffect(() => { loadDatasets() }, [loadDatasets])
 
+  // Cuando el usuario carga un SKU desde el diálogo, lo agrega al picker y lo selecciona
+  const handleSkuLoaded = (result: LoadedSku) => {
+    const newDs: PickerDataset = {
+      dataset_id: result.dataset_id,
+      label:      result.sku_id,
+      sublabel:   `${result.rows.toLocaleString("es-AR")} filas · ${result.date_range} · ${result.categoria}`,
+      source:     "demo",
+      dateCol:    "fecha",
+      targetCol:  "ventas",
+      freq:       "D",
+    }
+    setDatasets((prev) => {
+      if (prev.find((d) => d.dataset_id === result.dataset_id)) return prev
+      return [newDs, ...prev]
+    })
+    onChange(newDs)
+  }
+
   const selected = datasets.find((d) => d.dataset_id === value)
 
   const demos = datasets.filter((d) => d.source === "demo")
@@ -157,6 +178,7 @@ export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
           label={loading ? "Cargando datasets…" : "Dataset activo"}
           disabled={loading}
           onChange={(e) => {
+            if (e.target.value === "__demo_search__") return  // handled by MenuItem onClick
             const picked = datasets.find((d) => d.dataset_id === e.target.value)
             if (picked) onChange(picked)
           }}
@@ -253,6 +275,27 @@ export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
               </Box>
             </MenuItem>
           ))}
+
+          {/* Buscar en dataset demo — abre el diálogo de SKU search */}
+          <ListSubheader sx={{ lineHeight: "2rem", fontSize: "0.6875rem", bgcolor: "background.default" }}>
+            Dataset demo 25k SKUs
+          </ListSubheader>
+          <MenuItem
+            value="__demo_search__"
+            onClick={(e) => {
+              e.stopPropagation()
+              setDialogOpen(true)
+            }}
+            sx={{ color: "primary.main" }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+              <ManageSearchIcon sx={{ fontSize: "1rem" }} />
+              <Box>
+                <Typography variant="body2" color="primary.main" fontWeight={600}>Buscar SKU en el demo…</Typography>
+                <Typography variant="caption" color="text.disabled">Electrónica, Alimentos, Indumentaria, Hogar, Deportes</Typography>
+              </Box>
+            </Box>
+          </MenuItem>
         </Select>
       </FormControl>
 
@@ -276,6 +319,13 @@ export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
           </Tooltip>
         </Box>
       )}
+
+      {/* Diálogo de búsqueda de SKU demo */}
+      <DemoSkuSearchDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onLoaded={handleSkuLoaded}
+      />
     </Box>
   )
 }

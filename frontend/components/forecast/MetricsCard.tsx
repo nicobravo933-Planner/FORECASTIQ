@@ -56,18 +56,35 @@ const METRIC_INFO: { key: keyof ForecastMetrics; label: string; tooltip: string;
 interface MetricsCardProps {
   metrics: ForecastMetrics
   modelUsed: ModelName
+  testPeriods?: number   // 0 = hold-out auto; N = hold-out manual
 }
 
-export function MetricsCard({ metrics, modelUsed }: MetricsCardProps) {
+export function MetricsCard({ metrics, modelUsed, testPeriods = 0 }: MetricsCardProps) {
+  const isManualTest = testPeriods > 0
   return (
     <Paper
       variant="outlined"
       sx={{ p: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}
     >
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-        <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
-          Métricas de evaluación
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+            Métricas de evaluación
+          </Typography>
+          <Tooltip
+            title={isManualTest
+              ? `Calculadas sobre los últimos ${testPeriods} períodos reales (hold-out manual). Alta confiabilidad.`
+              : "Calculadas sobre el último 20% de la serie (hold-out automático)."}
+          >
+            <Chip
+              label={isManualTest ? `Test ${testPeriods}p` : "Auto 20%"}
+              size="small"
+              color={isManualTest ? "success" : "default"}
+              variant="outlined"
+              sx={{ height: "1.25rem", fontSize: "0.625rem", cursor: "help" }}
+            />
+          </Tooltip>
+        </Box>
         <Chip
           label={MODEL_LABELS[modelUsed]}
           size="small"

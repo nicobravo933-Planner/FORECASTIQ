@@ -1,9 +1,10 @@
 """
 Endpoints de datasets — Phase 1 + Conectar Datos + Data Explorer.
 
-  POST /api/datasets/upload              → sube CSV a Supabase Storage
+  POST /api/datasets/upload              → sube CSV / Excel / Parquet a Supabase Storage
   GET  /api/datasets/{id}/preview        → primeras 10 filas + tipos de columnas
   POST /api/datasets/{id}/detect         → caracteriza la serie y recomienda modelo
+  POST /api/datasets/{id}/analyze-multi  → análisis vectorizado multi-serie sobre dataset propio
   POST /api/datasets/connect-db          → conexión DB efímera: SELECT → dataset_id
   GET  /api/datasets/demo/skus           → lista SKUs del dataset sintético por categoría
   POST /api/datasets/demo/load           → carga una serie de un SKU via DuckDB → dataset_id
@@ -17,7 +18,7 @@ Endpoints de datasets — Phase 1 + Conectar Datos + Data Explorer.
 from __future__ import annotations
 
 import io
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Request, UploadFile
@@ -36,8 +37,31 @@ from app.services.supabase import (
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
-# Tamaño máximo de CSV: 10 MB
+# Tamaño máximo de archivo: 10 MB
 MAX_FILE_SIZE = 10 * 1024 * 1024
+
+# Extensiones soportadas y su tipo MIME aceptado
+_ACCEPTED_TYPES = {
+    # CSV
+    "text/csv",
+    "application/csv",
+    "application/octet-stream",
+    # Excel
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    # Parquet
+    "application/parquet",
+}
+
+
+def _file_format(filename: str, content_type: str | None) -> str:
+    """Detecta el formato del archivo por extensión. Retorna 'csv' | 'xlsx' | 'parquet'."""
+    ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
+    if ext in ("xlsx", "xls"):
+        return "xlsx"
+    if ext == "parquet":
+        return "parquet"
+    return "csv"  # default — incluye .csv y octet-stream genérico
 
 
 # ── Schemas de respuesta ───────────────────────────────────────────────────────
@@ -120,6 +144,70 @@ def _parse_csv(content: bytes) -> pd.DataFrame:
     return df
 
 
+def _parse_xlsx(content: bytes) -> pd.DataFrame:
+    """Parsea bytes de Excel (.xlsx / .xls) a DataFrame.
+
+    Usa openpyxl para .xlsx (ya incluido como dependencia de pandas).
+    Lee la primera hoja por defecto.
+    """
+    try:
+        df: pd.DataFrame = pd.read_excel(io.BytesIO(content), engine="openpyxl")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se pudo leer el Excel: {exc}. Asegúrate de que sea .xlsx y no esté protegido.",
+        ) from exc
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="El Excel está vacío.")
+    if len(df.columns) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="El Excel debe tener al menos 2 columnas (fecha y valor objetivo).",
+        )
+    return df
+
+
+def _parse_parquet(content: bytes) -> pd.DataFrame:
+    """Parsea bytes de Parquet a DataFrame usando pyarrow (ya en dependencias base).
+
+    pyarrow está en las dependencias base del proyecto — disponible en local y EC2.
+    """
+    try:
+        import pyarrow.parquet as pq
+
+        table = pq.read_table(io.BytesIO(content))
+        df: pd.DataFrame = cast(pd.DataFrame, table.to_pandas())  # pyarrow stubs retornan Any
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="pyarrow no está instalado. Corré : uv sync",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se pudo leer el Parquet: {exc}",
+        ) from exc
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="El Parquet está vacío.")
+    if len(df.columns) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="El Parquet debe tener al menos 2 columnas (fecha y valor objetivo).",
+        )
+    return df
+
+
+def _parse_any(content: bytes, fmt: str) -> pd.DataFrame:
+    """Dispatcher: parsea el contenido según el formato detectado."""
+    if fmt == "xlsx":
+        return _parse_xlsx(content)
+    if fmt == "parquet":
+        return _parse_parquet(content)
+    return _parse_csv(content)
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
@@ -192,8 +280,14 @@ async def upload_dataset(
     request: Request, file: UploadFile, user: OptionalUser = None
 ) -> UploadResponse:
     """
-    Recibe un CSV, lo valida y lo sube a Supabase Storage.
+    Recibe un archivo (CSV, Excel .xlsx, Parquet), lo valida y lo sube a Supabase Storage.
+    Internamente siempre se convierte a CSV para estandarizar el pipeline.
     Retorna el dataset_id para usar en los siguientes endpoints.
+
+    Formatos soportados:
+      - CSV  (.csv)         — local y EC2
+      - Excel (.xlsx, .xls) — local y EC2 (openpyxl incluido en pandas)
+      - Parquet (.parquet)  — local y EC2 (pyarrow en dependencias base)
 
     Rate limit: 5 uploads por hora por IP.
     """
@@ -210,10 +304,34 @@ async def upload_dataset(
             },
             headers={"Retry-After": str(rl.reset_in)},
         )
-    if file.content_type not in ("text/csv", "application/csv", "application/octet-stream"):
+
+    filename = file.filename or "upload"
+    fmt = _file_format(filename, file.content_type)
+
+    # Validación de content-type — permisiva para octet-stream (muchos browsers envían esto)
+    # La validación real la hace el parser según la extensión.
+    content_type = file.content_type or ""
+    known_type = (
+        fmt == "csv"
+        and content_type in ("text/csv", "application/csv", "application/octet-stream", "")
+        or fmt == "xlsx"
+        and content_type
+        in (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel",
+            "application/octet-stream",
+            "",
+        )
+        or fmt == "parquet"
+        and content_type in ("application/parquet", "application/octet-stream", "")
+    )
+    if not known_type:
         raise HTTPException(
             status_code=400,
-            detail=f"Tipo de archivo no soportado: {file.content_type}. Solo se acepta CSV.",
+            detail=(
+                f"Tipo de archivo no soportado: {content_type}. "
+                "Se aceptan CSV (.csv), Excel (.xlsx) y Parquet (.parquet)."
+            ),
         )
 
     content = await file.read()
@@ -224,15 +342,20 @@ async def upload_dataset(
             detail=f"El archivo supera el límite de {MAX_FILE_SIZE // (1024 * 1024)} MB.",
         )
 
-    # Validamos que el CSV sea parseable antes de subirlo
-    df = _parse_csv(content)
+    # Parsear según formato detectado
+    df = _parse_any(content, fmt)
 
-    dataset_id = upload_csv(content, file.filename or "upload.csv")
+    # Siempre almacenamos como CSV internamente — formato único para el pipeline
+    # Esto simplifica preview, detect, analyze-multi y todo lo demás.
+    upload_filename = filename if fmt == "csv" else filename.rsplit(".", 1)[0] + "_converted.csv"
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
 
-    # Registra metadata en la tabla datasets (user_id puede ser None en modo demo)
+    dataset_id = upload_csv(csv_bytes, upload_filename)
+
+    # Registra metadata
     register_dataset(
         dataset_id=dataset_id,
-        filename=file.filename or "upload.csv",
+        filename=upload_filename,
         rows=len(df),
         columns=list(df.columns),
         user_id=str(user.user_id) if user else None,
@@ -240,7 +363,7 @@ async def upload_dataset(
 
     return UploadResponse(
         dataset_id=dataset_id,
-        filename=file.filename or "upload.csv",
+        filename=upload_filename,
         rows=len(df),
         columns=list(df.columns),
     )
@@ -648,7 +771,12 @@ class CategoryAnalysisResponse(BaseModel):
     n_skus: int
     freq: str
     horizon: int
+    model_used: str  # modelo efectivamente usado
     duration_s: float
+    # Validación de mínimos (retornada antes de correr para informar al frontend)
+    n_obs_median: int | None = None  # mediana de obs por SKU
+    n_skus_short: int = 0  # SKUs descartados por ser demasiado cortos
+    min_obs_required: int = 0  # mínimo requerido según freq+horizon
     # Métricas agregadas
     wape_mean: float | None
     wape_p50: float | None
@@ -664,20 +792,20 @@ class CategoryAnalysisResponse(BaseModel):
 @router.get("/demo/analyze-category", response_model=CategoryAnalysisResponse)
 async def demo_analyze_category(
     categoria: str = "Electrónica",
-    freq: str = "W",  # agrupamos a semanal para hacer más rápido el forecast
+    freq: str = "W",
     horizon: int = 12,
-    max_skus: int = 200,  # límite para no tardar más de 30s en local
+    max_skus: int = 200,
+    model: str = "AutoETS",  # AutoETS | SeasonalNaive | AutoARIMA
 ) -> CategoryAnalysisResponse:
     """
     Modo 2: corre StatsForecast (Nixtla) sobre todos los SKUs de una categoría.
     Retorna métricas agregadas (WAPE/BIAS por segmento) + top 20 mejores/peores SKUs.
 
-    Flujo:
-      1. DuckDB lee datos de la categoría desde Cloudflare R2
-      2. Agrega de diario a semanal (suma de ventas)
-      3. StatsForecast AutoETS vectorizado sobre todos los SKUs
-      4. Evalua con hold-out 20% por SKU
-      5. Retorna métricas agregadas + top/bottom SKUs
+    Parámetros:
+      model: modelo vectorizado a usar.
+        AutoETS        → mejor para series con estacionalidad clara (default)
+        SeasonalNaive  → baseline rápido, siempre disponible
+        AutoARIMA      → más robusto pero más lento (~3-5x)
 
     Solo disponible en tier local (requiere statsforecast del grupo heavy-ml).
     """
@@ -688,13 +816,22 @@ async def demo_analyze_category(
     # Verificar deps heavy-ml
     try:
         from statsforecast import StatsForecast
-        from statsforecast.models import AutoETS, SeasonalNaive
+        from statsforecast.models import AutoARIMA, AutoETS, SeasonalNaive
     except ImportError as exc:
         raise HTTPException(
             status_code=503,
             detail="Análisis de categoría requiere el grupo heavy-ml (statsforecast + polars). "
             "Instalá con: uv sync --group heavy-ml",
         ) from exc
+
+    # Validar modelo solicitado
+    valid_models = {"AutoETS", "SeasonalNaive", "AutoARIMA"}
+    model_name_clean = model.strip()
+    if model_name_clean not in valid_models:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Modelo inválido '{model_name_clean}'. Opciones: {sorted(valid_models)}",
+        )
 
     import duckdb
 
@@ -752,12 +889,23 @@ async def demo_analyze_category(
     raw["ds"] = pd.to_datetime(raw["ds"])
     raw["y"] = pd.to_numeric(raw["y"], errors="coerce").fillna(0)
 
+    # Mínimo de obs requerido: al menos horizon*3 + 4 (regla práctica).
+    # Para AutoARIMA necesitamos al menos 2 * season_len.
+    season_len_check = {"D": 7, "W": 52, "M": 12, "Q": 4}.get(freq, 52)
+    min_obs_required = max(
+        horizon + 4, season_len_check * 2 if model_name_clean != "SeasonalNaive" else horizon + 4
+    )
+
     # Hold-out: últimos horizon períodos como test
     panel_list = []
     test_list = []
+    n_skus_short = 0
+    obs_per_sku: list[int] = []
     for sku, grp in raw.groupby("sku_id"):
         grp = grp.sort_values("ds").reset_index(drop=True)
-        if len(grp) < horizon + 4:
+        obs_per_sku.append(len(grp))
+        if len(grp) < min_obs_required:
+            n_skus_short += 1
             continue  # serie demasiado corta
         train = grp.iloc[:-horizon].copy()
         test = grp.iloc[-horizon:].copy()
@@ -765,6 +913,10 @@ async def demo_analyze_category(
         test["unique_id"] = str(sku)
         panel_list.append(train[["unique_id", "ds", "y"]])
         test_list.append(test[["unique_id", "ds", "y", "cluster_abc", "cluster_xyz"]])
+
+    import numpy as np
+
+    n_obs_median = int(np.median(obs_per_sku)) if obs_per_sku else None
 
     if not panel_list:
         raise HTTPException(status_code=422, detail="Todas las series son demasiado cortas.")
@@ -780,13 +932,18 @@ async def demo_analyze_category(
 
     # ── 3. StatsForecast vectorizado ───────────────────────────────────────────────────
     season_len = {"D": 7, "W": 52, "M": 12, "Q": 4}.get(freq, 52)
-    # Mapeo freq → alias pandas aceptado por StatsForecast.
-    # IMPORTANTE: DuckDB date_trunc('week')  → LUNES (ISO 8601)  → usar W-MON
-    #             DuckDB date_trunc('month') → primer día del mes  → usar MS (Month Start)
-    #             "ME" (Month End) genera el último día del mes → mismatch garantizado
     _freq_alias = {"D": "D", "W": "W-MON", "M": "MS", "Q": "QS"}
+
+    # Construir modelo según parámetro
+    if model_name_clean == "SeasonalNaive":
+        sf_model = SeasonalNaive(season_length=season_len)
+    elif model_name_clean == "AutoARIMA":
+        sf_model = AutoARIMA(season_length=season_len)
+    else:  # AutoETS (default)
+        sf_model = AutoETS(season_length=season_len)
+
     sf = StatsForecast(
-        models=[AutoETS(season_length=season_len)],
+        models=[sf_model],
         freq=_freq_alias.get(freq, "W"),
         n_jobs=-1,
         fallback_model=SeasonalNaive(season_length=season_len),
@@ -841,8 +998,6 @@ async def demo_analyze_category(
         raise HTTPException(status_code=422, detail="No se pudieron calcular métricas.")
 
     # ── 5. Agregar métricas ────────────────────────────────────────────────────────────────
-    import numpy as np
-
     wapes = [m.wape for m in sku_metrics if m.wape is not None]
     biases = [m.bias for m in sku_metrics if m.bias is not None]
 
@@ -879,7 +1034,11 @@ async def demo_analyze_category(
         n_skus=len(sku_metrics),
         freq=freq,
         horizon=horizon,
+        model_used=model_name_clean,
         duration_s=duration,
+        n_obs_median=n_obs_median,
+        n_skus_short=n_skus_short,
+        min_obs_required=min_obs_required,
         wape_mean=round(float(np.mean(wapes)), 4) if wapes else None,
         wape_p50=round(float(np.percentile(wapes, 50)), 4) if wapes else None,
         wape_p90=round(float(np.percentile(wapes, 90)), 4) if wapes else None,
@@ -887,6 +1046,192 @@ async def demo_analyze_category(
         by_segment=clean_segment,
         worst_skus=worst_skus,
         best_skus=best_skus,
+    )
+
+
+# ── Multi-serie: análisis vectorizado sobre dataset propio ─────
+
+
+class MultiAnalyzeRequest(BaseModel):
+    date_col: str
+    id_col: str  # columna de agrupación (SKU, producto, cliente...)
+    value_col: str
+    freq: str = "M"  # D | W | M | Q
+    horizon: int = 12
+    model: str = "AutoETS"  # AutoETS | SeasonalNaive | AutoARIMA
+    max_series: int = 500
+
+
+@router.post("/{dataset_id}/analyze-multi", response_model=CategoryAnalysisResponse)
+async def analyze_multi(
+    dataset_id: str,
+    body: MultiAnalyzeRequest,
+) -> CategoryAnalysisResponse:
+    """
+    Análisis vectorizado multi-serie sobre dataset propio.
+    Requiere CSV con columnas: date_col, id_col (agrupación), value_col (numérico).
+    Mismo pipeline StatsForecast que demo/analyze-category. Sin ABC-XYZ.
+    Solo tier local (heavy-ml).
+    """
+    import time
+
+    import numpy as np
+
+    t0 = time.perf_counter()
+    try:
+        from statsforecast import StatsForecast
+        from statsforecast.models import AutoARIMA, AutoETS, SeasonalNaive
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503, detail="Requiere heavy-ml: uv sync --group heavy-ml"
+        ) from exc
+
+    valid_m = {"AutoETS", "SeasonalNaive", "AutoARIMA"}
+    model_name = body.model.strip()
+    if model_name not in valid_m:
+        raise HTTPException(status_code=400, detail=f"Modelo inválido. Opciones: {sorted(valid_m)}")
+
+    try:
+        content = download_csv(dataset_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=404, detail=f"Dataset '{dataset_id}' no encontrado."
+        ) from exc
+    df = _parse_csv(content)
+
+    for lbl, col in [
+        ("Fecha", body.date_col),
+        ("Agrupación", body.id_col),
+        ("Valor", body.value_col),
+    ]:
+        if col not in df.columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Columna {lbl} '{col}' no encontrada. Disponibles: {list(df.columns)}",
+            )
+
+    try:
+        df[body.date_col] = pd.to_datetime(df[body.date_col])
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"No se pudo parsear '{body.date_col}' como fecha: {exc}"
+        ) from exc
+
+    df[body.value_col] = pd.to_numeric(df[body.value_col], errors="coerce").fillna(0)
+    df[body.id_col] = df[body.id_col].astype(str)
+
+    freq = body.freq.upper()
+    _fmap = {"D": "D", "W": "W-MON", "M": "MS", "Q": "QS"}
+    if freq not in _fmap:
+        raise HTTPException(
+            status_code=400, detail=f"Frecuencia inválida '{freq}'. Opciones: D, W, M, Q"
+        )
+    freq_pd = _fmap[freq]
+
+    raw_m = (
+        df.groupby([body.id_col, pd.Grouper(key=body.date_col, freq=freq_pd)])[body.value_col]
+        .sum()
+        .reset_index()
+        .rename(columns={body.id_col: "unique_id", body.date_col: "ds", body.value_col: "y"})
+    )
+    raw_m["unique_id"] = raw_m["unique_id"].astype(str)
+    raw_m["ds"] = pd.to_datetime(raw_m["ds"]).dt.normalize()
+    raw_m["y"] = raw_m["y"].fillna(0)
+
+    all_ids = raw_m["unique_id"].unique()
+    if len(all_ids) > body.max_series:
+        raw_m = raw_m[raw_m["unique_id"].isin(all_ids[: body.max_series])]
+
+    sl = {"D": 7, "W": 52, "M": 12, "Q": 4}.get(freq, 12)
+    min_obs = max(body.horizon + 4, sl * 2 if model_name != "SeasonalNaive" else body.horizon + 4)
+    panels, tests, n_short, obs_lst = [], [], 0, []
+
+    for _uid, grp in raw_m.groupby("unique_id"):
+        grp = grp.sort_values("ds").reset_index(drop=True)
+        obs_lst.append(len(grp))
+        if len(grp) < min_obs:
+            n_short += 1
+            continue
+        panels.append(grp.iloc[: -body.horizon][["unique_id", "ds", "y"]])
+        tests.append(grp.iloc[-body.horizon :][["unique_id", "ds", "y"]])
+
+    n_obs_med = int(np.median(obs_lst)) if obs_lst else None
+    if not panels:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Series demasiado cortas. Mínimo: {min_obs}. Mediana: {n_obs_med}. Reductí horizonte o usá SeasonalNaive.",
+        )
+
+    panel_df = pd.concat(panels, ignore_index=True)
+    test_df2 = pd.concat(tests, ignore_index=True)
+
+    sfm = (
+        SeasonalNaive(season_length=sl)
+        if model_name == "SeasonalNaive"
+        else (
+            AutoARIMA(season_length=sl) if model_name == "AutoARIMA" else AutoETS(season_length=sl)
+        )
+    )
+    sf2 = StatsForecast(
+        models=[sfm], freq=freq_pd, n_jobs=-1, fallback_model=SeasonalNaive(season_length=sl)
+    )
+    try:
+        fc2 = sf2.forecast(df=panel_df, h=body.horizon).reset_index()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error StatsForecast: {exc}") from exc
+
+    pc = [c for c in fc2.columns if c not in ("unique_id", "ds")][0]
+    fc2 = fc2.rename(columns={pc: "predicted"})
+    fc2["predicted"] = fc2["predicted"].clip(lower=0)
+    fc2["unique_id"] = fc2["unique_id"].astype(str)
+    fc2["ds"] = pd.to_datetime(fc2["ds"]).dt.normalize()
+
+    merged2 = test_df2.merge(
+        fc2[["unique_id", "ds", "predicted"]], on=["unique_id", "ds"], how="inner"
+    )
+    mets: list[SkuMetrics] = []
+    for uid, grp in merged2.groupby("unique_id"):
+        a = grp["y"].to_numpy(dtype=float)
+        p = grp["predicted"].to_numpy(dtype=float)
+        d = float(abs(a).sum())
+        wv = float(abs(a - p).sum() / d) if d > 0 else None
+        ma = float(a.mean())
+        bv = float((p - a).mean() / ma) if ma != 0 else None
+        mets.append(
+            SkuMetrics(
+                sku_id=str(uid),
+                wape=round(wv, 4) if wv is not None else None,
+                mae=round(float(abs(a - p).mean()), 4),
+                bias=round(bv, 4) if bv is not None else None,
+                model=model_name,
+                n_obs=len(grp),
+            )
+        )
+
+    if not mets:
+        raise HTTPException(status_code=422, detail="No se pudieron calcular métricas.")
+
+    ws = [m.wape for m in mets if m.wape is not None]
+    bs = [m.bias for m in mets if m.bias is not None]
+    sm = sorted(mets, key=lambda m: m.wape or 999)
+    dur = round(time.perf_counter() - t0, 2)
+    return CategoryAnalysisResponse(
+        categoria=body.id_col,
+        n_skus=len(mets),
+        freq=freq,
+        horizon=body.horizon,
+        model_used=model_name,
+        duration_s=dur,
+        n_obs_median=n_obs_med,
+        n_skus_short=n_short,
+        min_obs_required=min_obs,
+        wape_mean=round(float(np.mean(ws)), 4) if ws else None,
+        wape_p50=round(float(np.percentile(ws, 50)), 4) if ws else None,
+        wape_p90=round(float(np.percentile(ws, 90)), 4) if ws else None,
+        bias_mean=round(float(np.mean(bs)), 4) if bs else None,
+        by_segment={},
+        worst_skus=sm[-20:][::-1],
+        best_skus=sm[:20],
     )
 
 

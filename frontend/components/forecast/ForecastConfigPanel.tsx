@@ -25,14 +25,17 @@ import Skeleton from "@mui/material/Skeleton"
 import Chip from "@mui/material/Chip"
 import Tooltip from "@mui/material/Tooltip"
 import Alert from "@mui/material/Alert"
+import ToggleButton from "@mui/material/ToggleButton"
 import LockIcon from "@mui/icons-material/Lock"
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline"
 import WarningAmberIcon from "@mui/icons-material/WarningAmber"
-import { useEffect } from "react"
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome"
+import { useEffect, useState } from "react"
 import { useColumnPreview } from "@/hooks/useColumnPreview"
 import { useCapabilities } from "@/hooks/useCapabilities"
 import { DatasetPicker } from "@/components/forecast/DatasetPicker"
 import { HorizonSelector } from "@/components/forecast/HorizonSelector"
+import { inferFreqFromSamples, type FreqDetectionResult } from "@/lib/freqDetection"
 import type { DataFreq, ModelName, DatasetColumn } from "@/lib/types"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -44,6 +47,8 @@ export interface ForecastConfig {
   freq:          DataFreq
   horizon:       number
   modelOverride: ModelName | "auto"
+  testPeriods:   number   // 0 = hold-out auto; N = hold-out manual
+  cvFolds:       number   // 0 = sin CV; 2–5 = TimeSeriesSplit k folds
 }
 
 interface ForecastConfigPanelProps {
@@ -117,6 +122,7 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
   const preview  = useColumnPreview(config.datasetId || null)
   const { caps } = useCapabilities()
   const isLocal  = caps.tier === "local"
+  const [detectedFreq, setDetectedFreq] = useState<FreqDetectionResult | null>(null)
 
   // Auto-select best columns when preview loads and fields are still empty
   useEffect(() => {
@@ -137,6 +143,26 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
     if (Object.keys(patch).length) onChange(patch)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview.status])
+
+  // Detect frequency from date column sample values
+  useEffect(() => {
+    if (preview.status !== "ready" || !config.dateCol) {
+      setDetectedFreq(null)
+      return
+    }
+    const dateColMeta = preview.columns.find((c) => c.name === config.dateCol)
+    if (!dateColMeta || dateColMeta.dtype !== "datetime") {
+      setDetectedFreq(null)
+      return
+    }
+    const result = inferFreqFromSamples(dateColMeta.sample_values)
+    setDetectedFreq(result)
+    // Auto-apply if the current freq is still the default "M" (untouched)
+    if (result && config.freq === "M") {
+      onChange({ freq: result.freq })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview.status, config.dateCol])
 
   const columns    = preview.status === "ready" ? preview.columns : []
   const hasColumns = columns.length > 0
@@ -250,14 +276,30 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
       )}
 
       {/* Freq + model */}
-      <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <TextField select label="Frecuencia" size="small" value={config.freq}
-          onChange={(e) => onChange({ freq: e.target.value as DataFreq })}
-          disabled={disabled} sx={{ width: "10rem" }}>
-          {FREQ_OPTIONS.map((o) => (
-            <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-          ))}
-        </TextField>
+      <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <TextField select label="Frecuencia" size="small" value={config.freq}
+            onChange={(e) => onChange({ freq: e.target.value as DataFreq })}
+            disabled={disabled} sx={{ width: "10rem" }}>
+            {FREQ_OPTIONS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+            ))}
+          </TextField>
+          {/* Freq detection badge */}
+          {detectedFreq && (
+            <Tooltip
+              title={`Detectada a partir de los datos: intervalo mediano de ${detectedFreq.medianDays} día${detectedFreq.medianDays !== 1 ? "s" : ""}. Podés cambiarlo manualmente.`}
+              placement="bottom"
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: "0.25rem", cursor: "help" }}>
+                <AutoAwesomeIcon sx={{ fontSize: "0.75rem", color: detectedFreq.freq === config.freq ? "success.main" : "text.disabled" }} />
+                <Typography variant="caption" color={detectedFreq.freq === config.freq ? "success.main" : "text.disabled"} sx={{ fontSize: "0.6875rem" }}>
+                  {detectedFreq.freq === config.freq ? `${detectedFreq.label} detectada` : `Sugerida: ${detectedFreq.label}`}
+                </Typography>
+              </Box>
+            </Tooltip>
+          )}
+        </Box>
 
         {/* Model selector with tier-based lock */}
         <FormControl size="small" sx={{ flex: "1 1 14rem", maxWidth: "18rem" }} disabled={disabled}>
@@ -295,6 +337,107 @@ export function ForecastConfigPanel({ config, onChange, disabled = false }: Fore
         onChange={(h) => onChange({ horizon: h })}
         disabled={disabled}
       />
+
+      {/* Hold-out manual */}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography variant="body2" color="text.secondary" fontWeight={500}>
+            Períodos de evaluación (test)
+          </Typography>
+          <Tooltip
+            title="Reserva los últimos N períodos como test. El modelo se entrena sin ellos y sus predicciones se comparan contra los valores reales. Ves las 3 zonas en el gráfico."
+            placement="top"
+          >
+            <Chip
+              label="?"
+              size="small"
+              variant="outlined"
+              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "help" }}
+            />
+          </Tooltip>
+        </Box>
+        <Box sx={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          {[0, 3, 6, 12].map((v) => (
+            <ToggleButton
+              key={v}
+              value={v}
+              selected={config.testPeriods === v}
+              onChange={() => !disabled && onChange({ testPeriods: v })}
+              size="small"
+              sx={{
+                px: "0.75rem",
+                py: "0.25rem",
+                fontSize: "0.75rem",
+                textTransform: "none",
+                borderRadius: "0.375rem",
+                border: "1px solid",
+                borderColor: config.testPeriods === v ? "primary.main" : "divider",
+                bgcolor: config.testPeriods === v ? "primary.main" : "transparent",
+                color: config.testPeriods === v ? "primary.contrastText" : "text.secondary",
+                "&:hover": { bgcolor: config.testPeriods === v ? "primary.dark" : "action.hover" },
+              }}
+            >
+              {v === 0 ? "Auto (20%)" : `Últimos ${v}`}
+            </ToggleButton>
+          ))}
+        </Box>
+        {config.testPeriods > 0 && (
+          <Typography variant="caption" color="text.disabled">
+            El gráfico mostrará las zonas: Entrenamiento · Test · Proyección
+          </Typography>
+        )}
+      </Box>
+
+      {/* Rolling CV */}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography variant="body2" color="text.secondary" fontWeight={500}>
+            Cross-validation (folds)
+          </Typography>
+          <Tooltip
+            title="Rolling window CV con TimeSeriesSplit. Entrena K modelos en ventanas sucesivas y promedia el WAPE ± desvêo. Más robusto que un solo hold-out. Requiere serie más larga."
+            placement="top"
+          >
+            <Chip
+              label="?"
+              size="small"
+              variant="outlined"
+              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "help" }}
+            />
+          </Tooltip>
+        </Box>
+        <Box sx={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          {[0, 2, 3, 5].map((v) => (
+            <ToggleButton
+              key={v}
+              value={v}
+              selected={config.cvFolds === v}
+              onChange={() => !disabled && onChange({ cvFolds: v })}
+              size="small"
+              sx={{
+                px: "0.75rem",
+                py: "0.25rem",
+                fontSize: "0.75rem",
+                textTransform: "none",
+                borderRadius: "0.375rem",
+                border: "1px solid",
+                borderColor: config.cvFolds === v ? "secondary.main" : "divider",
+                bgcolor: config.cvFolds === v ? "secondary.main" : "transparent",
+                color: config.cvFolds === v ? "secondary.contrastText" : "text.secondary",
+                "&:hover": { bgcolor: config.cvFolds === v ? "secondary.dark" : "action.hover" },
+              }}
+            >
+              {v === 0 ? "Sin CV" : `K=${v}`}
+            </ToggleButton>
+          ))}
+        </Box>
+        {config.cvFolds > 0 && (
+          <Typography variant="caption" color="text.disabled">
+            {config.cvFolds} folds · cada test = {config.horizon} período{config.horizon !== 1 ? "s" : ""}
+            {" "}· mín. {config.cvFolds * config.horizon + 4} obs. requeridas
+          </Typography>
+        )}
+      </Box>
     </Box>
   )
 }

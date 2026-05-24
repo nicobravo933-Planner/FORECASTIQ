@@ -34,6 +34,7 @@ import { appStore } from "@/lib/appStore"
 import { ForecastConfigPanel, type ForecastConfig } from "@/components/forecast/ForecastConfigPanel"
 import { ForecastChart } from "@/components/forecast/ForecastChart"
 import { MetricsCard } from "@/components/forecast/MetricsCard"
+import { CvResultsCard } from "@/components/forecast/CvResultsCard"
 import type { DataFreq, ModelName, PredictionPoint } from "@/lib/types"
 import { api } from "@/lib/api"
 
@@ -57,6 +58,8 @@ export default function ForecastPage() {
     freq:          (appStore.getActiveFreq() as DataFreq) ?? "M",
     horizon:       12,
     modelOverride: "auto",
+    testPeriods:   0,
+    cvFolds:       0,
   })
 
   const [forceReoptimize, setForceReoptimize] = useState(false)
@@ -148,6 +151,8 @@ export default function ForecastPage() {
       horizon:          config.horizon,
       model_override:   config.modelOverride === "auto" ? null : config.modelOverride,
       force_reoptimize: forceReoptimize,
+      test_periods:     config.testPeriods,
+      cv_folds:         config.cvFolds,
     })
     setForceReoptimize(false) // reset tras correr
   }
@@ -189,20 +194,23 @@ export default function ForecastPage() {
         )}
       </Box>
 
-      {/* ── 2-column layout ──────────────────────────────────────────────── */}
+      {/* ── Layout: 2-col while idle/running, full-width when results are ready ── */}
       <Box
         sx={{
           display: "grid",
-          // Left column fixed ~26rem, right takes remaining space
-          // On mobile: single column
-          gridTemplateColumns: { xs: "1fr", md: "26rem 1fr" },
+          // While idle or running: config left + placeholder/progress right
+          // When done: single column — chart takes full width below compact config bar
+          gridTemplateColumns: showResults
+            ? "1fr"
+            : { xs: "1fr", md: "26rem 1fr" },
           gap: "1.5rem",
           alignItems: "start",
         }}
       >
 
         {/* ── LEFT: config panel ──────────────────────────────────────────── */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {/* When results are shown this Box spans full width — the RIGHT Box follows below */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem", gridColumn: showResults ? "1 / -1" : undefined }}>
           {(isIdle || isFailed) && (
             <Paper variant="outlined" sx={{ p: "1.5rem" }}>
               <ForecastConfigPanel
@@ -407,11 +415,30 @@ export default function ForecastPage() {
                 historical={forecast.result!.historical}
                 predictions={eventsOn && compareData ? compareData : forecast.result!.predictions}
                 modelName={MODEL_LABELS[forecast.result!.model_used]}
+                testActual={forecast.result!.test_actual}
+                testPredicted={forecast.result!.test_predicted}
+                trainEndDate={forecast.result!.train_end_date}
+                testStartDate={forecast.result!.test_start_date}
               />
               <MetricsCard
                 metrics={forecast.result!.metrics}
                 modelUsed={forecast.result!.model_used}
+                testPeriods={forecast.result!.test_periods}
               />
+              {/* CV results — solo si se solicitaron folds */}
+              {forecast.result!.cv_summary && (
+                <CvResultsCard
+                  cvSummary={forecast.result!.cv_summary}
+                  cvWarning={forecast.result!.cv_warning}
+                  modelName={MODEL_LABELS[forecast.result!.model_used]}
+                />
+              )}
+              {/* Warning de CV sin resultados (serie demasiado corta) */}
+              {!forecast.result!.cv_summary && forecast.result!.cv_warning && (
+                <Alert severity="warning" sx={{ fontSize: "0.8125rem" }}>
+                  {forecast.result!.cv_warning}
+                </Alert>
+              )}
             </>
           )}
         </Box>

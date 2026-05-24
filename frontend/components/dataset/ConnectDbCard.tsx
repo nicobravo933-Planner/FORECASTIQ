@@ -37,16 +37,23 @@ import LinkIcon from "@mui/icons-material/Link"
 import { api, ApiError } from "@/lib/api"
 import { appStore } from "@/lib/appStore"
 
-type DbEngine = "postgresql" | "mysql" | "sqlite" | "mssql"
+type DbEngine = "postgresql" | "mysql" | "sqlite" | "mssql" | "oracle"
 
-const ENGINES: { value: DbEngine; label: string; defaultPort: string }[] = [
-  { value: "postgresql", label: "PostgreSQL",      defaultPort: "5432"  },
-  { value: "mysql",      label: "MySQL / MariaDB", defaultPort: "3306"  },
-  { value: "sqlite",     label: "SQLite (archivo local)", defaultPort: "" },
-  { value: "mssql",      label: "SQL Server",      defaultPort: "1433"  },
+const ENGINES: { value: DbEngine; label: string; defaultPort: string; note?: string }[] = [
+  { value: "postgresql", label: "PostgreSQL",           defaultPort: "5432" },
+  { value: "mysql",      label: "MySQL / MariaDB",      defaultPort: "3306" },
+  { value: "sqlite",     label: "SQLite (archivo local)",defaultPort: "" },
+  { value: "mssql",      label: "SQL Server",           defaultPort: "1433" },
+  { value: "oracle",     label: "Oracle DB",            defaultPort: "1521",
+    note: "Requiere cx_Oracle o oracledb en el servidor" },
 ]
 
-const DEFAULT_QUERY = "SELECT * FROM tu_tabla LIMIT 10000"
+const DEFAULT_QUERY = `SELECT fecha, sku_id, ventas
+FROM ventas
+ORDER BY sku_id, fecha
+LIMIT 50000
+-- Formato multi-serie: [fecha, id_producto/cliente, valor]
+-- Para una sola serie: SELECT fecha, ventas FROM ventas ORDER BY fecha`
 
 interface DbConnectResponse {
   dataset_id: string
@@ -94,6 +101,12 @@ export function ConnectDbCard() {
     if (mode === "form") {
       if (isSqlite) {
         connectionString = `sqlite:///${sqliteFile || ":memory:"}`
+      } else if (engine === "oracle") {
+        // Oracle usa cx_Oracle (oracledb) — DSN format
+        // Requiere cx_Oracle instalado en el servidor backend
+        const safeUser = encodeURIComponent(user)
+        const safePwd  = encodeURIComponent(password)
+        connectionString = `oracle+cx_oracle://${safeUser}:${safePwd}@${host}:${port}/${dbName}`
       } else {
         const safeUser = encodeURIComponent(user)
         const safePwd  = encodeURIComponent(password)
@@ -145,24 +158,34 @@ export function ConnectDbCard() {
       {/* Engine selector */}
       <Box sx={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
         {ENGINES.map((eng) => (
-          <Chip
-            key={eng.value}
-            label={eng.label}
-            onClick={() => handleEngineChange(eng.value)}
-            variant={engine === eng.value ? "filled" : "outlined"}
-            sx={{
-              cursor: "pointer",
-              bgcolor: engine === eng.value ? "primary.main" : "transparent",
-              color: engine === eng.value ? "#ffffff" : "text.secondary",
-              borderColor: engine === eng.value ? "primary.main" : "divider",
-              fontWeight: engine === eng.value ? 600 : 400,
-              fontSize: "0.8125rem",
-              "&:hover": { bgcolor: engine === eng.value ? "primary.dark" : "action.hover" },
-              "& .MuiChip-label": { color: engine === eng.value ? "#ffffff" : undefined },
-            }}
-          />
+          <Tooltip key={eng.value} title={eng.note ?? ""} placement="top" arrow>
+            <Chip
+              label={eng.label}
+              onClick={() => handleEngineChange(eng.value)}
+              variant={engine === eng.value ? "filled" : "outlined"}
+              sx={{
+                cursor: "pointer",
+                bgcolor: engine === eng.value ? "primary.main" : "transparent",
+                color: engine === eng.value ? "#ffffff" : "text.secondary",
+                borderColor: engine === eng.value ? "primary.main" : "divider",
+                fontWeight: engine === eng.value ? 600 : 400,
+                fontSize: "0.8125rem",
+                "&:hover": { bgcolor: engine === eng.value ? "primary.dark" : "action.hover" },
+                "& .MuiChip-label": { color: engine === eng.value ? "#ffffff" : undefined },
+              }}
+            />
+          </Tooltip>
         ))}
       </Box>
+
+      {/* Oracle warning */}
+      {engine === "oracle" && (
+        <Alert severity="warning" sx={{ fontSize: "0.8125rem" }}>
+          Oracle requiere <strong>cx_Oracle</strong> o <strong>oracledb</strong> instalado en
+          el backend. En el tier EC2 free no está disponible por defecto.
+          Para instalarlo: <code>uv add cx_Oracle</code> o <code>uv add oracledb</code> en el servidor.
+        </Alert>
+      )}
 
       {/* Mode toggle */}
       <Box sx={{ display: "flex", gap: "0.5rem" }}>

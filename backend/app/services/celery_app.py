@@ -56,6 +56,8 @@ def run_forecast_task(
     model_override: str | None = None,
     user_id: str | None = None,
     force_reoptimize: bool = False,
+    test_periods: int = 0,
+    cv_folds: int = 0,
 ) -> dict[str, Any]:
     """
     Pipeline completo de forecasting:
@@ -64,8 +66,21 @@ def run_forecast_task(
       3. Winsorización p5/p95
       4. Selecciona o usa el modelo indicado
       5. Entrena y genera predicciones
-      6. Calcula métricas con hold-out 20%
+      6. Calcula métricas — si test_periods > 0 usa hold-out manual,
+         sino hold-out automático 20%
       7. Guarda resultado en Supabase DB
+
+    test_periods: número de períodos finales a reservar como hold-out manual.
+      0  → comportamiento anterior: hold-out automático 20%.
+      N  → reserva los últimos N períodos como test explícito.
+           El resultado incluye test_actual, test_predicted, train_end_date,
+           test_start_date para visualizar las 3 zonas en el gráfico.
+
+    cv_folds: número de folds de rolling cross-validation (0 = desactivado).
+      0     → sin CV (comportamiento anterior).
+      2–5   → ejecuta TimeSeriesSplit con k folds, retorna WAPE media ± std.
+             Se corre sobre la serie completa ANTES del forecast final.
+             Requiere sklearn. Series demasiado cortas reciben advertencia.
     """
     from app.core.telemetry import forecast_span
     from app.ml.detector import detect_best_model
@@ -157,13 +172,21 @@ def run_forecast_task(
                 model_name = "holt_winters"
             model = model_map.get(model_name, HoltWintersModel())
 
-            # 4. Split train/test 80/20
+            # 4. Split train/test
             n = len(series)
-            split = max(int(n * 0.8), n - horizon)
+            if test_periods > 0:
+                # Hold-out manual: los últimos test_periods períodos son test
+                tp = min(test_periods, n - 4)  # mínimo 4 puntos de train
+                split = n - tp
+            else:
+                # Hold-out automático 20% (comportamiento original)
+                split = max(int(n * 0.8), n - horizon)
+                tp = 0
+
             train = series.iloc[:split]
             test = series.iloc[split:]
 
-            # 5. Entrenamiento
+            # 5. Entrenamiento sobre train
             _update(40, f"Entrenando {model_name}")
             model.fit(train)
 
@@ -171,13 +194,81 @@ def run_forecast_task(
             _update(75, "Calculando métricas")
             metrics: dict[str, Any] = model.evaluate(test) if len(test) > 0 else {}
 
-            # Registrar métricas clave en el span para verlas en Grafana Tempo
             if metrics:
                 span.set_attribute("forecast.wape", float(metrics.get("wape") or 0))
                 span.set_attribute("forecast.mae", float(metrics.get("mae") or 0))
 
-            # Re-entrena con toda la serie para la predicción final
+            # Predicciones sobre el período de test (para visualizar zona test)
+            test_actual_pts: list[dict[str, Any]] = []
+            test_predicted_pts: list[dict[str, Any]] = []
+            train_end_date: str | None = None
+            test_start_date: str | None = None
+
+            if tp > 0 and len(test) > 0:
+                train_end_date = str(train.index[-1].date())
+                test_start_date = str(test.index[0].date())
+
+                # Predicción sobre la ventana de test
+                try:
+                    test_fc_df = model.predict(tp)
+                    test_predicted_pts = [
+                        {
+                            "date": str(row["date"].date())
+                            if hasattr(row["date"], "date")
+                            else str(row["date"]),
+                            "predicted": round(float(row["predicted"]), 4),
+                            "lower": round(float(row["lower"]), 4),
+                            "upper": round(float(row["upper"]), 4),
+                        }
+                        for _, row in test_fc_df.iterrows()
+                    ]
+                except Exception:
+                    test_predicted_pts = []
+
+                test_actual_pts = [
+                    {"date": str(d.date()), "value": float(v)}
+                    for d, v in zip(test.index, test.values, strict=False)
+                ]
+
+            # Re-entrena con toda la serie para la proyección futura
             model.fit(series)
+
+            # 7. Rolling CV (opcional, solo si cv_folds > 0)
+            _update(88, "Cross-validación rolling")
+            cv_summary_dict: dict[str, Any] | None = None
+            cv_warning: str | None = None
+
+            if cv_folds > 0:
+                from app.ml.evaluator import rolling_cv
+
+                # Mapeo modelo_name → clase + kwargs sin contaminación de estado
+                _cv_cls_map: dict[str, tuple[type, dict[str, Any]]] = {
+                    "moving_average": (MovingAverageModel, {}),
+                    "holt_winters": (HoltWintersModel, {}),
+                    "sarima": (SarimaModel, {}),
+                }
+                if _lgbm_available and _lgbm_cls is not None:
+                    _cv_cls_map["lightgbm"] = (
+                        _lgbm_cls,
+                        {"dataset_id": dataset_id, "user_id": user_id, "force_reoptimize": False},
+                    )
+
+                cv_cls, cv_kwargs = _cv_cls_map.get(model_name, (HoltWintersModel, {}))
+
+                try:
+                    cv_result = rolling_cv(
+                        series=series,
+                        model_cls=cv_cls,
+                        model_kwargs=cv_kwargs,
+                        horizon=horizon,
+                        k_folds=cv_folds,
+                    )
+                    cv_summary_dict = cv_result.to_dict()
+                except ValueError as cv_err:
+                    # Serie demasiado corta — no falla el job, solo avisa
+                    cv_warning = str(cv_err)
+                except Exception as cv_err:
+                    cv_warning = f"CV falló: {cv_err}"
 
             # 7. Predicción
             _update(85, "Generando forecast")
@@ -211,9 +302,17 @@ def run_forecast_task(
                 "model_used": model_name,
                 "freq": freq,
                 "horizon": horizon,
+                "test_periods": tp,
+                "cv_folds": cv_folds,
                 "metrics": metrics,
                 "historical": historical,
                 "predictions": predictions,
+                "test_actual": test_actual_pts,
+                "test_predicted": test_predicted_pts,
+                "train_end_date": train_end_date,
+                "test_start_date": test_start_date,
+                "cv_summary": cv_summary_dict,
+                "cv_warning": cv_warning,
                 "created_at": datetime.utcnow().isoformat(),
             }
 

@@ -34,6 +34,10 @@ class ForecastRunRequest(BaseModel):
     horizon: int = Field(default=12, ge=1, le=60)
     model_override: str | None = None
     force_reoptimize: bool = False  # True → ignora cache HPO y corre Optuna desde cero
+    test_periods: int = Field(
+        default=0, ge=0, le=24
+    )  # 0 = hold-out auto 20%; N = hold-out manual N períodos
+    cv_folds: int = Field(default=0, ge=0, le=5)  # 0 = sin CV; 2–5 = TimeSeriesSplit k folds
 
 
 class ForecastRunResponse(BaseModel):
@@ -69,6 +73,34 @@ class ForecastMetrics(BaseModel):
     fva: float | None = None
 
 
+class CvFold(BaseModel):
+    """Resultado de un fold individual de rolling CV."""
+
+    fold: int
+    train_size: int
+    test_size: int
+    train_start: str
+    train_end: str
+    test_start: str
+    test_end: str
+    wape: float | None = None
+    mae: float | None = None
+    bias: float | None = None
+    rmse: float | None = None
+
+
+class CvSummaryResponse(BaseModel):
+    """Resumen de todos los folds de rolling CV."""
+
+    n_folds: int
+    wape_mean: float | None = None
+    wape_std: float | None = None
+    mae_mean: float | None = None
+    mae_std: float | None = None
+    bias_mean: float | None = None
+    folds: list[CvFold] = []
+
+
 class ForecastResultResponse(BaseModel):
     job_id: str
     status: str
@@ -76,9 +108,19 @@ class ForecastResultResponse(BaseModel):
     model_used: str
     freq: str
     horizon: int
+    test_periods: int = 0
+    cv_folds: int = 0
     metrics: ForecastMetrics
     historical: list[HistoricalPoint]
     predictions: list[PredictionPoint]
+    # Hold-out manual (Paso 2) — empty when test_periods == 0
+    test_actual: list[HistoricalPoint] = []
+    test_predicted: list[PredictionPoint] = []
+    train_end_date: str | None = None
+    test_start_date: str | None = None
+    # Rolling CV (Paso 3) — None when cv_folds == 0
+    cv_summary: CvSummaryResponse | None = None
+    cv_warning: str | None = None
     created_at: str
 
 
@@ -146,6 +188,8 @@ async def run_forecast(
         model_override=body.model_override,
         user_id=str(user.user_id) if user else None,
         force_reoptimize=body.force_reoptimize,
+        test_periods=body.test_periods,
+        cv_folds=body.cv_folds,
     )
     job_id: str = str(task.id)
     return ForecastRunResponse(job_id=job_id, status="done" if _eager_mode() else "pending")
@@ -196,6 +240,20 @@ async def get_forecast_result_endpoint(job_id: str) -> ForecastResultResponse:
         if not data:
             raise HTTPException(status_code=404, detail=f"Resultado de '{job_id}' no encontrado.")
 
+    # Deserializar cv_summary si existe
+    raw_cv = data.get("cv_summary")
+    cv_summary_obj: CvSummaryResponse | None = None
+    if raw_cv and isinstance(raw_cv, dict):
+        cv_summary_obj = CvSummaryResponse(
+            n_folds=int(raw_cv.get("n_folds", 0)),
+            wape_mean=raw_cv.get("wape_mean"),
+            wape_std=raw_cv.get("wape_std"),
+            mae_mean=raw_cv.get("mae_mean"),
+            mae_std=raw_cv.get("mae_std"),
+            bias_mean=raw_cv.get("bias_mean"),
+            folds=[CvFold(**f) for f in (raw_cv.get("folds") or [])],
+        )
+
     return ForecastResultResponse(
         job_id=data["job_id"],
         status=data["status"],
@@ -203,9 +261,17 @@ async def get_forecast_result_endpoint(job_id: str) -> ForecastResultResponse:
         model_used=data["model_used"],
         freq=data["freq"],
         horizon=data["horizon"],
+        test_periods=data.get("test_periods", 0),
+        cv_folds=data.get("cv_folds", 0),
         metrics=ForecastMetrics(**(data.get("metrics") or {})),
         historical=[HistoricalPoint(**p) for p in (data.get("historical") or [])],
         predictions=[PredictionPoint(**p) for p in (data.get("predictions") or [])],
+        test_actual=[HistoricalPoint(**p) for p in (data.get("test_actual") or [])],
+        test_predicted=[PredictionPoint(**p) for p in (data.get("test_predicted") or [])],
+        train_end_date=data.get("train_end_date"),
+        test_start_date=data.get("test_start_date"),
+        cv_summary=cv_summary_obj,
+        cv_warning=data.get("cv_warning"),
         created_at=data.get("created_at", ""),
     )
 

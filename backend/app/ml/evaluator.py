@@ -144,3 +144,150 @@ def evaluate_all(actual: pd.Series, predicted: pd.Series) -> dict[str, float | N
         "mape": round(mape_val, 4) if mape_val is not None else None,
         "fva": fva(actual, predicted),
     }
+
+
+# ── Rolling cross-validation ────────────────────────────────────────────────────────────────
+
+
+class CvFoldResult:
+    """Resultado de un fold de cross-validation."""
+
+    def __init__(
+        self,
+        fold: int,
+        train_size: int,
+        test_size: int,
+        train_start: str,
+        train_end: str,
+        test_start: str,
+        test_end: str,
+        wape: float | None,
+        mae: float | None,
+        bias: float | None,
+        rmse: float | None,
+    ) -> None:
+        self.fold = fold
+        self.train_size = train_size
+        self.test_size = test_size
+        self.train_start = train_start
+        self.train_end = train_end
+        self.test_start = test_start
+        self.test_end = test_end
+        self.wape = wape
+        self.mae = mae
+        self.bias = bias
+        self.rmse = rmse
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "fold": self.fold,
+            "train_size": self.train_size,
+            "test_size": self.test_size,
+            "train_start": self.train_start,
+            "train_end": self.train_end,
+            "test_start": self.test_start,
+            "test_end": self.test_end,
+            "wape": self.wape,
+            "mae": self.mae,
+            "bias": self.bias,
+            "rmse": self.rmse,
+        }
+
+
+class CvSummary:
+    """Resumen agregado de todos los folds."""
+
+    def __init__(self, folds: list[CvFoldResult]) -> None:
+        self.folds = folds
+        wapes = [f.wape for f in folds if f.wape is not None]
+        maes = [f.mae for f in folds if f.mae is not None]
+        biases = [f.bias for f in folds if f.bias is not None]
+        self.wape_mean = round(float(np.mean(wapes)), 4) if wapes else None
+        self.wape_std = round(float(np.std(wapes)), 4) if wapes else None
+        self.mae_mean = round(float(np.mean(maes)), 4) if maes else None
+        self.mae_std = round(float(np.std(maes)), 4) if maes else None
+        self.bias_mean = round(float(np.mean(biases)), 4) if biases else None
+        self.n_folds = len(folds)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "n_folds": self.n_folds,
+            "wape_mean": self.wape_mean,
+            "wape_std": self.wape_std,
+            "mae_mean": self.mae_mean,
+            "mae_std": self.mae_std,
+            "bias_mean": self.bias_mean,
+            "folds": [f.to_dict() for f in self.folds],
+        }
+
+
+def rolling_cv(
+    series: pd.Series,
+    model_cls: type,
+    model_kwargs: dict[str, object],
+    horizon: int,
+    k_folds: int,
+) -> CvSummary:
+    """
+    Rolling window cross-validation para series temporales.
+
+    Usa sklearn.model_selection.TimeSeriesSplit para respetar el orden temporal:
+    el set de test siempre es posterior al set de train (sin data leakage).
+
+    Reglas de mínimos por número de folds:
+      - k=3: requiere al menos 3 * horizon + 4 observaciones
+      - k=5: requiere al menos 5 * horizon + 4 observaciones
+
+    Args:
+        series:       Serie temporal ya preprocesada (winsorizada, sin NaN, con DatetimeIndex).
+        model_cls:    Clase del modelo (ej. HoltWintersModel). Debe implementar fit/predict.
+        model_kwargs: kwargs para el constructor del modelo (ej. {"ci_level": 0.95}).
+        horizon:      Número de períodos en cada ventana de test.
+        k_folds:      Número de folds (2–5 recomendado).
+
+    Returns:
+        CvSummary con métricas por fold + estadísticos agregados (media ± std).
+    """
+    from sklearn.model_selection import TimeSeriesSplit
+
+    n = len(series)
+    min_obs = k_folds * horizon + 4
+    if n < min_obs:
+        raise ValueError(
+            f"Serie demasiado corta para {k_folds} folds con horizonte {horizon}. "
+            f"Mínimo requerido: {min_obs} obs. Disponibles: {n}."
+        )
+
+    tscv = TimeSeriesSplit(n_splits=k_folds, test_size=horizon)
+    fold_results: list[CvFoldResult] = []
+
+    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(series), start=1):
+        train = series.iloc[train_idx]
+        test = series.iloc[test_idx]
+
+        # Instancia fresca del modelo en cada fold para evitar contaminación
+        model = model_cls(**model_kwargs)
+        try:
+            model.fit(train)
+            metrics = model.evaluate(test)
+        except Exception:
+            # Fold falla (ej. serie muy corta para ETS estacional) — registra None
+            metrics = {"wape": None, "mae": None, "bias": None, "rmse": None}
+
+        fold_results.append(
+            CvFoldResult(
+                fold=fold_idx,
+                train_size=len(train),
+                test_size=len(test),
+                train_start=str(train.index[0].date()),
+                train_end=str(train.index[-1].date()),
+                test_start=str(test.index[0].date()),
+                test_end=str(test.index[-1].date()),
+                wape=metrics.get("wape"),
+                mae=metrics.get("mae"),
+                bias=metrics.get("bias"),
+                rmse=metrics.get("rmse"),
+            )
+        )
+
+    return CvSummary(fold_results)

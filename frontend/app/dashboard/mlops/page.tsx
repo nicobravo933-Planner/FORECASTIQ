@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * /dashboard/mlops — MLOps Phase 8
- * Integrates ExperimentTable + DriftCard + MLflowLink.
+ * /dashboard/mlops — Tracking de experimentos MLflow + detección de drift (Evidently).
+ * Integra ExperimentTable + DriftCard + WapeTrendChart.
  * Fetches experiment runs from GET /api/experiments.
  * Fetches drift summary from GET /api/drift/{dataset_id} when a dataset_id is selected.
  */
@@ -117,7 +117,7 @@ export default function MlopsPage() {
               MLOps
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Experimentos MLflow · Detección de drift · Dagshub
+              MLflow · Evidently drift · Dagshub
             </Typography>
           </Box>
         </Box>
@@ -147,7 +147,12 @@ export default function MlopsPage() {
         Historial de experimentos
       </Typography>
 
-      <ExperimentTable runs={runs} loading={runsLoading} error={runsError} />
+      <ExperimentTable
+        runs={runs}
+        loading={runsLoading}
+        error={runsError}
+        onDeleted={(id) => setRuns((prev) => prev.filter((r) => r.run_id !== id))}
+      />
 
       {/* Drift section */}
       <Box sx={{ mt: "2rem", mb: "0.75rem", display: "flex", alignItems: "center", gap: "1rem" }}>
