@@ -484,18 +484,30 @@ export function FloatingChat() {
               background: open
                 ? "linear-gradient(135deg, #1e3a6e 0%, #1e40af 100%)"
                 : "linear-gradient(135deg, #1e3a6e 0%, #1e40af 100%)",
-              boxShadow: "0 0.25rem 1rem rgba(59,130,246,0.45), 0 0 0 1px rgba(59,130,246,0.2)",
+              boxShadow: open
+                // Abierto: sombra estática normal
+                ? "0 0.25rem 1rem rgba(59,130,246,0.45), 0 0 0 1px rgba(59,130,246,0.2)"
+                // Cerrado: pulso azul animado
+                : "0 0.25rem 1rem rgba(59,130,246,0.45), 0 0 0 1px rgba(59,130,246,0.2)",
               border: "1px solid rgba(59,130,246,0.3)",
               p: 0,
-              // Evitar el overlay blanco de MUI en hover
+              // Pulso azul alrededor cuando está cerrado
+              ...(!open && {
+                animation: "fabPulse 2.8s ease-in-out infinite",
+                "@keyframes fabPulse": {
+                  "0%":   { boxShadow: "0 0.25rem 1rem rgba(59,130,246,0.45), 0 0 0 0 rgba(59,130,246,0.55)" },
+                  "50%":  { boxShadow: "0 0.25rem 1rem rgba(59,130,246,0.45), 0 0 0 0.75rem rgba(59,130,246,0)" },
+                  "100%": { boxShadow: "0 0.25rem 1rem rgba(59,130,246,0.45), 0 0 0 0 rgba(59,130,246,0)" },
+                },
+              }),
               "&:hover": {
                 background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
                 boxShadow: "0 0.5rem 1.5rem rgba(59,130,246,0.6)",
                 transform: "scale(1.06)",
+                animation: "none",  // pausa el pulso en hover para no pelear con transform
               },
-              // Sobrescribe el pseudo-elemento overlay de MUI
               "& .MuiTouchRipple-root": { color: "rgba(255,255,255,0.2)" },
-              transition: "all 0.2s ease",
+              transition: "background 0.2s ease, transform 0.2s ease",
             }}
           >
             {open ? (

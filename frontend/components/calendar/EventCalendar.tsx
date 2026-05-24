@@ -7,7 +7,6 @@
 
 import { useMemo } from "react"
 import Box from "@mui/material/Box"
-import Grid from "@mui/material/Grid2"
 import Typography from "@mui/material/Typography"
 import Paper from "@mui/material/Paper"
 import IconButton from "@mui/material/IconButton"
@@ -96,41 +95,62 @@ export function EventCalendar({ events, year, month, onMonthChange, onDelete }: 
       </Box>
 
       {/* Weekday headers */}
-      <Grid container columns={7} sx={{ mb: "0.25rem" }}>
+      <Box sx={{
+        display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+        mb: "0.375rem",
+        bgcolor: "rgba(239,246,255,0.80)",
+        backdropFilter: "blur(0.5rem)",
+        border: "1px solid rgba(147,197,253,0.45)",
+        borderRadius: "0.5rem",
+        overflow: "hidden",
+      }}>
         {WEEKDAYS.map((d) => (
-          <Grid key={d} size={1}>
-            <Typography
-              variant="caption"
-              color="text.disabled"
-              fontWeight={600}
-              sx={{ display: "block", textAlign: "center", py: "0.25rem" }}
-            >
-              {d}
-            </Typography>
-          </Grid>
+          <Typography
+            key={d}
+            variant="caption"
+            sx={{
+              display: "block", textAlign: "center",
+              py: "0.375rem",
+              fontWeight: 700,
+              fontSize: "0.6875rem",
+              color: "primary.main",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+            }}
+          >
+            {d}
+          </Typography>
         ))}
-      </Grid>
+      </Box>
 
       {/* Weeks */}
-      {weeks.map((week, wi) => (
-        <Grid container columns={7} key={wi} sx={{ mb: "0.125rem" }}>
-          {week.map((cell, di) => {
-            const iso = cell.date.toISOString().slice(0, 10)
-            const isToday = iso === today
-            return (
-              <Grid key={di} size={1}>
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    minHeight: "5.5rem",
-                    p: "0.35rem",
-                    borderRadius: "0.375rem",
-                    opacity: cell.isCurrentMonth ? 1 : 0.35,
-                    bgcolor: isToday ? "action.selected" : "background.paper",
-                    borderColor: isToday ? "primary.main" : "divider",
-                    overflow: "hidden",
-                  }}
-                >
+      <Box sx={{
+        display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+        gap: "0.1875rem",
+        border: "1px solid rgba(147,197,253,0.45)",
+        borderRadius: "0.5rem",
+        overflow: "hidden",
+        bgcolor: "rgba(147,197,253,0.20)",
+      }}>
+        {weeks.flat().map((cell, idx) => {
+          const iso = cell.date.toISOString().slice(0, 10)
+          const isToday = iso === today
+          return (
+            <Box key={idx}>
+              <Paper
+                elevation={0}
+                sx={{
+                  minHeight: "5.5rem",
+                  p: "0.35rem",
+                  borderRadius: 0,
+                  opacity: cell.isCurrentMonth ? 1 : 0.45,
+                  bgcolor: isToday
+                    ? "rgba(219,234,254,0.95)"
+                    : "rgba(255,255,255,0.90)",
+                  border: isToday ? "1.5px solid" : "none",
+                  borderColor: "primary.main",
+                  overflow: "hidden",
+                }}>
                   <Typography
                     variant="caption"
                     fontWeight={isToday ? 700 : 400}
@@ -195,11 +215,10 @@ export function EventCalendar({ events, year, month, onMonthChange, onDelete }: 
                     ))}
                   </Box>
                 </Paper>
-              </Grid>
-            )
-          })}
-        </Grid>
-      ))}
+            </Box>
+          )
+        })}
+      </Box>
     </Box>
   )
 }

@@ -8,6 +8,7 @@
  */
 
 import BarChartIcon from "@mui/icons-material/BarChart"
+import HomeIcon from "@mui/icons-material/Home"
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
 import SmartToyIcon from "@mui/icons-material/SmartToy"
 import MenuIcon from "@mui/icons-material/Menu"
@@ -46,6 +47,7 @@ const SIDEBAR_COLLAPSED = "4rem"
 const HEADER_HEIGHT     = "4rem"
 
 const NAV_ITEMS = [
+  { label: "Inicio",     href: "/dashboard/home",    icon: <HomeIcon          fontSize="small" /> },
   { label: "Forecast",   href: "/dashboard/forecast", icon: <ShowChartIcon     fontSize="small" /> },
   { label: "Chat IA",    href: "/dashboard/chat",     icon: <SmartToyIcon      fontSize="small" /> },
   { label: "Calendario", href: "/dashboard/calendar", icon: <CalendarMonthIcon fontSize="small" /> },
@@ -222,8 +224,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           boxShadow: "0 0.125rem 0.75rem rgba(0,0,0,0.25)", flexShrink: 0,
         }}>
 
-          {/* Left: hamburger */}
-          <Box sx={{ width: sidebarWidth, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-start", pl: "0.75rem", transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)" }}>
+          {/* Left: hamburger — ancho fijo, nunca ligado al sidebar */}
+          <Box sx={{ width: "4rem", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-start", pl: "0.75rem" }}>
             <Tooltip title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"} placement="right">
               <IconButton onClick={() => setCollapsed((v) => !v)} sx={{ color: "rgba(255,255,255,0.75)", "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.1)" }, borderRadius: "0.5rem" }}>
                 <MenuIcon sx={{ fontSize: "1.375rem" }} />
@@ -231,12 +233,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Tooltip>
           </Box>
 
-          {/* Center: logo solamente */}
-          <Box sx={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
-            <Image src="/ForecastIQ.png" alt="ForecastIQ" width={160} height={38} style={{ objectFit: "contain", maxHeight: "2.375rem" }} priority />
+          {/* Center: logo absoluto — siempre centrado respecto al header completo, ignorando sidebar */}
+          <Box sx={{
+            position: "absolute", left: 0, right: 0,
+            display: "flex", justifyContent: "center", alignItems: "center",
+            pointerEvents: "none",   // clicks pasan al header, no bloquea hamburger/avatar
+          }}>
+            <Image src="/ForecastIQ.png" alt="ForecastIQ" width={160} height={38} style={{ objectFit: "contain", maxHeight: "2.375rem", pointerEvents: "none" }} priority />
           </Box>
 
-          {/* Right: tier badge + notifications + avatar — ancho libre, no ligado al sidebar */}
+          {/* Spacer — empuja el right box al extremo derecho */}
+          <Box sx={{ flex: 1 }} />
+
+          {/* Right: tier badge + notifications + avatar */}
           <Box sx={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", pr: "1rem", gap: "0.5rem" }}>
             <TierBadge tier={caps.tier} label={caps.tier_label} />
             <Tooltip title="Notificaciones">
@@ -255,7 +264,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Box>
 
         {/* Page content */}
-        <Box component="main" sx={{ flex: 1, overflow: "auto", mt: HEADER_HEIGHT, px: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }, py: "1.75rem", background: "transparent" }}>
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            overflow: "auto",
+            mt: HEADER_HEIGHT,
+            // Home view gets zero padding — it manages its own layout
+            px: pathname === "/dashboard/home" ? 0 : { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
+            py: pathname === "/dashboard/home" ? 0 : "1.75rem",
+            // Home must fill the full available height without scroll
+            ...(pathname === "/dashboard/home" && { height: `calc(100vh - ${HEADER_HEIGHT})`, overflow: "hidden" }),
+            background: "transparent",
+          }}
+        >
           {children}
         </Box>
       </Box>

@@ -289,6 +289,8 @@
 | 2026-05-24 | P5 | Paso 5 Demo SKU en Forecast: DemoSkuSearchDialog.tsx creado (Dialog con chips de categoría, buscador debounced, lista scrollable de SKUs, POST demo/load, addSessionDataset). DatasetPicker.tsx: +dialogOpen estado, +handleSkuLoaded, +MenuItem "Buscar SKU en el demo…" con ListSubheader y guard onChange, +DemoSkuSearchDialog renderizado. Disponible en local y ec2. |
 
 | 2026-05-23 | 62      | NavyPro glass effect: layout.tsx fondo degradado `linear-gradient(155deg, #c7dcff→#eef2ff)` con `backgroundAttachment:fixed`, main transparente. theme.ts — Card: glass `rgba(255,255,255,0.82)` + `backdropFilter:blur(10px)` + borde `rgba(219,234,254,0.7)`, hover opacifica a 0.93. Paper: `rgba(255,255,255,0.88)` + `blur(12px)`. Drawer/sidebar: `rgba(255,255,255,0.92)` + `blur(16px)` + borde azulado. Todos los elementos transicionan bien con el fondo degradado. |
+| 2026-05-24 | UX-Home | Vista Home creada: HomeDashboard.tsx (logo flotante animado, reloj en vivo, saludo personalizado con nombre de sesión, badges de estado, strip de 4 status cards, grid 3×2 de acceso rápido con hover). app/dashboard/home/page.tsx creado. Sidebar: HomeIcon + "Inicio" como primer ítem de nav. Calendario: refactor EventCalendar — Grid2 eliminado, CSS grid nativo, encabezados azul/glass, celdas blancas sólidas 90%, borde exterior azulado, día de hoy destacado. |
+| 2026-05-24 | UX-Home-v3 | HomeDashboard rediseñado siguiendo ForecastIQ Layout.html: hero strip horizontal (gradiente navy + logo nativo ×2 = 9rem + badges), status 4col, cards 3×2 con contenido centrado + hover "Abrir", panel actividad. layout.tsx: padding cero en /dashboard/home, height calc sin scroll. |
 
 ---
 

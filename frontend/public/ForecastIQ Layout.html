@@ -14,6 +14,14 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body, #root { height: 100%; font-family: 'Inter', sans-serif; }
     body { overflow: hidden; }
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(1deg); }
+    }
+    @keyframes pulseDot {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
+      50% { box-shadow: 0 0 0 7px rgba(34,197,94,0.06); }
+    }
   </style>
 </head>
 <body>
@@ -203,6 +211,7 @@ const THEMES = {
 
 // ─── Nav Items ────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
+  { id: "inicio",     label: "Inicio",        icon: "home" },
   { id: "datasets",   label: "Mis Datasets",  icon: "storage" },
   { id: "csv",        label: "Subir CSV",     icon: "upload_file" },
   { id: "forecast",   label: "Forecast",      icon: "trending_up" },
@@ -213,6 +222,23 @@ const NAV_ITEMS = [
 ];
 const NAV_BOTTOM = [
   { id: "ajustes", label: "Ajustes", icon: "settings" },
+];
+
+// ─── Feature cards & activity data ──────────────────────────────────────────
+const FEATURE_CARDS = [
+  { id:"datasets",  icon:"storage",        label:"Mis Datasets",    desc:"Subí tu CSV o explorá el demo de 25k SKUs · 3 años de ventas",          color:"#3b82f6" },
+  { id:"forecast",  icon:"trending_up",    label:"Forecast",        desc:"4 modelos ML con selección automática · intervalos de confianza",        color:"#8b5cf6" },
+  { id:"calendario",icon:"calendar_month", label:"Calendario",      desc:"Eventos, promociones y feriados que impactan tus ventas",                color:"#06b6d4" },
+  { id:"chatia",    icon:"smart_toy",      label:"Chat IA",         desc:"Preguntale a tus datos en lenguaje natural · streaming SSE",             color:"#f59e0b" },
+  { id:"mlops",     icon:"model_training", label:"MLOps",           desc:"MLflow tracking + Evidently AI drift detection por dataset",             color:"#10b981" },
+  { id:"batch",     icon:"bar_chart",      label:"Batch Analytics", desc:"Análisis ABC-XYZ vectorizado sobre 25k SKUs con Nixtla StatsForecast",   color:"#ec4899" },
+];
+
+const ACTIVITY_ITEMS = [
+  { icon:"trending_up",  label:"Forecast ejecutado",  sub:"ventas_electronica_mensual · LightGBM",  time:"hace 2h",  color:"#8b5cf6" },
+  { icon:"upload_file",  label:"Dataset subido",      sub:"ventas_q1_2026.csv · 4.2 MB",            time:"hace 5h",  color:"#3b82f6" },
+  { icon:"warning_amber",label:"Drift detectado",     sub:"Holt-Winters · WAPE +6.2%",              time:"ayer",     color:"#f59e0b" },
+  { icon:"smart_toy",    label:"Chat IA · 12 msgs",   sub:"¿Qué categoría creció más en Q1?",       time:"ayer",     color:"#10b981" },
 ];
 
 // ─── Calendar helpers ─────────────────────────────────────────────────────────
@@ -433,6 +459,190 @@ function Sidebar({ theme, t, open, activeNav, setActiveNav }) {
   );
 }
 
+// ─── Home View ───────────────────────────────────────────────────────────────
+function HomeView({ theme, setActiveNav }) {
+  const th = THEMES[theme];
+  const [hoveredCard, setHoveredCard] = React.useState(null);
+
+  const heroBgMap = {
+    slateSidebar: "linear-gradient(135deg, #1e293b 0%, #2d3f55 100%)",
+    indigoLinear:  "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+    graphiteDark:  "linear-gradient(135deg, #27272a 0%, #3f3f46 100%)",
+  };
+  const heroBg = heroBgMap[theme] || th.headerBg;
+
+  const STATUS_ITEMS = [
+    { icon:"cloud_done",     label:"Backend",      value:"AWS EC2",   sub:"Online · FastAPI 0.115",   color:"#22c55e" },
+    { icon:"model_training", label:"Modelos ML",   value:"4 activos", sub:"MA · HW · SARIMA · LGB",   color: th.accent },
+    { icon:"check_circle",   label:"Fases compl.", value:"9 / 14",    sub:"Scale Engine ✓",            color:"#8b5cf6" },
+    { icon:"storage",        label:"Dataset demo", value:"25k SKUs",  sub:"256 MB · R2",               color:"#06b6d4" },
+  ];
+
+  return (
+    <div style={{
+      height:"100%", display:"flex", flexDirection:"column",
+      padding:"18px 24px", gap:14, overflow:"hidden",
+    }}>
+
+      {/* ── Hero strip ───────────────────────────────────────────── */}
+      <div style={{
+        background: heroBg,
+        borderRadius:16, padding:"18px 24px",
+        display:"flex", alignItems:"center", gap:20,
+        position:"relative", overflow:"hidden", flexShrink:0,
+      }}>
+        <div style={{ position:"absolute", right:-30, top:-30, width:200, height:200,
+          borderRadius:"50%", background:"rgba(255,255,255,0.04)", pointerEvents:"none" }} />
+        <div style={{ position:"absolute", right:80, bottom:-50, width:160, height:160,
+          borderRadius:"50%", background:"rgba(255,255,255,0.03)", pointerEvents:"none" }} />
+
+        <img src="logo.png" alt="ForecastIQ" style={{
+          width:72, height:72, borderRadius:"50%", flexShrink:0,
+          boxShadow:"0 4px 24px rgba(0,0,0,0.25)",
+          animation:"logoFloat 5s ease-in-out infinite",
+          position:"relative", zIndex:1,
+        }} />
+
+        <div style={{ flex:1, position:"relative", zIndex:1 }}>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.55)", letterSpacing:"0.08em",
+            textTransform:"uppercase", marginBottom:5 }}>
+            Sábado, 24 de Mayo 2026
+          </div>
+          <h1 style={{ fontSize:24, fontWeight:800, color:"#ffffff",
+            letterSpacing:"-0.5px", marginBottom:5, lineHeight:1.15 }}>
+            Bienvenido, Nicolás
+          </h1>
+          <p style={{ fontSize:13, color:"rgba(255,255,255,0.65)", lineHeight:1.4 }}>
+            Conectá tus ventas · Obtené forecasts con IA al instante · Charlá con tus números
+          </p>
+        </div>
+
+        <div style={{ display:"flex", flexDirection:"column", gap:8,
+          alignItems:"flex-end", flexShrink:0, position:"relative", zIndex:1 }}>
+          <span style={{ fontSize:12, fontWeight:600, padding:"5px 14px", borderRadius:20,
+            background:"rgba(255,255,255,0.14)", color:"#fff", letterSpacing:"0.04em" }}>
+            Phase 9 — Scale Engine
+          </span>
+          <span style={{ fontSize:12, fontWeight:600, padding:"5px 14px", borderRadius:20,
+            background:"rgba(34,197,94,0.18)", color:"#4ade80",
+            display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ width:7, height:7, borderRadius:"50%", background:"#22c55e",
+              flexShrink:0, animation:"pulseDot 2s ease-in-out infinite" }} />
+            Live en producción
+          </span>
+          <span style={{ fontSize:11, fontWeight:500, padding:"4px 12px", borderRadius:20,
+            background:"rgba(255,255,255,0.08)", color:"rgba(255,255,255,0.6)" }}>
+            forecastiq.vercel.app
+          </span>
+        </div>
+      </div>
+
+      {/* ── Status strip ─────────────────────────────────────────── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, flexShrink:0 }}>
+        {STATUS_ITEMS.map((s,i) => (
+          <div key={i} style={{
+            background:th.calBg, borderRadius:12, padding:"11px 14px",
+            border:`1px solid ${th.calBorder}`,
+            boxShadow:"0 1px 4px rgba(0,0,0,0.04)",
+            display:"flex", alignItems:"center", gap:11,
+          }}>
+            <div style={{ width:36, height:36, borderRadius:9, flexShrink:0,
+              background:`${s.color}15`,
+              display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <Icon name={s.icon} size={19} style={{ color:s.color }} />
+            </div>
+            <div>
+              <div style={{ fontSize:10, color:th.pageMeta, fontWeight:600,
+                letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:1 }}>{s.label}</div>
+              <div style={{ fontSize:15, fontWeight:700, color:th.pageTitle, lineHeight:1.1 }}>{s.value}</div>
+              <div style={{ fontSize:11, color:th.pageSubtitle, marginTop:1 }}>{s.sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Cards + Activity ─────────────────────────────────────── */}
+      <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 256px",
+        gap:14, minHeight:0 }}>
+
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)",
+          gridTemplateRows:"1fr 1fr", gap:12, minHeight:0 }}>
+          {FEATURE_CARDS.map(card => (
+            <div key={card.id}
+              onClick={() => setActiveNav(card.id)}
+              onMouseEnter={() => setHoveredCard(card.id)}
+              onMouseLeave={() => setHoveredCard(null)}
+              style={{
+                background:th.calBg, borderRadius:14, padding:"16px 16px",
+                border:`1px solid ${hoveredCard===card.id ? card.color+'55' : th.calBorder}`,
+                boxShadow: hoveredCard===card.id
+                  ? `0 6px 24px ${card.color}1a` : "0 1px 4px rgba(0,0,0,0.05)",
+                cursor:"pointer",
+                transition:"all 0.18s cubic-bezier(0.4,0,0.2,1)",
+                transform: hoveredCard===card.id ? "translateY(-2px)" : "none",
+                display:"flex", flexDirection:"column", overflow:"hidden",
+              }}>
+              <div style={{ width:38, height:38, borderRadius:10, marginBottom:10, flexShrink:0,
+                background:`${card.color}14`,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <Icon name={card.icon} size={20} style={{ color:card.color }} />
+              </div>
+              <div style={{ fontSize:14, fontWeight:600, color:th.pageTitle, marginBottom:4 }}>
+                {card.label}
+              </div>
+              <div style={{ fontSize:12, color:th.pageSubtitle, lineHeight:1.5, flex:1 }}>
+                {card.desc}
+              </div>
+              {hoveredCard===card.id && (
+                <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:8,
+                  fontSize:12, fontWeight:600, color:card.color, flexShrink:0 }}>
+                  Abrir <Icon name="arrow_forward" size={13} style={{ color:card.color }} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display:"flex", flexDirection:"column", minHeight:0 }}>
+          <div style={{ fontSize:11, fontWeight:600, color:th.pageMeta,
+            letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:12, flexShrink:0 }}>
+            Actividad reciente
+          </div>
+          <div style={{ flex:1, display:"flex", flexDirection:"column",
+            gap:8, overflowY:"auto", minHeight:0 }}>
+            {ACTIVITY_ITEMS.map((a,i) => (
+              <div key={i} style={{
+                background:th.calBg, borderRadius:12, padding:"11px 13px",
+                border:`1px solid ${th.calBorder}`,
+                boxShadow:"0 1px 3px rgba(0,0,0,0.04)",
+                display:"flex", gap:11, alignItems:"flex-start", flexShrink:0,
+              }}>
+                <div style={{ width:32, height:32, borderRadius:8, flexShrink:0,
+                  background:`${a.color}14`,
+                  display:"flex", alignItems:"center", justifyContent:"center", marginTop:1 }}>
+                  <Icon name={a.icon} size={16} style={{ color:a.color }} />
+                </div>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:th.pageTitle }}>{a.label}</div>
+                  <div style={{ fontSize:11, color:th.pageSubtitle, marginTop:2,
+                    whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.sub}</div>
+                  <div style={{ fontSize:11, color:th.pageMeta, marginTop:2 }}>{a.time}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ padding:"6px 2px", display:"flex", justifyContent:"flex-end", flexShrink:0 }}>
+              <span style={{ fontSize:12, fontWeight:600, color:th.accent,
+                cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+                Ver todo <Icon name="arrow_forward" size={13} style={{ color:th.accent }} />
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Calendar View ────────────────────────────────────────────────────────────
 function CalendarView({ theme }) {
   const th = THEMES[theme];
@@ -579,7 +789,7 @@ function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeNav, setActiveNav] = useState("calendario");
+  const [activeNav, setActiveNav] = useState("inicio");
 
   const theme = t.theme || "navyPro";
   const th = THEMES[theme];
@@ -597,40 +807,46 @@ function App() {
         height:"calc(100vh - 64px)",
         overflow:"auto",
         transition:"margin-left 0.22s cubic-bezier(0.4,0,0.2,1)",
-        padding: t.density === "compact" ? "20px 20px" : "28px 28px",
+        padding: activeNav === "inicio" ? 0 : (t.density === "compact" ? "20px 20px" : "28px 28px"),
+        background: th.bodyBg,
       }}>
-        {/* Page header */}
-        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:24 }}>
-          <div>
-            <div style={{ fontSize:11, fontWeight:500, color:th.pageMeta, letterSpacing:"0.06em",
-              textTransform:"uppercase", marginBottom:4 }}>
-              Sábado, 23 de Mayo
+        {activeNav === "inicio" ? (
+          <HomeView theme={theme} setActiveNav={setActiveNav} />
+        ) : (
+          <>
+            {/* Page header */}
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:24 }}>
+              <div>
+                <div style={{ fontSize:11, fontWeight:500, color:th.pageMeta, letterSpacing:"0.06em",
+                  textTransform:"uppercase", marginBottom:4 }}>
+                  Sábado, 24 de Mayo
+                </div>
+                <h1 style={{ fontSize:22, fontWeight:700, color:th.pageTitle, letterSpacing:"-0.3px" }}>
+                  Calendario de eventos
+                </h1>
+                <p style={{ fontSize:13, color:th.pageSubtitle, marginTop:4, maxWidth:540 }}>
+                  Agregá promociones, feriados y eventos que impactan tus ventas. Los feriados nacionales AR se cargan automáticamente.
+                </p>
+              </div>
+              <button style={{
+                display:"flex", alignItems:"center", gap:8,
+                background:`linear-gradient(135deg, ${th.accent}, ${th.accentDark})`,
+                color:"#fff", border:"none", borderRadius:8, padding:"10px 18px",
+                fontSize:13, fontWeight:600, cursor:"pointer",
+                boxShadow:`0 2px 8px ${th.accentShadow}`,
+                transition:"box-shadow 0.15s, transform 0.15s",
+                whiteSpace:"nowrap", flexShrink:0,
+              }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 4px 16px ${th.accentShadow}`; e.currentTarget.style.transform="translateY(-1px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 2px 8px ${th.accentShadow}`; e.currentTarget.style.transform="none"; }}
+              >
+                <Icon name="add" size={18} />
+                Nuevo evento
+              </button>
             </div>
-            <h1 style={{ fontSize:22, fontWeight:700, color:th.pageTitle, letterSpacing:"-0.3px" }}>
-              Calendario de eventos
-            </h1>
-            <p style={{ fontSize:13, color:th.pageSubtitle, marginTop:4, maxWidth:540 }}>
-              Agregá promociones, feriados y eventos que impactan tus ventas. Los feriados nacionales AR se cargan automáticamente.
-            </p>
-          </div>
-          <button style={{
-            display:"flex", alignItems:"center", gap:8,
-            background:`linear-gradient(135deg, ${th.accent}, ${th.accentDark})`,
-            color:"#fff", border:"none", borderRadius:8, padding:"10px 18px",
-            fontSize:13, fontWeight:600, cursor:"pointer",
-            boxShadow:`0 2px 8px ${th.accentShadow}`,
-            transition:"box-shadow 0.15s, transform 0.15s",
-            whiteSpace:"nowrap", flexShrink:0,
-          }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow=`0 4px 16px ${th.accentShadow}`; e.currentTarget.style.transform="translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow=`0 2px 8px ${th.accentShadow}`; e.currentTarget.style.transform="none"; }}
-          >
-            <Icon name="add" size={18} />
-            Nuevo evento
-          </button>
-        </div>
-
-        <CalendarView theme={theme} />
+            <CalendarView theme={theme} />
+          </>
+        )}
       </main>
 
       {/* Tweaks Panel */}
