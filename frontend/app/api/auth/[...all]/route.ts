@@ -1,33 +1,33 @@
 /**
  * Better Auth catch-all route handler.
- * Handles all OAuth callbacks and session endpoints:
- *   GET/POST /api/auth/callback/google
- *   GET/POST /api/auth/callback/github
- *   GET      /api/auth/session
- *   POST     /api/auth/sign-out
- *   POST     /api/auth/sign-in/anonymous
  */
 
 import { auth } from "@/lib/auth"
 import { toNextJsHandler } from "better-auth/next-js"
-import { type NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
 const handler = toNextJsHandler(auth)
 
 export async function GET(req: NextRequest) {
+  console.log("[auth] GET", req.nextUrl.pathname)
   try {
     return await handler.GET(req)
   } catch (e) {
-    console.error("[better-auth] GET error:", e)
-    throw e
+    console.error("[auth] GET error:", String(e))
+    return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }
 
 export async function POST(req: NextRequest) {
+  console.log("[auth] POST", req.nextUrl.pathname)
+  console.log("[auth] DATABASE_URL set:", !!process.env.DATABASE_URL)
+  console.log("[auth] BETTER_AUTH_SECRET set:", !!process.env.BETTER_AUTH_SECRET)
   try {
-    return await handler.POST(req)
+    const res = await handler.POST(req)
+    console.log("[auth] POST response status:", res.status)
+    return res
   } catch (e) {
-    console.error("[better-auth] POST error:", e)
-    throw e
+    console.error("[auth] POST error:", String(e))
+    return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }
