@@ -8,6 +8,9 @@
  */
 
 import BarChartIcon from "@mui/icons-material/BarChart"
+import GitHubIcon from "@mui/icons-material/GitHub"
+import LinkedInIcon from "@mui/icons-material/LinkedIn"
+import EmailIcon from "@mui/icons-material/Email"
 import HomeIcon from "@mui/icons-material/Home"
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
 import SmartToyIcon from "@mui/icons-material/SmartToy"
@@ -211,6 +214,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Box>
           )}
         </Box>
+        {/* Social links — footer del sidebar, solo visible expandido */}
+        {!collapsed && (
+          <>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "center", gap: "0.25rem", py: "0.375rem" }}>
+              <Tooltip title="GitHub" placement="top">
+                <IconButton size="small" component="a" href="https://github.com/nicobravo933-Planner/FORECASTIQ" target="_blank" rel="noopener noreferrer" sx={{ color: "text.disabled", "&:hover": { color: "#111827" } }}>
+                  <GitHubIcon sx={{ fontSize: "1rem" }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="LinkedIn" placement="top">
+                <IconButton size="small" component="a" href="https://www.linkedin.com/in/nicol%C3%A1s-adrian-bravo-675070b8/" target="_blank" rel="noopener noreferrer" sx={{ color: "text.disabled", "&:hover": { color: "#0a66c2" } }}>
+                  <LinkedInIcon sx={{ fontSize: "1rem" }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="nicobravo933@gmail.com" placement="top">
+                <IconButton size="small" component="a" href="mailto:nicobravo933@gmail.com" sx={{ color: "text.disabled", "&:hover": { color: "#ea4335" } }}>
+                  <EmailIcon sx={{ fontSize: "1rem" }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </>
+        )}
       </Box>
 
       {/* Main column */}
