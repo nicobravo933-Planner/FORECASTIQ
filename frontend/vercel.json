@@ -5,6 +5,10 @@
   "installCommand": "npm ci",
   "rewrites": [
     {
+      "source": "/api/auth/:path*",
+      "destination": "/api/auth/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "http://3.236.200.192:8000/api/:path*"
     }
