@@ -11,9 +11,6 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
-import CloudDoneIcon from "@mui/icons-material/CloudDone";
-import CloudOffIcon from "@mui/icons-material/CloudOff";
-import ComputerIcon from "@mui/icons-material/Computer";
 import EmailIcon from "@mui/icons-material/Email";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import HomeIcon from "@mui/icons-material/Home";
@@ -44,7 +41,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { FloatingChat } from "@/components/chat/FloatingChat";
-import { useCapabilities } from "@/hooks/useCapabilities";
 import { signOut, useSession } from "@/lib/auth-client";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -193,84 +189,6 @@ function NavItem({
 	);
 }
 
-// ── Tier badge — 3 líneas: icono+nombre / estado online / hardware ──────────
-function TierBadge({
-  tier,
-  label,
-  online,
-  hardwareLabel,
-}: {
-  tier: string
-  label: string
-  online: boolean
-  hardwareLabel: string
-}) {
-  const isLocal = tier === "local"
-
-  // Icon: PC para local, nube verde/roja para cloud/ec2
-  const Icon = isLocal
-    ? ComputerIcon
-    : online
-      ? CloudDoneIcon
-      : CloudOffIcon
-
-  // Accent color del badge según estado
-  const accentColor = isLocal
-    ? "rgba(16,185,129,0.9)"   // verde esmeralda — siempre activo
-    : online
-      ? "rgba(99,102,241,0.9)" // índigo — EC2 online
-      : "rgba(239,68,68,0.85)" // rojo — backend offline
-
-  const borderColor = isLocal
-    ? "rgba(16,185,129,0.35)"
-    : online
-      ? "rgba(99,102,241,0.35)"
-      : "rgba(239,68,68,0.35)"
-
-  const statusText = isLocal ? "Backend online" : online ? "Backend online" : "Backend offline"
-  const statusColor = online || isLocal ? "rgba(255,255,255,0.6)" : "rgba(239,68,68,0.75)"
-
-  // Línea 3: hardware label — si no hay, la omitimos
-  const hw = hardwareLabel ||
-    (tier === "ec2" ? "t3.micro · 1 GB RAM · 1 vCPU" : "")
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: "0.35rem",
-        px: "0.5rem",
-        py: "0.3rem",
-        borderRadius: "0.375rem",
-        border: "1px solid",
-        borderColor,
-        bgcolor: "rgba(255,255,255,0.06)",
-        flexShrink: 0,
-        minWidth: "8rem",
-      }}
-    >
-      <Icon sx={{ fontSize: "1rem", color: accentColor, mt: "0.1rem", flexShrink: 0 }} />
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
-        {/* Línea 1 — nombre del tier */}
-        <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: accentColor, lineHeight: 1.3, whiteSpace: "nowrap" }}>
-          {label}
-        </Typography>
-        {/* Línea 2 — estado online/offline */}
-        <Typography sx={{ fontSize: "0.625rem", color: statusColor, lineHeight: 1.3, whiteSpace: "nowrap" }}>
-          {statusText}
-        </Typography>
-        {/* Línea 3 — specs de hardware (solo si hay) */}
-        {hw && (
-          <Typography sx={{ fontSize: "0.5625rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.3, whiteSpace: "nowrap" }}>
-            {hw}
-          </Typography>
-        )}
-      </Box>
-    </Box>
-  )
-}
-
 // ── Layout ────────────────────────────────────────────────────────────────────
 export default function DashboardLayout({
 	children,
@@ -288,7 +206,6 @@ export default function DashboardLayout({
 	const [hovered, setHovered] = useState(false);
 	const collapsed = !pinned && !hovered;
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-	const { caps } = useCapabilities();
 
 	const user = session?.user;
 	const initials = user?.name
@@ -566,7 +483,7 @@ export default function DashboardLayout({
 					{/* Spacer — empuja el right box al extremo derecho */}
 					<Box sx={{ flex: 1 }} />
 
-					{/* Right: tier badge + notifications + avatar */}
+					{/* Right: notifications + avatar */}
 					<Box
 						sx={{
 							flexShrink: 0,
@@ -577,12 +494,6 @@ export default function DashboardLayout({
 							gap: "0.5rem",
 						}}
 					>
-						<TierBadge
-						 tier={caps.tier}
-						 label={caps.tier_label}
-						 online={caps.backend_online}
-						 hardwareLabel={caps.hardware_label}
-						 />
 						<Tooltip title="Notificaciones">
 							<IconButton
 								sx={{

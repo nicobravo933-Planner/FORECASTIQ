@@ -35,7 +35,7 @@ export interface ServerCapabilities {
 
 // Tier labels matching the backend
 const TIER_LABELS: Record<string, string> = {
-  local: "Backend local",
+  local: "PC Local",
   ec2:   "AWS EC2",
   cloud: "Cloud",
 }
@@ -66,6 +66,9 @@ function capsFromTier(tier: string): ServerCapabilities {
 const CLOUD_FALLBACK = capsFromTier("cloud")
 
 const SESSION_KEY = "fiq_capabilities"
+// Versión del schema — incrementar cuando cambia la estructura de ServerCapabilities
+// Esto invalida el cache viejo en sessionStorage automáticamente
+const SCHEMA_VERSION = "v3" // v3: agrega hardware_label + backend_online
 
 export function useCapabilities() {
   const [caps, setCaps]       = useState<ServerCapabilities | null>(null)
@@ -77,7 +80,7 @@ export function useCapabilities() {
       const cached = sessionStorage.getItem(SESSION_KEY)
       if (cached) {
         const parsed = JSON.parse(cached) as ServerCapabilities
-        if (parsed.tier_label) {          // schema v1 cache (no tier_label) → skip
+        if (parsed.tier_label && parsed.hardware_label !== undefined && (parsed as unknown as Record<string,string>).__schema === SCHEMA_VERSION) {
           setCaps(parsed)
           setLoading(false)
           return
@@ -94,16 +97,20 @@ export function useCapabilities() {
         const normalized: ServerCapabilities = {
           ...data,
           tier_label: data.tier_label ?? TIER_LABELS[data.tier] ?? `Backend (${data.tier})`,
-          hardware_label: data.hardware_label ?? "",
-          backend_online: true,  // si llegamos acá, el backend respondió
+          // Si el backend no manda hardware_label, usar la env var del frontend
+          hardware_label: data.hardware_label || process.env.NEXT_PUBLIC_SERVER_HARDWARE_LABEL || "",
+          backend_online: true,
         }
         setCaps(normalized)
-        try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(normalized)) } catch { /* ok */ }
+        try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ ...normalized, __schema: SCHEMA_VERSION })) } catch { /* ok */ }
       })
       .catch(() => {
         // 3. Env-var fallback — works in dev without backend endpoint deployed
         const envTier = process.env.NEXT_PUBLIC_SERVER_TIER ?? "cloud"
-        setCaps(capsFromTier(envTier))
+        const fallback = capsFromTier(envTier)
+        // Leer hardware label desde env var si está disponible
+        const envHw = process.env.NEXT_PUBLIC_SERVER_HARDWARE_LABEL ?? ""
+        setCaps({ ...fallback, hardware_label: envHw })
       })
       .finally(() => setLoading(false))
   }, [])

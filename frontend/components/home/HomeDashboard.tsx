@@ -13,6 +13,9 @@ import CircularProgress from "@mui/material/CircularProgress"
 import { useRouter } from "next/navigation"
 import { useSession } from "@/lib/auth-client"
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward"
+import CloudDoneIcon from "@mui/icons-material/CloudDone"
+import CloudOffIcon from "@mui/icons-material/CloudOff"
+import ComputerIcon from "@mui/icons-material/Computer"
 import UploadFileIcon from "@mui/icons-material/UploadFile"
 import ShowChartIcon from "@mui/icons-material/ShowChart"
 import SmartToyIcon from "@mui/icons-material/SmartToy"
@@ -279,17 +282,21 @@ export function HomeDashboard() {
     }
   }, [])
 
-  // ── Forecast result ────────────────────────────────────────────────────────
-  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(
-    () => appStore.getLastResult<ForecastResult>()  // restaurar desde localStorage al montar
-  )
+  // ── Forecast result (SSR-safe) ────────────────────────────────────────────
+  // Nunca leer localStorage en la inicializacion del estado — causa hydration mismatch.
+  // Se hidrata en useEffect (solo corre en el cliente).
+  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null)
   const [forecastLoading, setForecastLoading] = useState(false)
 
-  // Escucha fiq:store-update: cuando useForecast guarda el resultado, leerlo desde localStorage
   useEffect(() => {
+    // Hidratar desde localStorage al montar
+    const persisted = appStore.getLastResult<ForecastResult>()
+    if (persisted) setForecastResult(persisted)
+
+    // Escuchar actualizaciones en tiempo real (cuando useForecast guarda el resultado)
     const onUpdate = () => {
-      const persisted = appStore.getLastResult<ForecastResult>()
-      if (persisted) setForecastResult(persisted)
+      const updated = appStore.getLastResult<ForecastResult>()
+      if (updated) setForecastResult(updated)
     }
     window.addEventListener("fiq:store-update", onUpdate)
     return () => window.removeEventListener("fiq:store-update", onUpdate)
@@ -383,22 +390,17 @@ export function HomeDashboard() {
     <Box sx={{
       height: "100%", display: "flex", flexDirection: "column",
       gap: "0.875rem", overflow: "hidden",
-      px: "1.5rem", pt: "2rem", pb: "1.125rem",
+      px: "1.5rem", pt: "2.5rem", pb: "1.125rem",
     }}>
-      <style>{`
-        @keyframes logoFloat {
-          0%, 100% { transform: translateY(0px); }
-          50%       { transform: translateY(-8px); }
-        }
-      `}</style>
-
-      {/* ══════════════════════════════════════════════════════════════════════
+{/* ══════════════════════════════════════════════════════════════════════
           HERO STRIP — no modificar (logo 11.75rem flotante)
       ══════════════════════════════════════════════════════════════════════ */}
       <Box sx={{
         background: "linear-gradient(135deg, #0f2044 0%, #1a3868 100%)",
         borderRadius: "1rem",
         p: "1.75rem 1.5rem",
+        height: "8rem",         // altura fija — el logo siempre centrado
+        minHeight: "8rem",
         display: "flex", alignItems: "center", gap: "1.25rem",
         position: "relative", overflow: "visible", flexShrink: 0,
       }}>
@@ -412,11 +414,11 @@ export function HomeDashboard() {
             width: LOGO_SIZE, height: LOGO_SIZE, borderRadius: "50%",
             objectFit: "cover", display: "block",
             filter: "drop-shadow(0 0.5rem 2.5rem rgba(0,0,0,0.45)) drop-shadow(0 0.125rem 0.5rem rgba(59,130,246,0.35))",
-            animation: "logoFloat 4s ease-in-out infinite",
+            animation: undefined,
           }} />
         </Box>
         <Box sx={{ width: LOGO_SIZE, flexShrink: 0 }} />
-        <Box sx={{ flex: 1, position: "relative", zIndex: 1 }}>
+        <Box sx={{ flex: 1, position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <Typography sx={{ fontSize: "0.6875rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase", mb: "0.3rem" }}>
             {now ? `${formatDateES(now)} · ${formatTimeES(now)}` : "\u00a0"}
           </Typography>
@@ -433,8 +435,14 @@ export function HomeDashboard() {
             }
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-end", flexShrink: 0, position: "relative", zIndex: 1 }}>
-          <Box component="span" sx={{ fontSize: "0.75rem", fontWeight: 600, px: "0.875rem", py: "0.3125rem", borderRadius: "1.25rem", bgcolor: "rgba(255,255,255,0.14)", color: "#fff", letterSpacing: "0.04em" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "flex-end", justifyContent: "center", flexShrink: 0, position: "relative", zIndex: 1 }}>
+          <Box component="span" sx={{ fontSize: "0.75rem", fontWeight: 600, px: "0.875rem", py: "0.3125rem", borderRadius: "1.25rem", bgcolor: "rgba(255,255,255,0.14)", color: "#fff", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+            {caps.tier === "local"
+              ? <ComputerIcon sx={{ fontSize: "0.875rem" }} />
+              : caps.backend_online
+                ? <CloudDoneIcon sx={{ fontSize: "0.875rem" }} />
+                : <CloudOffIcon sx={{ fontSize: "0.875rem", color: "#fca5a5" }} />
+            }
             {caps.tier_label}
           </Box>
           <Box component="span" sx={{
@@ -459,9 +467,11 @@ export function HomeDashboard() {
             }
             {healthLoading ? "Conectando…" : isOnline ? "Backend online" : "Backend offline"}
           </Box>
+          {caps.hardware_label && (
           <Box component="span" sx={{ fontSize: "0.6875rem", fontWeight: 500, px: "0.75rem", py: "0.25rem", borderRadius: "1.25rem", bgcolor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}>
-            forecastiq.vercel.app
+            {caps.hardware_label}
           </Box>
+          )}
         </Box>
       </Box>
 
@@ -469,7 +479,7 @@ export function HomeDashboard() {
       <Box sx={{
         display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem",
         flexShrink: 0,
-        mt: `calc(${LOGO_OVERFLOW} * 0.6)`,
+        mt: "0.75rem",
       }}>
         {/* KPI 1 — WAPE */}
         <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>

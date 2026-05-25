@@ -71,7 +71,7 @@ async def get_capabilities() -> CapabilitiesResponse:
     models = base_models + (["lightgbm"] if has_lgbm else [])
 
     tier_labels = {
-        "local": "Backend local",
+        "local": "PC Local",
         "ec2": "AWS EC2",
         "cloud": "Cloud",
     }
