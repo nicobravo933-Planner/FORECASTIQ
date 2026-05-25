@@ -1,31 +1,28 @@
 "use client"
 
 /**
- * useDataset — manages the full Phase 1 dataset flow:
- *   upload CSV → fetch preview → detect model
+ * useDataset — gestiona el flujo de subida de archivos.
  *
- * State machine: idle → uploading → previewing → detecting → done | error
+ * Responsabilidad: upload + preview. Nada más.
+ * La selección de columnas y la detección de modelo ocurren en EDA.
+ *
+ * Estado: idle → uploading → preview | error
  */
 
 import { useState, useCallback } from "react"
 import { api, ApiError } from "@/lib/api"
 import { addSessionDataset } from "@/lib/sessionDatasets"
-import type { UploadResponse, DatasetPreview, DetectionResult, DataFreq } from "@/lib/types"
+import type { UploadResponse, DatasetPreview } from "@/lib/types"
 
-type Stage = "idle" | "uploading" | "preview" | "detecting" | "done" | "error"
+type Stage = "idle" | "uploading" | "preview" | "error"
 
 interface DatasetState {
   stage: Stage
-  uploadProgress: number          // 0-100 (simulated — fetch doesn't expose progress)
+  uploadProgress: number
   datasetId: string | null
   uploadResponse: UploadResponse | null
   preview: DatasetPreview | null
-  detection: DetectionResult | null
   error: string | null
-  // Saved when user runs detection — needed to pre-fill the Forecast page
-  selectedDateColumn: string | null
-  selectedTargetColumn: string | null
-  selectedFreq: DataFreq | null
 }
 
 const INITIAL: DatasetState = {
@@ -34,22 +31,17 @@ const INITIAL: DatasetState = {
   datasetId: null,
   uploadResponse: null,
   preview: null,
-  detection: null,
   error: null,
-  selectedDateColumn: null,
-  selectedTargetColumn: null,
-  selectedFreq: null,
 }
 
 export function useDataset() {
   const [state, setState] = useState<DatasetState>(INITIAL)
 
-  // Helper to patch state partially
   const patch = useCallback((partial: Partial<DatasetState>) => {
     setState((prev) => ({ ...prev, ...partial }))
   }, [])
 
-  /** Step 1: Upload the CSV file */
+  /** Sube el archivo y obtiene el preview automáticamente */
   const uploadFile = useCallback(
     async (file: File) => {
       patch({ stage: "uploading", uploadProgress: 10, error: null })
@@ -58,7 +50,6 @@ export function useDataset() {
         const formData = new FormData()
         formData.append("file", file)
 
-        // Simulate incremental progress while request is in-flight
         const progressInterval = setInterval(() => {
           setState((prev) => ({
             ...prev,
@@ -76,14 +67,13 @@ export function useDataset() {
           stage: "preview",
         })
 
-        // Guardar en localStorage para que aparezca en Mis Datasets aunque no haya sesión
         addSessionDataset({
           dataset_id: res.dataset_id,
           filename:   res.filename,
           created_at: new Date().toISOString(),
         })
 
-        // Automatically fetch preview after upload
+        // Fetch preview automatically
         await fetchPreview(res.dataset_id)
       } catch (err) {
         patch({
@@ -95,7 +85,6 @@ export function useDataset() {
     [patch], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  /** Step 2: Fetch column preview (called automatically after upload) */
   const fetchPreview = useCallback(
     async (id: string) => {
       try {
@@ -111,43 +100,7 @@ export function useDataset() {
     [patch],
   )
 
-  /** Step 3: Run model detection after user selects date + target columns */
-  const detectModel = useCallback(
-    async (dateColumn: string, targetColumn: string, freq: DataFreq = "M") => {
-      if (!state.datasetId) return
-      patch({ stage: "detecting", error: null })
-
-      try {
-        const result = await api.post<DetectionResult>(
-          `/api/datasets/${state.datasetId}/detect`,
-          { date_column: dateColumn, target_column: targetColumn, freq },
-        )
-        // Save selected columns + freq so dataset/page can forward them to appStore
-        patch({
-          detection: result,
-          stage: "done",
-          selectedDateColumn: dateColumn,
-          selectedTargetColumn: targetColumn,
-          selectedFreq: freq,
-        })
-      } catch (err) {
-        patch({
-          stage: "error",
-          error: err instanceof ApiError ? err.message : "Error en la detección de modelo.",
-        })
-      }
-    },
-    [state.datasetId, patch],
-  )
-
-  /** Reset to initial state (upload another file) */
   const reset = useCallback(() => setState(INITIAL), [])
 
-  return {
-    ...state,
-    uploadFile,
-    fetchPreview,
-    detectModel,
-    reset,
-  }
+  return { ...state, uploadFile, fetchPreview, reset }
 }

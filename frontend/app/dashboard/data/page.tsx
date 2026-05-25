@@ -44,6 +44,7 @@ import Dialog from "@mui/material/Dialog"
 import DialogTitle from "@mui/material/DialogTitle"
 import DialogContent from "@mui/material/DialogContent"
 import DialogActions from "@mui/material/DialogActions"
+import Snackbar from "@mui/material/Snackbar"
 import List from "@mui/material/List"
 import ListItemButton from "@mui/material/ListItemButton"
 import ListItemText from "@mui/material/ListItemText"
@@ -237,6 +238,7 @@ function DataPageInner() {
   const [filesExpanded, setFilesExpanded] = useState(true)
   const [deletingId, setDeletingId]     = useState<string | null>(null)
   const [deleting, setDeleting]         = useState(false)
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null) // nombre del archivo borrado
 
   // DB schema
   const [schema, setSchema]               = useState<SchemaResponse | null>(null)
@@ -387,6 +389,7 @@ function DataPageInner() {
   const handleDeleteConfirm = async () => {
     if (!deletingId) return
     const idToDelete = deletingId
+    const nameToDelete = myDatasets.find(d => d.dataset_id === idToDelete)?.filename ?? "archivo"
     setDeleting(true)
     try {
       await api.delete(`/api/datasets/${idToDelete}`)
@@ -395,6 +398,7 @@ function DataPageInner() {
         setSource("demo"); setPageData(null)
         doLoad(0, rowsPerPage, demoCategoria, demoSkuId, "", "", null, "demo", "")
       }
+      setDeleteSuccess(nameToDelete)
     } catch (e) {
       // Show the error but still refresh the list — the backend may have
       // deleted the record even if Storage cleanup failed.
@@ -886,6 +890,15 @@ function DataPageInner() {
           )}
         </Box>
       </Box>
+
+      {/* ── Snackbar: borrado exitoso ──────────────────────────────────── */}
+      <Snackbar
+        open={Boolean(deleteSuccess)}
+        autoHideDuration={3500}
+        onClose={() => setDeleteSuccess(null)}
+        message={`✓ "${deleteSuccess}" borrado correctamente`}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
 
       {/* ── Dialog: confirmar borrado ──────────────────────────────────── */}
       <Dialog open={Boolean(deletingId)} onClose={() => setDeletingId(null)} maxWidth="xs" fullWidth>

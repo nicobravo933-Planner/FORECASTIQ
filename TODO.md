@@ -577,6 +577,7 @@ Para LightGBM el impacto es mucho más correcto como **feature** — una columna
 
 ---
 
+| 2026-05-25 | vercel-build-fix | Build fix: `EventCalendar.tsx` cambiado `AdapterDateFns` → `AdapterDateFnsV3` (MUI X v7 + date-fns v3 requieren el adapter v3; el v2 importaba `_lib/format/longFormatters` que ya no existe en date-fns v3). Fix quirúrgico 1 línea. |
 | 2026-05-25 | type-check-fixes | Fixed 3 TS errors blocking CI. (1) `batch/page.tsx`: declared missing `filterSeries` state (`useState<string>("")`) — it was called via `setFilterSeries` in both run handlers but never declared. (2) `EventCalendar.tsx`: changed single cast `EventDay as ComponentType<PickersDayProps<Date>>` to double cast through `unknown` — required because `EventDayProps` adds `eventsMap` which is not in `PickersDayProps<Date>` so the types don't overlap sufficiently for a direct assertion. |
 
 | 2026-05-24 | UX-F F1+F2.2 | F1 completo. (F1.1) HorizonSelector: estado isCustomMode local, click Otro activa input sin cambiar valor. (F1.2) ForecastConfigPanel: TEST_PERIODS_OPTIONS por freq, opciones D/W/M/Q dinamicas, boton Manual + TextField condicional, reset en cambio de freq. (F1.3) forecast/page.tsx: useColumnPreview + alerta pre-run cuando test > 50% total. (F1.4) Switch linkHorizonTest sincroniza horizon<->testPeriods con tooltip Vandeput. F2.2: appStore.ts clave cleanedDatasetId + set/get/clear. useEtl.ts llama setCleanedDataset en applyWinsorize y applyFillGaps. |

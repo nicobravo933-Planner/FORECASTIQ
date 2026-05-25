@@ -53,6 +53,8 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 120_000)
       const body = await res.json().catch(() => ({ detail: res.statusText }))
       throw new ApiError(res.status, body.detail ?? "Unknown error")
     }
+    // 204 No Content — no body to parse
+    if (res.status === 204 || res.headers.get("content-length") === "0") return undefined as T
     return res.json() as Promise<T>
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError")

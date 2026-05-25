@@ -3,9 +3,12 @@
 /**
  * EDA page — Análisis Exploratorio de Datos (E1).
  *
- * El DatasetSelector en el header permite elegir qué dataset analizar
- * sin necesidad de pasar por otra vista. Al cambiar el dataset se resetea
- * el análisis y se recalculan todos los endpoints de EDA.
+ * DatasetSelector en el header:
+ *  - Dropdown de dataset
+ *  - Selectores inline de columna fecha / objetivo / frecuencia
+ *  - Se actualiza appStore en tiempo real al cambiar cualquier selector
+ *
+ * El análisis se dispara automáticamente cuando los 4 valores están presentes.
  */
 
 import { useCallback, useEffect, useState } from "react"
@@ -45,13 +48,14 @@ export default function EdaPage() {
     setFreq(appStore.getActiveFreq())
   }, [])
 
-  // When DatasetSelector activates a new dataset, re-read appStore
+  // DatasetSelector calls this whenever dataset OR columns change
+  // appStore is already updated before this fires — just re-sync local state
   const handleDatasetSelect = useCallback((newId: string) => {
     setDatasetId(newId)
     setDateCol(appStore.getActiveDateCol())
     setTargetCol(appStore.getActiveTargetCol())
     setFreq(appStore.getActiveFreq())
-    setSeriesData([])   // reset chart
+    setSeriesData([])
   }, [])
 
   // Load series for OutlierChart
@@ -78,17 +82,19 @@ export default function EdaPage() {
     freq,
   })
 
-  // E5: persist quality score to appStore so Forecast reads it without re-calling backend
+  // E5: persist quality score to appStore
   useEffect(() => {
     if (!quality || !models) return
     const availIds = models.models.filter((m) => m.available).map((m) => m.id)
     appStore.setQualityScore(quality.score, quality.label, availIds)
   }, [quality, models])
 
+  const canAnalyze = !!datasetId && !!dateCol && !!targetCol
+
   return (
     <Box sx={{ maxWidth: "75rem", mx: "auto" }}>
 
-      {/* ── Page header with inline DatasetSelector ── */}
+      {/* ── Header ── */}
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between",
         flexWrap: "wrap", gap: "1rem", mb: "1.75rem" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -97,20 +103,17 @@ export default function EdaPage() {
             <Typography sx={{ fontSize: "1.375rem", fontWeight: 800, color: "text.primary", lineHeight: 1.2 }}>
               Análisis Exploratorio
             </Typography>
-            {summary ? (
-              <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary", mt: "0.125rem" }}>
-                {summary.n_observations.toLocaleString()} observaciones ·{" "}
-                {summary.date_start} → {summary.date_end} · frecuencia {summary.freq}
-              </Typography>
-            ) : (
-              <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary", mt: "0.125rem" }}>
-                Seleccioná un dataset para analizar
-              </Typography>
-            )}
+            <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary", mt: "0.125rem" }}>
+              {summary
+                ? `${summary.n_observations.toLocaleString()} obs · ${summary.date_start} → ${summary.date_end} · ${summary.freq}`
+                : canAnalyze
+                  ? "Analizando…"
+                  : "Seleccioná un dataset para analizar"
+              }
+            </Typography>
           </Box>
         </Box>
 
-        {/* Dataset selector — always visible in the header */}
         <DatasetSelector
           activeDatasetId={datasetId}
           onSelect={handleDatasetSelect}
@@ -118,7 +121,7 @@ export default function EdaPage() {
         />
       </Box>
 
-      {/* ── Empty state: no dataset selected ── */}
+      {/* ── Empty state: no dataset ── */}
       {!datasetId && (
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
           minHeight: "40vh", flexDirection: "column", gap: "1rem" }}>
@@ -127,27 +130,25 @@ export default function EdaPage() {
             Seleccioná un dataset para empezar el análisis
           </Typography>
           <Typography sx={{ fontSize: "0.875rem", color: "text.disabled", textAlign: "center", maxWidth: "28rem" }}>
-            Usá el selector de arriba para elegir uno de tus datasets o cargar el demo.
-            El EDA calcula automáticamente la calidad de los datos, detecta outliers y
-            recomienda los mejores modelos.
+            Usá el selector de arriba. Se detectan automáticamente las columnas de fecha
+            y objetivo — podés ajustarlas con los selectores inline si es necesario.
           </Typography>
         </Box>
       )}
 
-      {/* ── Missing columns warning ── */}
-      {datasetId && (!dateCol || !targetCol) && !loading && (
-        <Alert severity="warning" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
-          <strong>Columnas no detectadas automáticamente.</strong>{" "}
-          Andá a la vista{" "}
-          <a href="/dashboard/dataset" style={{ color: "inherit", fontWeight: 700 }}>
-            Datos
-          </a>{" "}
-          para seleccionar manualmente las columnas de fecha y objetivo.
-        </Alert>
+      {/* ── Waiting for columns ── */}
+      {datasetId && !canAnalyze && !loading && (
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
+          minHeight: "30vh", flexDirection: "column", gap: "0.75rem" }}>
+          <CircularProgress size={32} />
+          <Typography sx={{ fontSize: "0.875rem", color: "text.secondary" }}>
+            Detectando columnas…
+          </Typography>
+        </Box>
       )}
 
       {/* ── Loading ── */}
-      {datasetId && loading && (
+      {canAnalyze && loading && (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center",
           justifyContent: "center", height: "60vh", gap: "1rem" }}>
           <CircularProgress size={40} />
@@ -158,14 +159,13 @@ export default function EdaPage() {
       )}
 
       {/* ── Error ── */}
-      {datasetId && error && (
+      {canAnalyze && error && (
         <Alert severity="error" sx={{ mt: "1rem", borderRadius: "0.75rem" }}>{error}</Alert>
       )}
 
-      {/* ── Main content — only when data is ready ── */}
-      {datasetId && !loading && !error && summary && outliers && quality && models && (
+      {/* ── Main content ── */}
+      {canAnalyze && !loading && !error && summary && outliers && quality && models && (
         <>
-          {/* Row 1: Quality Score + Outlier Chart */}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "22rem 1fr" },
             gap: "1.25rem", mb: "1.25rem" }}>
             <QualityScoreCard data={quality} />
@@ -189,28 +189,25 @@ export default function EdaPage() {
             </Box>
           </Box>
 
-          {/* Banners: insufficient history */}
           {summary.n_observations < 24 && (
             <Alert severity="warning" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
               <strong>Historia insuficiente para Holt-Winters.</strong>{" "}
               Tu serie tiene {summary.n_observations} observaciones. Holt-Winters requiere al menos
-              2 ciclos estacionales completos (mínimo recomendado: 24). Solo Moving Average disponible.
+              24. Solo Moving Average disponible.
             </Alert>
           )}
           {summary.n_observations < 8 && (
             <Alert severity="error" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
               <strong>Serie demasiado corta.</strong>{" "}
               Con {summary.n_observations} observaciones no es posible hacer un forecast confiable.
-              Necesitás al menos 8 períodos para Moving Average.
+              Necesitás al menos 8 períodos.
             </Alert>
           )}
 
-          {/* Completeness bar */}
           <Box sx={{ mb: "1.25rem" }}>
             <DataCompletenessBar data={summary} />
           </Box>
 
-          {/* Row 2: Summary table + Models */}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 22rem" },
             gap: "1.25rem" }}>
             <SeriesSummaryTable data={summary} />
