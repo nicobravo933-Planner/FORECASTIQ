@@ -4,7 +4,9 @@
  * Automatically attaches the Better Auth session token as Bearer when available.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+// BASE_URL vacío = paths relativos (/api/...) → Vercel rewrite al EC2 via HTTPS
+// BASE_URL con valor = llamada directa (dev local con backend en localhost:8000)
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
 
 class ApiError extends Error {
   constructor(
