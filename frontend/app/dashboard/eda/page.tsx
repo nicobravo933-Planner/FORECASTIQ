@@ -3,20 +3,17 @@
 /**
  * EDA page — Análisis Exploratorio de Datos (E1).
  *
- * Lee dataset_id, dateCol, targetCol y freq desde appStore (localStorage).
- * Construye la serie para el OutlierChart desde el endpoint /preview.
- * Layout: Quality Score (izq) | Gráfico outliers (der) / Resumen | Modelos
+ * El DatasetSelector en el header permite elegir qué dataset analizar
+ * sin necesidad de pasar por otra vista. Al cambiar el dataset se resetea
+ * el análisis y se recalculan todos los endpoints de EDA.
  */
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Alert from "@mui/material/Alert"
 import Box from "@mui/material/Box"
-import Button from "@mui/material/Button"
 import CircularProgress from "@mui/material/CircularProgress"
 import Typography from "@mui/material/Typography"
 import AssessmentIcon from "@mui/icons-material/Assessment"
-import ArrowBackIcon from "@mui/icons-material/ArrowBack"
-import Link from "next/link"
 
 import { appStore } from "@/lib/appStore"
 import { api } from "@/lib/api"
@@ -26,15 +23,10 @@ import { SeriesSummaryTable } from "@/components/eda/SeriesSummaryTable"
 import { OutlierChart } from "@/components/eda/OutlierChart"
 import { ModelsAvailablePanel } from "@/components/eda/ModelsAvailablePanel"
 import { DataCompletenessBar } from "@/components/eda/DataCompletenessBar"
+import { DatasetSelector } from "@/components/common/DatasetSelector"
 
-// Preview response shape (subset de lo que retorna el backend)
-interface PreviewRow {
-  [key: string]: string
-}
-interface PreviewResponse {
-  rows: PreviewRow[]
-  total_rows: number
-}
+interface PreviewRow { [key: string]: string }
+interface PreviewResponse { rows: PreviewRow[]; total_rows: number }
 
 export default function EdaPage() {
   const [datasetId, setDatasetId] = useState<string | null>(null)
@@ -42,11 +34,10 @@ export default function EdaPage() {
   const [targetCol, setTargetCol] = useState<string | null>(null)
   const [freq,      setFreq]      = useState<string | null>(null)
 
-  // Serie completa para el OutlierChart (cargada desde /preview paginado)
-  const [seriesData, setSeriesData] = useState<Array<{ date: string; value: number }>>([])
+  const [seriesData, setSeriesData]       = useState<Array<{ date: string; value: number }>>([])
   const [seriesLoading, setSeriesLoading] = useState(false)
 
-  // Leer appStore en el cliente (no en SSR)
+  // Read appStore on client mount
   useEffect(() => {
     setDatasetId(appStore.getActiveDatasetId())
     setDateCol(appStore.getActiveDateCol())
@@ -54,19 +45,24 @@ export default function EdaPage() {
     setFreq(appStore.getActiveFreq())
   }, [])
 
-  // Cargar la serie completa desde /preview para el gráfico
+  // When DatasetSelector activates a new dataset, re-read appStore
+  const handleDatasetSelect = useCallback((newId: string) => {
+    setDatasetId(newId)
+    setDateCol(appStore.getActiveDateCol())
+    setTargetCol(appStore.getActiveTargetCol())
+    setFreq(appStore.getActiveFreq())
+    setSeriesData([])   // reset chart
+  }, [])
+
+  // Load series for OutlierChart
   useEffect(() => {
     if (!datasetId || !dateCol || !targetCol) return
-
     setSeriesLoading(true)
     api
       .get<PreviewResponse>(`/api/datasets/${datasetId}/page?page=1&page_size=200`)
       .then((res) => {
         const pts = res.rows
-          .map((r) => ({
-            date:  r[dateCol]   ?? "",
-            value: parseFloat(r[targetCol] ?? "0"),
-          }))
+          .map((r) => ({ date: r[dateCol] ?? "", value: parseFloat(r[targetCol] ?? "0") }))
           .filter((pt) => pt.date && !isNaN(pt.value))
           .sort((a, b) => a.date.localeCompare(b.date))
         setSeriesData(pts)
@@ -82,134 +78,146 @@ export default function EdaPage() {
     freq,
   })
 
-  // E5: persistir quality score en appStore para que Forecast lo lea sin re-llamar al backend
+  // E5: persist quality score to appStore so Forecast reads it without re-calling backend
   useEffect(() => {
     if (!quality || !models) return
     const availIds = models.models.filter((m) => m.available).map((m) => m.id)
     appStore.setQualityScore(quality.score, quality.label, availIds)
   }, [quality, models])
 
-  // Estado: sin dataset activo
-  if (!datasetId || !dateCol || !targetCol) {
-    return (
-      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: "1rem" }}>
-        <AssessmentIcon sx={{ fontSize: "3.5rem", color: "text.disabled" }} />
-        <Typography sx={{ fontSize: "1.125rem", fontWeight: 600, color: "text.secondary" }}>
-          No hay dataset activo
-        </Typography>
-        <Typography sx={{ fontSize: "0.875rem", color: "text.disabled", textAlign: "center", maxWidth: "26rem" }}>
-          Subí un dataset y seleccioná las columnas de fecha y objetivo en la vista de datos.
-        </Typography>
-        <Button component={Link} href="/dashboard/forecast" variant="outlined" startIcon={<ArrowBackIcon />}>
-          Ir a Forecast
-        </Button>
-      </Box>
-    )
-  }
-
-  // Estado: cargando
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: "1rem" }}>
-        <CircularProgress size={40} />
-        <Typography sx={{ fontSize: "0.9375rem", color: "text.secondary" }}>
-          Analizando el dataset…
-        </Typography>
-      </Box>
-    )
-  }
-
-  // Estado: error
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ mt: "1rem", borderRadius: "0.75rem" }}>
-        {error}
-      </Alert>
-    )
-  }
-
-  // Sin datos aún (loading acabó pero no llegaron datos — edge case)
-  if (!summary || !outliers || !quality || !models) return null
-
   return (
     <Box sx={{ maxWidth: "75rem", mx: "auto" }}>
-      {/* Header de la página */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem", mb: "1.75rem" }}>
-        <AssessmentIcon sx={{ fontSize: "1.75rem", color: "primary.main" }} />
-        <Box>
-          <Typography sx={{ fontSize: "1.375rem", fontWeight: 800, color: "text.primary", lineHeight: 1.2 }}>
-            Análisis Exploratorio
-          </Typography>
-          <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary", mt: "0.125rem" }}>
-            {summary.n_observations.toLocaleString()} observaciones ·{" "}
-            {summary.date_start} → {summary.date_end} · frecuencia {summary.freq}
-          </Typography>
-        </Box>
-      </Box>
 
-      {/* Layout: Quality Score + Gráfico en la primera fila */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "22rem 1fr" },
-          gap: "1.25rem",
-          mb: "1.25rem",
-        }}
-      >
-        <QualityScoreCard data={quality} />
-
-        {/* Gráfico de outliers — solo si tenemos la serie cargada */}
-        <Box>
-          {seriesLoading ? (
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: "16rem" }}>
-              <CircularProgress size={28} />
-            </Box>
-          ) : seriesData.length > 0 ? (
-            <OutlierChart summary={summary} outliers={outliers} series={seriesData} />
-          ) : (
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: "16rem", bgcolor: "rgba(0,0,0,0.02)", borderRadius: "0.75rem", border: "1px dashed", borderColor: "divider" }}>
-              <Typography sx={{ fontSize: "0.875rem", color: "text.disabled" }}>
-                No se pudo cargar la serie para el gráfico
+      {/* ── Page header with inline DatasetSelector ── */}
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+        flexWrap: "wrap", gap: "1rem", mb: "1.75rem" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <AssessmentIcon sx={{ fontSize: "1.75rem", color: "primary.main" }} />
+          <Box>
+            <Typography sx={{ fontSize: "1.375rem", fontWeight: 800, color: "text.primary", lineHeight: 1.2 }}>
+              Análisis Exploratorio
+            </Typography>
+            {summary ? (
+              <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary", mt: "0.125rem" }}>
+                {summary.n_observations.toLocaleString()} observaciones ·{" "}
+                {summary.date_start} → {summary.date_end} · frecuencia {summary.freq}
               </Typography>
-            </Box>
-          )}
+            ) : (
+              <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary", mt: "0.125rem" }}>
+                Seleccioná un dataset para analizar
+              </Typography>
+            )}
+          </Box>
         </Box>
+
+        {/* Dataset selector — always visible in the header */}
+        <DatasetSelector
+          activeDatasetId={datasetId}
+          onSelect={handleDatasetSelect}
+          showEtlBadge
+        />
       </Box>
 
-      {/* Banner: historia insuficiente para Holt-Winters (< 24 obs) */}
-      {summary.n_observations < 24 && (
+      {/* ── Empty state: no dataset selected ── */}
+      {!datasetId && (
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
+          minHeight: "40vh", flexDirection: "column", gap: "1rem" }}>
+          <AssessmentIcon sx={{ fontSize: "4rem", color: "text.disabled", opacity: 0.4 }} />
+          <Typography sx={{ fontSize: "1rem", fontWeight: 600, color: "text.secondary" }}>
+            Seleccioná un dataset para empezar el análisis
+          </Typography>
+          <Typography sx={{ fontSize: "0.875rem", color: "text.disabled", textAlign: "center", maxWidth: "28rem" }}>
+            Usá el selector de arriba para elegir uno de tus datasets o cargar el demo.
+            El EDA calcula automáticamente la calidad de los datos, detecta outliers y
+            recomienda los mejores modelos.
+          </Typography>
+        </Box>
+      )}
+
+      {/* ── Missing columns warning ── */}
+      {datasetId && (!dateCol || !targetCol) && !loading && (
         <Alert severity="warning" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
-          <strong>Historia insuficiente para Holt-Winters.</strong>{" "}
-          Tu serie tiene {summary.n_observations} observaciones. Holt-Winters requiere al menos
-          2 ciclos estacionales completos (mínimo recomendado: 24). Solo Moving Average disponible.
+          <strong>Columnas no detectadas automáticamente.</strong>{" "}
+          Andá a la vista{" "}
+          <a href="/dashboard/dataset" style={{ color: "inherit", fontWeight: 700 }}>
+            Datos
+          </a>{" "}
+          para seleccionar manualmente las columnas de fecha y objetivo.
         </Alert>
       )}
 
-      {/* Banner: serie muy corta en general (< 8 obs) */}
-      {summary.n_observations < 8 && (
-        <Alert severity="error" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
-          <strong>Serie demasiado corta.</strong>{" "}
-          Con {summary.n_observations} observaciones no es posible hacer un forecast confiable.
-          Necesitás al menos 8 períodos para Moving Average.
-        </Alert>
+      {/* ── Loading ── */}
+      {datasetId && loading && (
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", height: "60vh", gap: "1rem" }}>
+          <CircularProgress size={40} />
+          <Typography sx={{ fontSize: "0.9375rem", color: "text.secondary" }}>
+            Analizando el dataset…
+          </Typography>
+        </Box>
       )}
 
-      {/* Barra de completitud */}
-      <Box sx={{ mb: "1.25rem" }}>
-        <DataCompletenessBar data={summary} />
-      </Box>
+      {/* ── Error ── */}
+      {datasetId && error && (
+        <Alert severity="error" sx={{ mt: "1rem", borderRadius: "0.75rem" }}>{error}</Alert>
+      )}
 
-      {/* Segunda fila: Resumen + Modelos */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "1fr 22rem" },
-          gap: "1.25rem",
-        }}
-      >
-        <SeriesSummaryTable data={summary} />
-        <ModelsAvailablePanel data={models} />
-      </Box>
+      {/* ── Main content — only when data is ready ── */}
+      {datasetId && !loading && !error && summary && outliers && quality && models && (
+        <>
+          {/* Row 1: Quality Score + Outlier Chart */}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "22rem 1fr" },
+            gap: "1.25rem", mb: "1.25rem" }}>
+            <QualityScoreCard data={quality} />
+            <Box>
+              {seriesLoading ? (
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
+                  height: "100%", minHeight: "16rem" }}>
+                  <CircularProgress size={28} />
+                </Box>
+              ) : seriesData.length > 0 ? (
+                <OutlierChart summary={summary} outliers={outliers} series={seriesData} />
+              ) : (
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
+                  height: "100%", minHeight: "16rem", bgcolor: "rgba(0,0,0,0.02)",
+                  borderRadius: "0.75rem", border: "1px dashed", borderColor: "divider" }}>
+                  <Typography sx={{ fontSize: "0.875rem", color: "text.disabled" }}>
+                    No se pudo cargar la serie para el gráfico
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+
+          {/* Banners: insufficient history */}
+          {summary.n_observations < 24 && (
+            <Alert severity="warning" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
+              <strong>Historia insuficiente para Holt-Winters.</strong>{" "}
+              Tu serie tiene {summary.n_observations} observaciones. Holt-Winters requiere al menos
+              2 ciclos estacionales completos (mínimo recomendado: 24). Solo Moving Average disponible.
+            </Alert>
+          )}
+          {summary.n_observations < 8 && (
+            <Alert severity="error" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
+              <strong>Serie demasiado corta.</strong>{" "}
+              Con {summary.n_observations} observaciones no es posible hacer un forecast confiable.
+              Necesitás al menos 8 períodos para Moving Average.
+            </Alert>
+          )}
+
+          {/* Completeness bar */}
+          <Box sx={{ mb: "1.25rem" }}>
+            <DataCompletenessBar data={summary} />
+          </Box>
+
+          {/* Row 2: Summary table + Models */}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 22rem" },
+            gap: "1.25rem" }}>
+            <SeriesSummaryTable data={summary} />
+            <ModelsAvailablePanel data={models} />
+          </Box>
+        </>
+      )}
     </Box>
   )
 }

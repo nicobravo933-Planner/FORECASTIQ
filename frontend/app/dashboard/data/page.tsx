@@ -8,6 +8,9 @@
  *  2. "Conectar nueva fuente" como Drawer lateral — sin navegar, sin perder datos
  *  3. Mis datasets con botón borrar (papelera al hover)
  *  4. Estado persistente — no recarga al abrir/cerrar el drawer
+ *
+ * NOTE: El botón principal navega a EDA (no a Forecast) — la vista Datos
+ * es un explorador de solo lectura. El análisis empieza en EDA.
  */
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react"
@@ -211,14 +214,12 @@ function DataPageInner() {
   const [loadingSkuChart, setLoadingSkuChart] = useState(false)
   const [skuChartDatasetId, setSkuChartDatasetId] = useState<string | null>(null)
 
-  // Carga la serie del SKU cuando el usuario busca por SKU-id en el demo
   const loadSkuChart = useCallback(async (skuId: string, cat: string) => {
     if (!skuId) { setSkuSeries([]); return }
     setLoadingSkuChart(true)
     try {
       const res = await api.post<{ dataset_id: string; rows: number }>("/api/datasets/demo/load", { sku_id: skuId, categoria: cat, freq: "D" })
       setSkuChartDatasetId(res.dataset_id)
-      // Cargar todas las filas de la serie para el chart (limit alto)
       const page = await api.get<{ columns: string[]; rows: Record<string,string>[] }>(
         `/api/datasets/${res.dataset_id}/page?page=1&page_size=1200`
       )
@@ -231,12 +232,10 @@ function DataPageInner() {
     finally { setLoadingSkuChart(false) }
   }, [])
 
-  // Drawer "Conectar nueva fuente" — eliminado, ahora navega a /dashboard/dataset
-
   // Datasets del usuario
   const [myDatasets, setMyDatasets]     = useState<DatasetListItem[]>([])
   const [filesExpanded, setFilesExpanded] = useState(true)
-  const [deletingId, setDeletingId]     = useState<string | null>(null)  // dataset a confirmar borrado
+  const [deletingId, setDeletingId]     = useState<string | null>(null)
   const [deleting, setDeleting]         = useState(false)
 
   // DB schema
@@ -256,11 +255,10 @@ function DataPageInner() {
   const [rowsPerPage, setRowsPerPage] = useState(50)
   const [rightTab, setRightTab] = useState(0)
 
-  // Búsqueda universal (demo + csv + db)
+  // Búsqueda universal
   const [searchText, setSearchText]     = useState("")
   const [searchColumn, setSearchColumn] = useState("")
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Ref para evitar closure stale en el debounce timer
   const searchColumnRef = useRef(searchColumn)
   useEffect(() => { searchColumnRef.current = searchColumn }, [searchColumn])
 
@@ -275,7 +273,6 @@ function DataPageInner() {
 
   useEffect(() => { loadMyDatasets() }, [loadMyDatasets])
 
-  // Stats precalculadas del demo (instantáneas, sin DuckDB)
   const DEMO_STATS: Record<string, number> = {
     "Electrónica": 687_295, "Alimentos": 1_379_700, "Indumentaria": 918_705,
     "Hogar": 883_665, "Deportes": 693_135,
@@ -310,18 +307,14 @@ function DataPageInner() {
       } else { setLoading(false); return }
       setPageData(data)
       if (!sCol && data.columns.length > 0) setSearchColumn(data.columns[0])
-      // Cachear en sessionStorage para restaurar al volver de /dashboard/dataset
       try {
-        sessionStorage.setItem("fiq_data_page_cache", JSON.stringify({
-          data, source: src, cat, dsId
-        }))
+        sessionStorage.setItem("fiq_data_page_cache", JSON.stringify({ data, source: src, cat, dsId }))
       } catch { /* quota exceeded */ }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Error al cargar datos.")
     } finally { setLoading(false) }
   }
 
-  // Carga inicial — restaura desde sessionStorage si existe (evita recarga al volver de /dataset)
   const didMount = useRef(false)
   useEffect(() => {
     if (didMount.current) return; didMount.current = true
@@ -332,7 +325,7 @@ function DataPageInner() {
         setPageData(data); setSource(src); setDemoCategoria(cat ?? "Electrónica")
         if (dsId) setCsvDatasetId(dsId)
         if (data.columns.length > 0) setSearchColumn(data.columns[0])
-        return  // no recarga
+        return
       }
     } catch { /* sessionStorage no disponible */ }
     doLoad(0, 50, "Electrónica", "", "", "", null, "demo", "")
@@ -366,12 +359,11 @@ function DataPageInner() {
 
   useEffect(() => { if (conn && !schema) loadSchema() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Búsqueda debounced (universal) ────────────────────────────────────
+  // ── Búsqueda debounced ────────────────────────────────────────────────
   const handleSearchChange = (val: string) => {
     setSearchText(val)
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => {
-      // Usa ref para obtener el searchColumn actual (evita closure stale)
       const currentCol = searchColumnRef.current
       setPage(0)
       doLoad(0, rowsPerPage, demoCategoria, demoSkuId, val, currentCol, selectedTable, source, csvDatasetId)
@@ -394,18 +386,24 @@ function DataPageInner() {
   // ── Borrar dataset ────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
     if (!deletingId) return
+    const idToDelete = deletingId
     setDeleting(true)
     try {
-      await api.delete(`/api/datasets/${deletingId}`)
-      removeSessionId(deletingId)
-      if (source === "csv" && csvDatasetId === deletingId) {
+      await api.delete(`/api/datasets/${idToDelete}`)
+      removeSessionId(idToDelete)
+      if (source === "csv" && csvDatasetId === idToDelete) {
         setSource("demo"); setPageData(null)
         doLoad(0, rowsPerPage, demoCategoria, demoSkuId, "", "", null, "demo", "")
       }
-      loadMyDatasets()
     } catch (e) {
+      // Show the error but still refresh the list — the backend may have
+      // deleted the record even if Storage cleanup failed.
       setError(e instanceof ApiError ? e.message : "Error al borrar.")
-    } finally { setDeleting(false); setDeletingId(null) }
+    } finally {
+      setDeleting(false)
+      setDeletingId(null)
+      loadMyDatasets()  // always refresh — even on error the row may be gone
+    }
   }
 
   const filteredTables = schema?.tables.filter(t =>
@@ -415,7 +413,6 @@ function DataPageInner() {
   const showDiagram = source === "db" && !!schema
   const hasSearch   = pageData && pageData.columns.length > 0
 
-  // ── Etiqueta del header ───────────────────────────────────────────────
   const headerLabel =
     source === "demo" ? `Demo · ${demoCategoria}` :
     source === "csv"  ? (myDatasets.find(d => d.dataset_id===csvDatasetId)?.filename ?? "CSV") :
@@ -460,7 +457,6 @@ function DataPageInner() {
                 <ListItemText primary={cat} primaryTypographyProps={{ fontSize:"0.75rem" }}/>
               </ListItemButton>
             ))}
-            {/* SKU search for mini-chart */}
             <Box sx={{ mt:"0.375rem", pr:"0.25rem" }}>
               <TextField
                 size="small" fullWidth
@@ -654,11 +650,12 @@ function DataPageInner() {
         {(source==="csv" || source==="demo") && (
           <Button variant="contained" size="small" startIcon={<PlayArrowIcon />}
             onClick={() => {
-              if (source==="csv") { appStore.setActiveDataset(csvDatasetId,"","","M"); router.push("/dashboard/forecast") }
-              else router.push("/dashboard/dataset?tab=2")
+              // Activar dataset y navegar a EDA para análisis — Datos es solo explorador
+              if (source==="csv") appStore.setActiveDataset(csvDatasetId, "", "", "M")
+              router.push("/dashboard/eda")
             }}
             sx={{ textTransform:"none", fontWeight:600 }}>
-            Usar en Forecast
+            Analizar en EDA →
           </Button>
         )}
       </Box>
@@ -692,7 +689,6 @@ function DataPageInner() {
 
           {rightTab === 0 && <>
 
-            {/* ── Buscador universal (demo + csv + db) ── */}
             {hasSearch && (
               <Box sx={{ display:"flex", gap:"0.5rem", alignItems:"center", flexShrink:0 }}>
                 <FormControl size="small" sx={{ width:"10rem", flexShrink:0 }}>
@@ -727,7 +723,6 @@ function DataPageInner() {
               </Box>
             )}
 
-            {/* Info bar */}
             {pageData && (
               <Box sx={{ display:"flex", alignItems:"center", gap:"0.75rem", flexShrink:0 }}>
                 <Typography variant="caption" color="text.disabled">
@@ -747,7 +742,6 @@ function DataPageInner() {
               </Box>
             )}
 
-            {/* Spinner inicial */}
             {loading && !pageData && (
               <Paper variant="outlined" sx={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"1rem", borderRadius:"0.75rem", p:"1.5rem" }}>
                 <LinearProgress sx={{ width:"60%", borderRadius:"0.25rem" }} />
@@ -755,7 +749,6 @@ function DataPageInner() {
               </Paper>
             )}
 
-            {/* Placeholder DB sin tabla */}
             {source==="db" && !selectedTable && !loading && (
               <Paper variant="outlined" sx={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"0.75rem", borderRadius:"0.75rem", borderStyle:"dashed" }}>
                 <TableChartIcon sx={{ fontSize:"3rem", color:"text.disabled" }}/>
@@ -763,7 +756,6 @@ function DataPageInner() {
               </Paper>
             )}
 
-            {/* Tabla de datos */}
             {pageData && pageData.rows.length > 0 && (
               <TableContainer component={Paper} variant="outlined" sx={{ flex:1, overflow:"auto", borderRadius:"0.75rem" }}>
                 <Table size="small" stickyHeader>

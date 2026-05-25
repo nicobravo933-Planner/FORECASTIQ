@@ -5,15 +5,20 @@
  * Left  (15rem fixed): ChapterSidebar — chapter list + collapsible sections
  * Center (flex-1):     Chapter content — scrollable, maxWidth 52rem centered
  * Right  (13rem fixed): TOC — sections of active chapter, scroll-spy highlight
+ *
+ * Progreso: manual. El usuario marca/desmarca cada capítulo como leído con el
+ * botón en el header. No hay auto-mark por scroll.
  */
 
 import Box from "@mui/material/Box"
-import Divider from "@mui/material/Divider"
+import Chip from "@mui/material/Chip"
 import IconButton from "@mui/material/IconButton"
 import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward"
+import CheckCircleIcon from "@mui/icons-material/CheckCircle"
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline"
 import MenuBookIcon from "@mui/icons-material/MenuBook"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { ChapterSidebar, CHAPTERS } from "@/components/encyclopedia/ChapterSidebar"
@@ -125,36 +130,18 @@ export default function EncyclopediaPage() {
   // Load progress from localStorage on mount
   useEffect(() => { setReadChapters(loadReadChapters()) }, [])
 
-  // Mark chapter as read + scroll spy for active section
+  // Scroll spy only — sin auto-mark
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
     el.scrollTop = 0
     setActiveSection(null)
 
-    const chapter = CHAPTERS.find((c) => c.id === activeChapter)
-    if (!chapter) return
-
     const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = el
-
-      // Mark chapter as read when near bottom
-      if (scrollTop + clientHeight >= scrollHeight - 80) {
-        setReadChapters((prev) => {
-          if (prev.has(activeChapter)) return prev
-          const next = new Set(prev)
-          next.add(activeChapter)
-          saveReadChapters(next)
-          return next
-        })
-      }
-
-      // Scroll spy: find which section heading is currently visible
       const headings = el.querySelectorAll("[data-section-id]")
       let current: string | null = null
       headings.forEach((h) => {
         const rect = (h as HTMLElement).getBoundingClientRect()
-        // heading is above or near top of the scroll container
         if (rect.top <= 120) {
           current = (h as HTMLElement).dataset.sectionId ?? null
         }
@@ -165,6 +152,27 @@ export default function EncyclopediaPage() {
     el.addEventListener("scroll", handleScroll)
     return () => el.removeEventListener("scroll", handleScroll)
   }, [activeChapter])
+
+  // Toggle leído/no leído manualmente
+  const toggleRead = useCallback((chapterId: number) => {
+    setReadChapters((prev) => {
+      const next = new Set(prev)
+      if (next.has(chapterId)) {
+        next.delete(chapterId)
+      } else {
+        next.add(chapterId)
+      }
+      saveReadChapters(next)
+      return next
+    })
+  }, [])
+
+  // Reiniciar todo el progreso
+  const resetProgress = useCallback(() => {
+    const empty = new Set<number>()
+    setReadChapters(empty)
+    saveReadChapters(empty)
+  }, [])
 
   // Scroll to section heading when user clicks TOC or sidebar section
   const scrollToSection = useCallback((sectionId: string) => {
@@ -181,7 +189,6 @@ export default function EncyclopediaPage() {
     if (id !== activeChapter) {
       setActiveChapter(id)
       setActiveSection(null)
-      // After state update + render, scroll to section if provided
       if (sectionId) {
         setTimeout(() => scrollToSection(sectionId), 120)
       }
@@ -194,7 +201,8 @@ export default function EncyclopediaPage() {
   const goNext = () => setActiveChapter((v) => Math.min(CHAPTERS.length, v + 1))
 
   const ChapterContent = CHAPTER_COMPONENTS[activeChapter]
-  const meta = CHAPTERS.find((c) => c.id === activeChapter)!
+  const meta    = CHAPTERS.find((c) => c.id === activeChapter)!
+  const isRead  = readChapters.has(activeChapter)
 
   return (
     <Box sx={{ display: "flex", height: "calc(100vh - 4rem)", overflow: "hidden" }}>
@@ -205,6 +213,7 @@ export default function EncyclopediaPage() {
         activeSection={activeSection}
         onSelect={handleSelect}
         readChapters={readChapters}
+        onResetProgress={resetProgress}
       />
 
       {/* Center — scrollable content */}
@@ -226,6 +235,34 @@ export default function EncyclopediaPage() {
               {meta.emoji} {meta.title}
             </Typography>
           </Box>
+
+          {/* Botón manual leído/no leído */}
+          <Tooltip title={isRead ? "Marcar como no leído" : "Marcar como leído"} placement="bottom">
+            <Chip
+              icon={isRead
+                ? <CheckCircleIcon sx={{ fontSize: "0.9375rem !important", color: "success.main !important" }} />
+                : <CheckCircleOutlineIcon sx={{ fontSize: "0.9375rem !important" }} />
+              }
+              label={isRead ? "Leído" : "Marcar leído"}
+              onClick={() => toggleRead(activeChapter)}
+              size="small"
+              variant={isRead ? "filled" : "outlined"}
+              sx={{
+                fontSize: "0.75rem",
+                height: "1.75rem",
+                cursor: "pointer",
+                bgcolor: isRead ? "rgba(34,197,94,0.1)" : "transparent",
+                borderColor: isRead ? "success.light" : "divider",
+                color: isRead ? "success.dark" : "text.secondary",
+                "&:hover": {
+                  bgcolor: isRead ? "rgba(34,197,94,0.18)" : "rgba(59,130,246,0.06)",
+                },
+                transition: "all 0.15s ease",
+              }}
+            />
+          </Tooltip>
+
+          {/* Prev / Next */}
           <Box sx={{ display: "flex", gap: "0.375rem" }}>
             <Tooltip title="Capítulo anterior">
               <span>

@@ -3,12 +3,14 @@
 /**
  * ChapterSidebar — left navigation for the encyclopedia.
  * Shows chapter number, title (collapsible), sections, and reading progress.
- * Sidebar prop: activeSection allows TOC right panel to sync highlight.
+ * Progress is manual: the user marks/unmarks chapters from the header bar.
+ * onResetProgress: clears all read state from the footer reset icon.
  */
 
 import AutoStoriesIcon from "@mui/icons-material/AutoStories"
 import ExpandLessIcon from "@mui/icons-material/ExpandLess"
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore"
+import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import SearchIcon from "@mui/icons-material/Search"
 import Box from "@mui/material/Box"
 import Collapse from "@mui/material/Collapse"
@@ -18,6 +20,7 @@ import List from "@mui/material/List"
 import ListItemButton from "@mui/material/ListItemButton"
 import ListItemText from "@mui/material/ListItemText"
 import TextField from "@mui/material/TextField"
+import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
 import { useMemo, useState } from "react"
 
@@ -165,9 +168,10 @@ interface ChapterSidebarProps {
   activeSection: string | null
   onSelect: (id: number, sectionId?: string) => void
   readChapters: Set<number>
+  onResetProgress: () => void
 }
 
-export function ChapterSidebar({ activeChapter, activeSection, onSelect, readChapters }: ChapterSidebarProps) {
+export function ChapterSidebar({ activeChapter, activeSection, onSelect, readChapters, onResetProgress }: ChapterSidebarProps) {
   const [search, setSearch]             = useState("")
   const [expandedChapters, setExpanded] = useState<Set<number>>(() => new Set([activeChapter]))
   const progress = Math.round((readChapters.size / CHAPTERS.length) * 100)
@@ -350,13 +354,31 @@ export function ChapterSidebar({ activeChapter, activeSection, onSelect, readCha
         })}
       </List>
 
-      {/* Footer stats */}
-      <Box sx={{ p: "0.75rem 1rem", borderTop: "1px solid", borderColor: "divider" }}>
-        <Typography sx={{ fontSize: "0.6875rem", color: "text.disabled", textAlign: "center" }}>
-          {readChapters.size} de {CHAPTERS.length} capítulos leídos
+      {/* Footer: stats + reset button */}
+      <Box sx={{ p: "0.625rem 1rem", borderTop: "1px solid", borderColor: "divider", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <Typography sx={{ fontSize: "0.6875rem", color: "text.disabled", flex: 1, textAlign: "center" }}>
+          {readChapters.size} de {CHAPTERS.length} leídos
           {" · "}
-          {CHAPTERS.reduce((s, c) => s + c.readTime, 0)} min totales
+          {CHAPTERS.reduce((s, c) => s + c.readTime, 0)} min
         </Typography>
+        <Tooltip title={readChapters.size > 0 ? "Reiniciar progreso" : "Sin progreso guardado"} placement="top">
+          <Box
+            component="span"
+            onClick={readChapters.size > 0 ? onResetProgress : undefined}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              color: readChapters.size > 0 ? "text.disabled" : "action.disabled",
+              cursor: readChapters.size > 0 ? "pointer" : "default",
+              borderRadius: "0.25rem",
+              p: "0.125rem",
+              "&:hover": readChapters.size > 0 ? { color: "error.main", bgcolor: "rgba(239,68,68,0.07)" } : {},
+              transition: "color 0.15s ease, background 0.15s ease",
+            }}
+          >
+            <RestartAltIcon sx={{ fontSize: "0.9375rem" }} />
+          </Box>
+        </Tooltip>
       </Box>
     </Box>
   )

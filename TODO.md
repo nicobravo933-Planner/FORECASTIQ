@@ -408,7 +408,7 @@ Para LightGBM el impacto es mucho más correcto como **feature** — una columna
 
 ### F2 — Barra de contexto + ventana de train
 
-- [x] **F2.1** `ForecastContextBar.tsx` — nuevo componente
+- [x] **F2.1** `ForecastContextBar.tsx` — archivo existe, pendiente verificar integración completa en page.tsx
   - Props: `{ datasetName, nObs, freq, qualityScore, qualityLabel, isEtlCleaned, onGoToEda, onGoToEtl }`
   - Layout: 1 fila horizontal con chips y badges
   - Badge dataset: nombre + "ETL ✓" (chip naranja) si `isEtlCleaned`, o "Original" (chip gris) si no
@@ -422,14 +422,14 @@ Para LightGBM el impacto es mucho más correcto como **feature** — una columna
   - Métodos: `setCleanedDataset(id)`, `getCleanedDatasetId()`, `clearCleanedDataset()`
   - `etl/page.tsx`: llamar `appStore.setCleanedDataset(cleanedId)` cuando el ETL termina con éxito
   - `forecast/page.tsx`: leer `appStore.getCleanedDatasetId()` para pasar `isEtlCleaned` al ContextBar
-- [x] **F2.3** Selector "Ventana de entrenamiento" en `ForecastConfigPanel.tsx`
+- [x] **F2.3** Selector "Ventana de entrenamiento" en `ForecastConfigPanel.tsx` — pendiente verificar integración real
   - Agregar campo `trainWindow: "auto" | "1y" | "2y" | "3y" | "custom"` al estado local del panel
   - Selector `TextField select` con las 5 opciones
   - Cuando `"custom"`: mostrar `MUI X DatePicker` (ya instalado) para elegir fecha de inicio
   - Cuando se selecciona una opción numérica (`"1y"`, etc.): calcular `train_start_date` como `new Date() - N años` al momento del run
   - El valor calculado se pasa en el request como `train_start_date: string | null`
   - Agregar `train_start_date?: string | null` a `ForecastRunRequest` en `types.ts`
-- [x] **F2.4** Backend `celery_app.py` — soporte `train_start_date`
+- [x] **F2.4** Backend `celery_app.py` — soporte `train_start_date` — pendiente verificar
   - En la función que recibe la config antes del fit, agregar:
     ```python
     if train_start_date := config.get("train_start_date"):
@@ -440,40 +440,40 @@ Para LightGBM el impacto es mucho más correcto como **feature** — una columna
 
 ### F3 — Nuevo layout 2 filas
 
-- [x] **F3.1** `page.tsx` — eliminar grid `26rem 1fr`, reemplazar por layout vertical de 2 filas
+- [x] **F3.1** `page.tsx` — layout 2 filas — pendiente verificar código real
   - Fila 1: `ForecastContextBar` + Panel de config (full-width)
   - Fila 2: Resultados con tabs (full-width)
   - Eliminar la lógica `gridColumn: showResults ? "1 / -1" : undefined`
-- [x] **F3.2** Panel de config colapsable post-run en `page.tsx`
+- [x] **F3.2** Panel colapsable — pendiente verificar
   - Usar `Accordion` de MUI (no `Paper` plano)
   - Estado: expandido cuando `isIdle || isFailed`, colapsado cuando `isDone || isRunning`
   - `AccordionSummary` cuando colapsado: 1 línea con chips de resumen (dataset · modelo · horizonte · test)
   - Botón "Editar configuración" en el AccordionSummary para forzar expansión
   - Re-expandir automáticamente en `handleRun` si el usuario quiere cambiar algo
-- [x] **F3.3** `ForecastChart.tsx` — altura a `540px`, formatter de eje Y
+- [x] **F3.3** `ForecastChart.tsx` — pendiente verificar altura y formatter
   - Cambiar `height={460}` a `height={540}` en el `ResponsiveContainer`
   - Agregar `tickFormatter` al `YAxis`: si valor ≥ 1_000_000 → `"1.2M"`, si ≥ 1_000 → `"45K"`, si no → número normal
-- [x] **F3.4** `MetricsCard.tsx` — agregar variante `orientation="horizontal"`
+- [x] **F3.4** `MetricsCard.tsx` — orientación horizontal — pendiente verificar
   - Prop `orientation?: "vertical" | "horizontal"`, default `"vertical"` (mantiene comportamiento actual)
   - Cuando `horizontal`: 4 chips en fila (`Box display="flex" flexWrap="wrap" gap`)
   - `page.tsx`: usar `orientation="horizontal"` debajo del gráfico
 
 ### F4 — Educación integrada
 
-- [x] **F4.1** Tooltips con links a Enciclopedia en `ForecastConfigPanel.tsx`
+- [x] **F4.1** Tooltips con links a Enciclopedia — pendiente verificar
   - Reutilizar el patrón de `Chip label="?"` ya existente en el panel
   - Agregar `onClick={() => router.push("/dashboard/encyclopedia?chapter=X")}` en cada chip `?`
   - Capítulos: Horizonte→1, TestPeriods→4, CVFolds→10, VentanaTrain→2
-- [x] **F4.2** Alerta BIAS en `MetricsCard.tsx`
+- [x] **F4.2** Alerta BIAS — pendiente verificar
   - Cuando `metrics.bias !== null && Math.abs(metrics.bias) > 0.05`:
     - BIAS > 0: `Alert severity="warning"`: "Sobreestimás +X%. Riesgo de sobrestock. ..."
     - BIAS < 0: `Alert severity="warning"`: "Subestimás X%. Riesgo de quiebre de stock. ..."
   - Link a Enciclopedia Cap 4 al final del mensaje
-- [x] **F4.3** Alerta FVA en `MetricsCard.tsx`
+- [x] **F4.3** Alerta FVA — pendiente verificar
   - Cuando `metrics.fva !== null && metrics.fva < 0`:
     - `Alert severity="error"`: "Tu modelo rinde peor que copiar el año pasado (FVA < 0). ..."
   - Link a Enciclopedia Cap 11
-- [x] **F4.4** Tooltip "Vandeput recomienda" en test periods (`ForecastConfigPanel.tsx`)
+- [x] **F4.4** Tooltip Vandeput — pendiente verificar
   - El chip `?` existente ampliar con: "Vandeput recomienda reservar al menos 1 ciclo completo de estacionalidad como test. Para datos mensuales: mínimo 12 períodos."
 
 ---
@@ -567,13 +567,17 @@ Para LightGBM el impacto es mucho más correcto como **feature** — una columna
 | 2026-05-24 | home-fixes | HomeDashboard: (1) Status card Backend subtexto `health.environment` raw → mapeo `caps.tier` → "Local/EC2/Cloud · v0.1.0". (2) Hero badges: "Phase E1-E9 completados" → `caps.tier_label` dinámico; "Live en produccion" hardcodeado → badge de estado real con `isOnline`/`healthLoading` (verde pulsante / gris / rojo); URL Vercel se mantiene estática. |
 | 2026-05-24 | settings-v2 | Settings reescrita. 5 secciones: (1) Cuenta — avatar grande, nombre, email, chip OAuth provider, botón Salir. (2) Servidor — tier badge dinámico con color, chips de modelos disponibles, nota sobre SERVER_TIER. (3) Chat IA — modelo LLM + BYOK unificados. (4) Datos locales — dataset activo con ID + job_id, botón limpiar con confirm dialog; historial chat. (5) Zona de peligro — "Limpiar sesión local completa" borra todos los keys fiq*/forecastiq: del localStorage con confirm dialog. Fix gráfico Home: `useForecast.ts` ahora llama `appStore.setActiveJobId()` al terminar (polling + eager mode). HomeDashboard escucha evento `storage` para re-sincronizar job_id sin recargar. |
 
-| 2026-05-24 | sidebar+enciclopedia | **Sidebar auto-hide (Opción B)**: `layout.tsx` → `pinned`+`hovered` state, sidebar inicia colapsado, hover expande, hamburger = pin toggle (con highlight visual cuando pinned). **Enciclopedia TOC**: `page.tsx` reescrito con 3 columnas (sidebar izq, content center, TOC derecho 13rem con scroll-spy via `data-section-id`). **ChapterSidebar.tsx** reescrito: `ChapterSection` type, subcapítulos colapsables por capítulo (Collapse+ExpandMore/Less), búsqueda filtra por secciones también, prop `activeSection`. **Contenido capítulos expandido**: Cap 01 (5 secciones: granularidad, costo de equivocarse + tabla demanda vs ventas), Cap 05 (+WMA con código, tabla MA vs Naive), Cap 06 (+Damped Trend con fórmula y código), Cap 04 y 09 con anclas `data-section-id` para scroll spy. Todos los capítulos tienen `SectionAnchor` para el TOC. |
+| 2026-05-24 | sidebar+enciclopedia | **Sidebar auto-hide (Opción B)**: `layout.tsx` → `pinned`+`hovered` state, sidebar inicia colapsado, hover expande, hamburger = pin toggle (con highlight visual cuando pinned). **Enciclopedia TOC**: `page.tsx` reescrito con 3 columnas (sidebar izq, content center, TOC derecho 13rem con scroll-spy via `data-section-id`). **ChapterSidebar.tsx** reescrito: `ChapterSection` type, subcapítulos colapsables por capítulo (Collapse+ExpandMore/Less), búsqueda filtra por secciones también, prop `activeSection`. **Contenido capítulos expandido**: Cap 01 (5 secciones: granularidad, costo de equivocarse + tabla demanda vs ventas), Cap 05 (+WMA con código, tabla MA vs Naive), Cap 06 (+Damped Trend con fórmula y código), Cap 04 y 09 con anclas `data-section-id` para scroll spy. |
+| 2026-05-25 | enc-progreso-manual | Progreso enciclopedia ahora 100% manual. Eliminado auto-mark por scroll. `page.tsx`: `toggleRead(id)` toggle leído/no leído, `resetProgress()` borra todo. Header bar: `Chip` con `CheckCircleIcon`/`CheckCircleOutlineIcon` — verde cuando leído, outline cuando no; click togglea. `ChapterSidebar.tsx`: nuevo prop `onResetProgress`, footer con icono `RestartAltIcon` que se activa solo cuando hay progreso guardado, hover en rojo. |
+| 2026-05-25 | dataset-ux-fixes | **Bug 1 — No se podía subir otro CSV**: en `dataset/page.tsx` el botón "Cambiar archivo" era `variant="text"` con color casi invisible. Mejorado a `variant="outlined"`. Agregado botón "Subir otro archivo" centrado debajo de `ModelRecommendation` en stage `"done"` — ahora es obvio que se puede reiniciar el flujo. **Bug 2 — Error al borrar no refrescaba la lista**: en `data/page.tsx` `loadMyDatasets()` estaba en el `try` (no corría si había error). Movido al `finally` + capturado `idToDelete` antes del setState para evitar race condition. Ahora la lista siempre se refresca aunque el backend retorne error. **Bug 3 — Rate limit de uploads aplicaba en local**: `SERVER_TIER` no estaba en `.env` → default `"cloud"` → contaba contra Upstash Redis. Fix: agregado `SERVER_TIER=local` al `.env`. En `redis_cache.py`: `check_upload_rate_limit` y `check_forecast_rate_limit` retornan bypass inmediato cuando `server_tier == "local"`. |
 
 | 2026-05-24 | ci-fixes | Resueltos 9 errores de ruff/ESLint que bloqueaban CI. (1) `B904` en `events.py`: 2x `raise ... from exc` en except FileNotFoundError y except Exception. (2) `N806` en `forecast.py`: `MODEL_LABELS` → `model_labels` (3 referencias en _run_one + timeout handler). (3) `N806` en `sarima.py`: `P, D, Q` → `p_s, d_s, q_s` en manual seasonal order. (4) `react/no-unescaped-entities` en `06-exponential-smoothing.tsx`: 2x comillas `"` → `&ldquo;`/`&rdquo;` en líneas 78 y 109. |
 
+| 2026-05-25 | UX-F flujo + EmptyStateGuard | Verificación real de F1-F4: todo estaba implementado en código. Análisis de flujo EDA→ETL→Forecast: decisión de guiar sin bloquear. `EmptyStateGuard.tsx` nuevo componente en `components/common/`. Integrado en EDA, ETL y Forecast (reemplaza empty states ad-hoc). Forecast: guard duro cuando no hay dataset + 2 banners suaves (sin EDA = info, calidad baja sin ETL = warning). TODO corregido: items F2-F4 marcados [x] correctamente. |
+
 ---
 
-_Actualizar este archivo al final de cada sesión. Marcar tareas `[x]` al completar._
+| 2026-05-25 | type-check-fixes | Fixed 3 TS errors blocking CI. (1) `batch/page.tsx`: declared missing `filterSeries` state (`useState<string>("")`) — it was called via `setFilterSeries` in both run handlers but never declared. (2) `EventCalendar.tsx`: changed single cast `EventDay as ComponentType<PickersDayProps<Date>>` to double cast through `unknown` — required because `EventDayProps` adds `eventsMap` which is not in `PickersDayProps<Date>` so the types don't overlap sufficiently for a direct assertion. |
 
 | 2026-05-24 | UX-F F1+F2.2 | F1 completo. (F1.1) HorizonSelector: estado isCustomMode local, click Otro activa input sin cambiar valor. (F1.2) ForecastConfigPanel: TEST_PERIODS_OPTIONS por freq, opciones D/W/M/Q dinamicas, boton Manual + TextField condicional, reset en cambio de freq. (F1.3) forecast/page.tsx: useColumnPreview + alerta pre-run cuando test > 50% total. (F1.4) Switch linkHorizonTest sincroniza horizon<->testPeriods con tooltip Vandeput. F2.2: appStore.ts clave cleanedDatasetId + set/get/clear. useEtl.ts llama setCleanedDataset en applyWinsorize y applyFillGaps. |
 

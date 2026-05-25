@@ -123,12 +123,22 @@ def check_rate_limit(identifier: str) -> RateLimitResult:
 
 
 def check_upload_rate_limit(ip: str) -> RateLimitResult:
-    """Rate limit para uploads CSV: 5 por hora por IP."""
+    """Rate limit para uploads CSV: 5 por hora por IP.
+
+    En tier local (desarrollo) siempre permite — el developer no debe tener restricciones.
+    """
+    if settings.server_tier == "local":
+        return RateLimitResult(allowed=True, remaining=UPLOAD_RATE_LIMIT, reset_in=0)
     return _check_rate_limit_generic(RATE_KEY_PREFIX_UPLOAD, ip, UPLOAD_RATE_LIMIT)
 
 
 def check_forecast_rate_limit(identifier: str) -> RateLimitResult:
-    """Rate limit para jobs de forecast: 10 por hora por IP+usuario."""
+    """Rate limit para jobs de forecast: 10 por hora por IP+usuario.
+
+    En tier local (desarrollo) siempre permite.
+    """
+    if settings.server_tier == "local":
+        return RateLimitResult(allowed=True, remaining=FORECAST_RATE_LIMIT, reset_in=0)
     return _check_rate_limit_generic(RATE_KEY_PREFIX_FORECAST, identifier, FORECAST_RATE_LIMIT)
 
 

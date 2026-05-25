@@ -51,6 +51,7 @@ import { DetectionReportModal } from "@/components/forecast/DetectionReportModal
 import { ForecastContextBar } from "@/components/forecast/ForecastContextBar"
 import { BenchmarkTable } from "@/components/forecast/BenchmarkTable"
 import { ExportButton } from "@/components/dataset/ExportButton"
+import { EmptyStateGuard } from "@/components/common/EmptyStateGuard"
 import type { DataFreq, ModelName, PredictionPoint, DetectionResult, BenchmarkResult } from "@/lib/types"
 import { api } from "@/lib/api"
 
@@ -317,6 +318,22 @@ export default function ForecastPage() {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
+      {/* ── Guard: sin dataset activo ────────────────────────────────────── */}
+      {!config.datasetId && (
+        <EmptyStateGuard
+          condition
+          title="No hay dataset activo"
+          description="Subí un CSV o conectá una base de datos para empezar a forecastear."
+          ctaLabel="Subir datos"
+          ctaHref="/dashboard/data"
+          secondaryLabel="Ver EDA"
+          secondaryHref="/dashboard/eda"
+        />
+      )}
+
+      {/* Resto del contenido — solo cuando hay dataset */}
+      {config.datasetId && (<>
+
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <Box>
@@ -371,6 +388,36 @@ export default function ForecastPage() {
               onGoToEda={() => router.push("/dashboard/eda")}
               onGoToEtl={() => router.push("/dashboard/etl")}
             />
+          )}
+
+          {/* Guarda suave 1: no pasó por EDA — datos sin analizar */}
+          {!qualityData && (
+            <Alert
+              severity="info"
+              sx={{ fontSize: "0.8125rem", py: "0.375rem" }}
+              action={
+                <Button size="small" color="inherit" onClick={() => router.push("/dashboard/eda")}>
+                  Ir a EDA →
+                </Button>
+              }
+            >
+              No analizaste la calidad de tus datos. Los resultados podrían ser poco confiables.
+            </Alert>
+          )}
+
+          {/* Guarda suave 2: calidad baja sin ETL aplicado */}
+          {qualityData && qualityData.score < 60 && !appStore.getCleanedDatasetId() && (
+            <Alert
+              severity="warning"
+              sx={{ fontSize: "0.8125rem", py: "0.375rem" }}
+              action={
+                <Button size="small" color="inherit" onClick={() => router.push("/dashboard/etl")}>
+                  Limpiar →
+                </Button>
+              }
+            >
+              Calidad de datos <strong>{qualityData.label}</strong> ({qualityData.score}/100). Limpiá los outliers antes de forecastear para mejores resultados.
+            </Alert>
           )}
           {/* F3.2: Config Accordion — collapses after run, expands when idle/failed */}
           <Accordion
@@ -821,6 +868,7 @@ export default function ForecastPage() {
         report={detectionReport}
       />
 
+      </>)}
     </Box>
   )
 }

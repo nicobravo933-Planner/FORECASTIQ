@@ -82,10 +82,10 @@ export default function DatasetPage() {
             {dataset.uploadResponse.columns.length} columnas
           </Typography>
           <Button
-            variant="text" size="small"
+            variant="outlined" size="small"
             startIcon={<RestartAltIcon />}
             onClick={dataset.reset}
-            sx={{ ml: "auto", color: "text.disabled", fontSize: "0.75rem" }}
+            sx={{ ml: "auto", color: "text.secondary", borderColor: "divider", fontSize: "0.75rem", textTransform: "none" }}
           >
             Cambiar archivo
           </Button>
@@ -104,6 +104,19 @@ export default function DatasetPage() {
           result={dataset.detection}
           onRunForecast={() => { window.location.href = "/dashboard/forecast" }}
         />
+      )}
+      {dataset.stage === "done" && (
+        <Box sx={{ display: "flex", justifyContent: "center", pt: "0.25rem" }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RestartAltIcon />}
+            onClick={dataset.reset}
+            sx={{ textTransform: "none", color: "text.secondary", borderColor: "divider", fontSize: "0.8125rem" }}
+          >
+            Subir otro archivo
+          </Button>
+        </Box>
       )}
     </Box>
   )

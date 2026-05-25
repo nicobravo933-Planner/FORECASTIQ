@@ -134,6 +134,7 @@ export default function BatchPage() {
   const [result, setResult]   = useState<BatchForecastResponse | null>(null);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [mode, setMode] = useState<"dataset" | "json">("dataset");
+  const [filterSeries, setFilterSeries] = useState<string>("");
 
   // ── Cargar dataset activo al montar ────────────────────────────────────────
   useEffect(() => {

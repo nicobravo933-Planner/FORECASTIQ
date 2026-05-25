@@ -263,7 +263,7 @@ export function EventCalendar({
           fixedWeekNumber={6}
           slots={{
             // Cast needed: MUI X slot generics don't accept extra props directly
-            day: EventDay as ComponentType<PickersDayProps<Date>>,
+            day: EventDay as unknown as ComponentType<PickersDayProps<Date>>,
           }}
           slotProps={{
             day: {

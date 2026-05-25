@@ -12,8 +12,6 @@ import Typography from "@mui/material/Typography"
 import CircularProgress from "@mui/material/CircularProgress"
 import { useRouter } from "next/navigation"
 import { useSession } from "@/lib/auth-client"
-import CloudDoneIcon from "@mui/icons-material/CloudDone"
-import CloudOffIcon from "@mui/icons-material/CloudOff"
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward"
 import UploadFileIcon from "@mui/icons-material/UploadFile"
 import ShowChartIcon from "@mui/icons-material/ShowChart"
@@ -108,7 +106,6 @@ function MiniChart({ result }: { result: ForecastResult | null }) {
   const cW = W - PAD.l - PAD.r
   const cH = H - PAD.t - PAD.b
 
-  // Combine historical + predictions para escalar el eje Y
   const allVals = [
     ...result.historical.map(p => p.value),
     ...result.predictions.map(p => p.upper),
@@ -118,7 +115,6 @@ function MiniChart({ result }: { result: ForecastResult | null }) {
   const minV = Math.min(...allVals) * 0.92
   const maxV = Math.max(...allVals) * 1.05
 
-  // Tomar últimos 6 históricos + todas las predicciones para no saturar
   const hist = result.historical.slice(-6)
   const preds = result.predictions
 
@@ -146,7 +142,6 @@ function MiniChart({ result }: { result: ForecastResult | null }) {
   const divX = xS(fxStart)
   const gridVals = [minV + (maxV - minV) * 0.75, minV + (maxV - minV) * 0.4]
 
-  // Etiquetas de eje X: solo algunas fechas
   const labels = [
     ...hist.map((p, i) => ({ i, label: p.date.slice(0, 7) })).filter((_, i) => i === 0 || i === hist.length - 1),
     ...preds.map((p, i) => ({ i: fxStart + 1 + i, label: p.date.slice(0, 7) }))
@@ -165,37 +160,22 @@ function MiniChart({ result }: { result: ForecastResult | null }) {
           </text>
         </g>
       ))}
-
-      {/* Forecast zone shading */}
       <rect x={divX} y={PAD.t} width={W - PAD.r - divX} height={cH}
         fill="rgba(139,92,246,0.04)" rx={2} />
-
-      {/* CI band */}
       <path d={ciPath} fill="rgba(139,92,246,0.12)" />
-
-      {/* Historical line */}
       <path d={histPath} fill="none" stroke="#3b82f6" strokeWidth={2.2}
         strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Forecast line dashed */}
       <path d={fxPath} fill="none" stroke="#8b5cf6" strokeWidth={2}
         strokeDasharray="5,3" strokeLinecap="round" />
-
-      {/* Divider */}
       <line x1={divX} y1={PAD.t} x2={divX} y2={PAD.t + cH}
         stroke="#94a3b8" strokeWidth={1} strokeDasharray="3,3" opacity={0.6} />
-
-      {/* Dots historical */}
       {hist.map((p, i) => (
         <circle key={i} cx={xS(i)} cy={yS(p.value)} r={2.5} fill="#3b82f6" />
       ))}
-      {/* Dots forecast */}
       {preds.map((p, i) => (
         <circle key={i} cx={xS(fxStart + 1 + i)} cy={yS(p.predicted)} r={2.5}
           fill="#8b5cf6" opacity={0.75} />
       ))}
-
-      {/* X axis labels */}
       {labels.map(({ i, label }) => (
         <text key={i} x={xS(i)} y={H - 3} textAnchor="middle" fontSize={8}
           fill={i > fxStart ? "#8b5cf6" : "#64748b"}
@@ -204,7 +184,6 @@ function MiniChart({ result }: { result: ForecastResult | null }) {
           {label}
         </text>
       ))}
-
       <text x={divX + 6} y={PAD.t + 9} fontSize={7.5} fill="#8b5cf6"
         fontWeight="600" letterSpacing="0.06em" fontFamily="Inter,sans-serif">
         FORECAST →
@@ -282,7 +261,6 @@ export function HomeDashboard() {
     setQualityData(qs ? { score: qs.score, label: qs.label } : null)
     setActiveStep(jobId ? 3 : qs ? 2 : dsId ? 1 : 0)
 
-    // Re-sync when localStorage changes (e.g. user runs forecast then navigates back)
     const onStorage = () => {
       const newJobId = appStore.getActiveJobId()
       const newDsId  = appStore.getActiveDatasetId()
@@ -296,7 +274,7 @@ export function HomeDashboard() {
     return () => window.removeEventListener("storage", onStorage)
   }, [])
 
-  // ── Forecast result (real data for chart + WAPE) ───────────────────────────
+  // ── Forecast result ────────────────────────────────────────────────────────
   const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null)
   const [forecastLoading, setForecastLoading] = useState(false)
 
@@ -323,14 +301,12 @@ export function HomeDashboard() {
         .sort((a, b) => a.start_date.localeCompare(b.start_date))
         .slice(0, 4)
       setUpcomingEvents(future)
-    } catch { /* silencioso — no rompe la home */ }
+    } catch { /* silencioso */ }
   }, [])
   useEffect(() => { void fetchEvents() }, [fetchEvents])
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const firstName = session?.user?.name ? session.user.name.split(" ")[0] : null
-  const BackendIcon = isOnline ? CloudDoneIcon : CloudOffIcon
-  const backendColor = healthLoading ? "#9ca3af" : isOnline ? "#22c55e" : "#ef4444"
   const modelsAvailable = (caps.models_available as string[] | undefined) ?? []
 
   const wape        = forecastResult?.metrics.wape ?? null
@@ -356,7 +332,7 @@ export function HomeDashboard() {
       sub: activeDatasetId ? `ID ${activeDatasetId.slice(0, 8)}…` : "Subí tu dataset",
       done: activeStep >= 1,
       active: activeStep === 1,
-      href: "/dashboard/dataset",
+      href: activeDatasetId ? "/dashboard/eda" : "/dashboard/data",
     },
     {
       label: "ETL · Calidad",
@@ -418,13 +394,10 @@ export function HomeDashboard() {
         display: "flex", alignItems: "center", gap: "1.25rem",
         position: "relative", overflow: "visible", flexShrink: 0,
       }}>
-        {/* Decorative blobs */}
         <Box sx={{ position: "absolute", inset: 0, borderRadius: "1rem", overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
           <Box sx={{ position: "absolute", right: "-1.875rem", top: "-1.875rem", width: "12.5rem", height: "12.5rem", borderRadius: "50%", bgcolor: "rgba(255,255,255,0.04)" }} />
           <Box sx={{ position: "absolute", right: "5rem", bottom: "-3.125rem", width: "10rem", height: "10rem", borderRadius: "50%", bgcolor: "rgba(255,255,255,0.03)" }} />
         </Box>
-
-        {/* Logo flotante */}
         <Box sx={{ position: "absolute", left: "1.5rem", top: "50%", transform: "translateY(-50%)", zIndex: 5, flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="ForecastIQ" style={{
@@ -434,11 +407,7 @@ export function HomeDashboard() {
             animation: "logoFloat 4s ease-in-out infinite",
           }} />
         </Box>
-
-        {/* Spacer */}
         <Box sx={{ width: LOGO_SIZE, flexShrink: 0 }} />
-
-        {/* Text */}
         <Box sx={{ flex: 1, position: "relative", zIndex: 1 }}>
           <Typography sx={{ fontSize: "0.6875rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase", mb: "0.3rem" }}>
             {now ? `${formatDateES(now)} · ${formatTimeES(now)}` : "\u00a0"}
@@ -456,8 +425,6 @@ export function HomeDashboard() {
             }
           </Typography>
         </Box>
-
-        {/* Right badges — dynamic */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-end", flexShrink: 0, position: "relative", zIndex: 1 }}>
           <Box component="span" sx={{ fontSize: "0.75rem", fontWeight: 600, px: "0.875rem", py: "0.3125rem", borderRadius: "1.25rem", bgcolor: "rgba(255,255,255,0.14)", color: "#fff", letterSpacing: "0.04em" }}>
             {caps.tier_label}
@@ -490,16 +457,13 @@ export function HomeDashboard() {
         </Box>
       </Box>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          KPI CARDS — 4 columnas
-      ══════════════════════════════════════════════════════════════════════ */}
+      {/* KPI CARDS */}
       <Box sx={{
         display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem",
         flexShrink: 0,
         mt: `calc(${LOGO_OVERFLOW} * 0.6)`,
       }}>
-
-        {/* KPI 1 — WAPE último forecast */}
+        {/* KPI 1 — WAPE */}
         <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>
           <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
             WAPE último forecast
@@ -532,13 +496,11 @@ export function HomeDashboard() {
               </Typography>
             </>
           ) : (
-            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>
-              Sin forecasts aún
-            </Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>Sin forecasts aún</Typography>
           )}
         </Box>
 
-        {/* KPI 2 — Calidad del dataset */}
+        {/* KPI 2 — Calidad */}
         <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>
           <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
             Calidad del dataset
@@ -550,10 +512,7 @@ export function HomeDashboard() {
                   {qScore}<Box component="span" sx={{ fontSize: "0.8125rem", fontWeight: 500 }}>/100</Box>
                 </Typography>
                 <Box sx={{ mt: "0.25rem" }}>
-                  <Box component="span" sx={{
-                    fontSize: "0.625rem", fontWeight: 600, px: "0.4375rem", py: "0.125rem",
-                    borderRadius: "0.75rem", bgcolor: `${qColor}18`, color: qColor,
-                  }}>
+                  <Box component="span" sx={{ fontSize: "0.625rem", fontWeight: 600, px: "0.4375rem", py: "0.125rem", borderRadius: "0.75rem", bgcolor: `${qColor}18`, color: qColor }}>
                     {qLabel}
                   </Box>
                 </Box>
@@ -564,13 +523,11 @@ export function HomeDashboard() {
               <QualityRing score={qScore} color={qColor} size={52} />
             </Box>
           ) : (
-            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>
-              Ejecutá EDA para ver el score
-            </Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>Ejecutá EDA para ver el score</Typography>
           )}
         </Box>
 
-        {/* KPI 3 — Modelos disponibles */}
+        {/* KPI 3 — Modelos */}
         <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>
           <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
             Modelos disponibles
@@ -606,11 +563,7 @@ export function HomeDashboard() {
           </Typography>
           {nextEvent ? (
             <Box sx={{ display: "flex", alignItems: "flex-start", gap: "0.625rem", mt: "0.125rem" }}>
-              <Box sx={{
-                width: "2.375rem", height: "2.375rem", borderRadius: "0.625rem", flexShrink: 0,
-                bgcolor: `${evColor(nextEvent.type)}18`,
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              }}>
+              <Box sx={{ width: "2.375rem", height: "2.375rem", borderRadius: "0.625rem", flexShrink: 0, bgcolor: `${evColor(nextEvent.type)}18`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                 <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: evColor(nextEvent.type), lineHeight: 1 }}>
                   {formatEvDate(nextEvent.start_date).split(" ")[1]?.toUpperCase()}
                 </Typography>
@@ -625,40 +578,28 @@ export function HomeDashboard() {
                 <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary", mt: "0.125rem" }}>
                   {nextEventDays === 0 ? "hoy" : nextEventDays === 1 ? "mañana" : `en ${nextEventDays} días`}
                 </Typography>
-                <Box component="span" sx={{
-                  fontSize: "0.625rem", fontWeight: 600, px: "0.4375rem", py: "0.125rem",
-                  borderRadius: "0.75rem", bgcolor: `${evColor(nextEvent.type)}14`,
-                  color: evColor(nextEvent.type), mt: "0.25rem", display: "inline-block",
-                }}>
+                <Box component="span" sx={{ fontSize: "0.625rem", fontWeight: 600, px: "0.4375rem", py: "0.125rem", borderRadius: "0.75rem", bgcolor: `${evColor(nextEvent.type)}14`, color: evColor(nextEvent.type), mt: "0.25rem", display: "inline-block" }}>
                   {nextEvent.type}
                 </Box>
               </Box>
             </Box>
           ) : (
-            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>
-              Sin eventos próximos
-            </Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>Sin eventos próximos</Typography>
           )}
         </Box>
       </Box>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          MAIN AREA — chart + pipeline  |  eventos + acciones
-      ══════════════════════════════════════════════════════════════════════ */}
+      {/* MAIN AREA */}
       <Box sx={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 17rem", gap: "0.875rem", minHeight: 0 }}>
 
-        {/* ── Left col: forecast chart + pipeline stepper ─────────────────── */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: "0.75rem", minHeight: 0 }}>
 
-          {/* Forecast chart */}
+          {/* Forecast chart card */}
           <Box sx={{ ...glassCard, p: "0.875rem 1.125rem", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-            {/* Header */}
             <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: "0.625rem", flexShrink: 0 }}>
               <Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: "text.primary" }}>
-                    Último forecast
-                  </Typography>
+                  <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: "text.primary" }}>Último forecast</Typography>
                   {modelUsed && (
                     <Box component="span" sx={{ fontSize: "0.625rem", fontWeight: 600, px: "0.5rem", py: "0.125rem", borderRadius: "0.75rem", bgcolor: "rgba(139,92,246,0.12)", color: "#8b5cf6" }}>
                       {MODEL_LABELS[modelUsed] ?? modelUsed}
@@ -673,37 +614,26 @@ export function HomeDashboard() {
                   </Typography>
                 )}
               </Box>
-              {/* Legend */}
               <Box sx={{ display: "flex", gap: "0.875rem", alignItems: "center", flexShrink: 0 }}>
                 {[
                   { color: "#3b82f6", label: "Real", dashed: false },
                   { color: "#8b5cf6", label: "Forecast", dashed: true },
                   { color: "rgba(139,92,246,0.15)", label: "IC 90%", dashed: false, isRect: true },
                 ].map(l => (
-                  <Box key={l.label} sx={{ display: "flex", alignItems: "center", gap: "0.3125rem", fontSize: "0.65625rem", color: "text.secondary" }}>
+                  <Box key={l.label} sx={{ display: "flex", alignItems: "center", gap: "0.3125rem" }}>
                     {l.isRect
                       ? <Box sx={{ width: "0.75rem", height: "0.5rem", bgcolor: l.color, borderRadius: "0.125rem" }} />
-                      : <Box sx={{ width: "1.125rem", height: "0.125rem", bgcolor: l.color, borderRadius: "0.125rem",
-                          borderTop: l.dashed ? `2px dashed ${l.color}` : "none", mt: l.dashed ? "-0.125rem" : 0 }} />
+                      : <Box sx={{ width: "1.125rem", height: "0.125rem", bgcolor: l.color, borderRadius: "0.125rem", borderTop: l.dashed ? `2px dashed ${l.color}` : "none", mt: l.dashed ? "-0.125rem" : 0 }} />
                     }
                     <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary" }}>{l.label}</Typography>
                   </Box>
                 ))}
-                <Box
-                  onClick={() => router.push("/dashboard/forecast")}
-                  sx={{ fontSize: "0.6875rem", fontWeight: 600, color: "primary.main",
-                    display: "flex", alignItems: "center", gap: "0.25rem", cursor: "pointer",
-                    px: "0.6875rem", py: "0.3125rem", borderRadius: "0.5rem",
-                    border: "1px solid", borderColor: "divider",
-                    "&:hover": { bgcolor: "primary.50" },
-                  }}
-                >
+                <Box onClick={() => router.push("/dashboard/forecast")}
+                  sx={{ fontSize: "0.6875rem", fontWeight: 600, color: "primary.main", display: "flex", alignItems: "center", gap: "0.25rem", cursor: "pointer", px: "0.6875rem", py: "0.3125rem", borderRadius: "0.5rem", border: "1px solid", borderColor: "divider", "&:hover": { bgcolor: "primary.50" } }}>
                   Ver forecast <ArrowForwardIcon sx={{ fontSize: "0.75rem" }} />
                 </Box>
               </Box>
             </Box>
-
-            {/* Chart area */}
             <Box sx={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center" }}>
               {forecastLoading
                 ? <Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}><CircularProgress size="1.5rem" /></Box>
@@ -712,7 +642,7 @@ export function HomeDashboard() {
             </Box>
           </Box>
 
-          {/* Pipeline stepper horizontal */}
+          {/* Pipeline stepper */}
           <Box sx={{ ...glassCard, p: "0.8125rem 1.25rem", flexShrink: 0 }}>
             <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", mb: "0.625rem" }}>
               Tu pipeline actual
@@ -731,38 +661,23 @@ export function HomeDashboard() {
                       "&:hover": { bgcolor: s.active ? "rgba(59,130,246,0.12)" : "rgba(0,0,0,0.03)" },
                     }}
                   >
-                    {/* Step circle */}
-                    <Box sx={{
-                      width: "1.625rem", height: "1.625rem", borderRadius: "50%", flexShrink: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      bgcolor: s.done
-                        ? (s.active ? "primary.main" : "rgba(59,130,246,0.15)")
-                        : "rgba(219,234,254,0.7)",
-                    }}>
+                    <Box sx={{ width: "1.625rem", height: "1.625rem", borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: s.done ? (s.active ? "primary.main" : "rgba(59,130,246,0.15)") : "rgba(219,234,254,0.7)" }}>
                       {s.done
-                        ? <Typography sx={{ fontSize: "0.75rem", fontWeight: 700,
-                            color: s.active ? "#fff" : "primary.main" }}>✓</Typography>
+                        ? <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: s.active ? "#fff" : "primary.main" }}>✓</Typography>
                         : <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "text.disabled" }}>{i + 1}</Typography>
                       }
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: "0.71875rem", fontWeight: s.active ? 700 : 600,
-                        color: s.active ? "primary.main" : s.done ? "text.primary" : "text.secondary",
-                        whiteSpace: "nowrap" }}>
+                      <Typography sx={{ fontSize: "0.71875rem", fontWeight: s.active ? 700 : 600, color: s.active ? "primary.main" : s.done ? "text.primary" : "text.secondary", whiteSpace: "nowrap" }}>
                         {s.label}
                       </Typography>
-                      <Typography sx={{ fontSize: "0.625rem",
-                        color: s.active ? "primary.main" : "text.disabled",
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                        opacity: s.active ? 0.85 : 1 }}>
+                      <Typography sx={{ fontSize: "0.625rem", color: s.active ? "primary.main" : "text.disabled", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: s.active ? 0.85 : 1 }}>
                         {s.sub}
                       </Typography>
                     </Box>
                   </Box>
-                  {/* Connector */}
                   {i < pipelineSteps.length - 1 && (
-                    <Box sx={{ width: "1.25rem", height: "0.0625rem", flexShrink: 0,
-                      bgcolor: s.done ? "rgba(59,130,246,0.4)" : "rgba(219,234,254,0.9)" }} />
+                    <Box sx={{ width: "1.25rem", height: "0.0625rem", flexShrink: 0, bgcolor: s.done ? "rgba(59,130,246,0.4)" : "rgba(219,234,254,0.9)" }} />
                   )}
                 </Box>
               ))}
@@ -770,7 +685,7 @@ export function HomeDashboard() {
           </Box>
         </Box>
 
-        {/* ── Right col: próximos eventos + acciones rápidas ───────────────── */}
+        {/* Right col */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: "0.75rem", minHeight: 0 }}>
 
           {/* Próximos eventos */}
@@ -780,9 +695,7 @@ export function HomeDashboard() {
                 Próximos eventos
               </Typography>
               <Box onClick={() => router.push("/dashboard/calendar")}
-                sx={{ fontSize: "0.65625rem", fontWeight: 600, color: "primary.main", cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: "0.1875rem",
-                  "&:hover": { opacity: 0.8 } }}>
+                sx={{ fontSize: "0.65625rem", fontWeight: 600, color: "primary.main", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.1875rem", "&:hover": { opacity: 0.8 } }}>
                 Ver todos <ArrowForwardIcon sx={{ fontSize: "0.6875rem" }} />
               </Box>
             </Box>
@@ -791,26 +704,19 @@ export function HomeDashboard() {
                 const ec = evColor(ev.type)
                 const days = daysUntil(ev.start_date)
                 return (
-                  <Box key={i} sx={{
-                    display: "flex", alignItems: "center", gap: "0.625rem",
-                    p: "0.5rem 0.625rem", borderRadius: "0.5625rem",
-                    bgcolor: `${ec}08`, border: "1px solid", borderColor: `${ec}20`,
-                  }}>
-                    <Box sx={{ width: "2.125rem", height: "2.125rem", borderRadius: "0.5rem", flexShrink: 0,
-                      bgcolor: `${ec}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Box key={i} sx={{ display: "flex", alignItems: "center", gap: "0.625rem", p: "0.5rem 0.625rem", borderRadius: "0.5625rem", bgcolor: `${ec}08`, border: "1px solid", borderColor: `${ec}20` }}>
+                    <Box sx={{ width: "2.125rem", height: "2.125rem", borderRadius: "0.5rem", flexShrink: 0, bgcolor: `${ec}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <EventIcon sx={{ fontSize: "1rem", color: ec }} />
                     </Box>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "text.primary",
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "text.primary", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {ev.name}
                       </Typography>
                       <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary", mt: "0.0625rem" }}>
                         {formatEvDate(ev.start_date)}
                       </Typography>
                     </Box>
-                    <Box component="span" sx={{ fontSize: "0.625rem", fontWeight: 700, color: ec,
-                      bgcolor: `${ec}18`, px: "0.4375rem", py: "0.125rem", borderRadius: "0.75rem", flexShrink: 0 }}>
+                    <Box component="span" sx={{ fontSize: "0.625rem", fontWeight: 700, color: ec, bgcolor: `${ec}18`, px: "0.4375rem", py: "0.125rem", borderRadius: "0.75rem", flexShrink: 0 }}>
                       {days === 0 ? "hoy" : days === 1 ? "mañana" : `${days}d`}
                     </Box>
                   </Box>
@@ -832,16 +738,9 @@ export function HomeDashboard() {
               {QUICK_ACTIONS.map(a => (
                 <Box key={a.href}
                   onClick={() => router.push(a.href)}
-                  sx={{
-                    display: "flex", alignItems: "center", gap: "0.5625rem",
-                    p: "0.4375rem 0.5rem", borderRadius: "0.5625rem", cursor: "pointer",
-                    transition: "background 0.14s",
-                    "&:hover": { bgcolor: `${a.color}0d` },
-                  }}
+                  sx={{ display: "flex", alignItems: "center", gap: "0.5625rem", p: "0.4375rem 0.5rem", borderRadius: "0.5625rem", cursor: "pointer", transition: "background 0.14s", "&:hover": { bgcolor: `${a.color}0d` } }}
                 >
-                  <Box sx={{ width: "1.875rem", height: "1.875rem", borderRadius: "0.5rem", flexShrink: 0,
-                    bgcolor: `${a.color}14`, display: "flex", alignItems: "center", justifyContent: "center",
-                    color: a.color, "& svg": { fontSize: "0.9375rem" } }}>
+                  <Box sx={{ width: "1.875rem", height: "1.875rem", borderRadius: "0.5rem", flexShrink: 0, bgcolor: `${a.color}14`, display: "flex", alignItems: "center", justifyContent: "center", color: a.color, "& svg": { fontSize: "0.9375rem" } }}>
                     {a.icon}
                   </Box>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -853,7 +752,6 @@ export function HomeDashboard() {
               ))}
             </Box>
           </Box>
-
         </Box>
       </Box>
     </Box>
