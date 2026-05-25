@@ -9,6 +9,10 @@
       "destination": "/api/auth/:path*"
     },
     {
+      "source": "/health",
+      "destination": "http://3.236.200.192:8000/health"
+    },
+    {
       "source": "/api/:path*",
       "destination": "http://3.236.200.192:8000/api/:path*"
     }

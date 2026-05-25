@@ -21,8 +21,11 @@
 | **E7**           | Benchmarking multi-modelo — correr 2-3 modelos en paralelo                          | ✅ Done                                 |
 | **E8**           | Ingesta avanzada — Parquet upload + export + connect DB                             | ✅ Done                                 |
 | **E9**           | Calendario de eventos mejorado — persistencia + impacto LightGBM                    | ✅ Done ("Impacto observado" pospuesto) |
-| **UX-1**         | Refactor de vistas — pulido de diseño y funcionalidades MUI X por vista             | ⏳ En progreso                          |
-| **Fixes**        | Bugs y correcciones menores pendientes                                              | Ver sección abajo                       |
+| **UX-1**         | Refactor de vistas — pulido de diseño y funcionalidades MUI X por vista             | ✅ Done                                    |
+| **UX-F**         | Forecast profesional — flujo Vandeput completo (F1-F4)                             | ✅ Done                                    |
+| **VIZ-1**        | Gráficos interactivos: multi-modelo, error mensual, BIAS acum, heatmap, trend      | 🔄 Activa (nueva)                          |
+| **EXP-1**        | Exportación analítica: Excel con métricas + predicciones + benchmark              | ⏳ Pendiente                               |
+| **MSE-1**        | Análisis multi-entidad desde un CSV — columna de agrupación configurable          | ⏳ Pendiente                               |
 
 ---
 
@@ -491,15 +494,169 @@ Para LightGBM el impacto es mucho más correcto como **feature** — una columna
 
 ---
 
-## 📚 Backlog general
+## 📊 VIZ-1 — Gráficos interactivos nivel producción (FASE ACTIVA)
+
+> Llevar los gráficos de ForecastIQ al nivel del Streamlit de referencia.
+> Usar Recharts en todos los casos — no introducir ECharts.
+> Orden: VIZ-1a → VIZ-1b → VIZ-1c → VIZ-1d → VIZ-1e.
+
+### VIZ-1a: ForecastChart animado con multi-modelo y range slider
+
+> El gráfico principal del tab Forecast. Hoy: 1 modelo, Brush básico.
+> Target: animación de entrada + overlay de N modelos + range slider visible.
+
+- [ ] Activar animación Recharts: `isAnimationActive` + `animationDuration={800}` + `animationEasing="ease-out"` en cada `<Line>`
+- [ ] Brush visible como range slider en la parte inferior del chart (revisar config actual de `startIndex`/`endIndex`)
+- [ ] Guardar predicciones de cada modelo en `ForecastResult` cuando se corre Benchmark:
+  - Backend `celery_app.py`: agregar campo `all_model_predictions: dict[str, list]` al resultado del job
+  - `types.ts`: `allModelPredictions?: Record<string, PredictionPoint[]>` en `ForecastResult`
+- [ ] `ForecastChart.tsx`: prop `allModelPredictions?` → renderizar una `<Line>` punteada de color distinto por modelo
+- [ ] Checkboxes de modelos: `ModelOverlayControls.tsx` — lista de modelos disponibles con color swatch, checkbox toggle
+- [ ] Tooltip unificado: cuando hay múltiples modelos activos, el Recharts `<Tooltip content={CustomTooltip}>` muestra todas las líneas activas en ese punto
+- [ ] Paleta de colores por modelo: MA=naranja, HW=verde, SARIMA=púrpura, LightGBM=rojo, Naive=gris
+
+### VIZ-1b: ErrorMonthlyChart — barras de error mes a mes
+
+> Barras verdes/rojas de error % en el período de test. Solo si `testPeriods > 0`.
+
+- [ ] `components/forecast/ErrorMonthlyChart.tsx` — BarChart Recharts:
+  - Datos: calculados del `result.predictions` (real vs predicho por fecha)
+  - `<Cell>` verde `|error| < 20%` / rojo `>= 20%` / gris si real ≤ 0
+  - `<ReferenceLine y={0}/>` en cero
+  - `<ReferenceLine y={20} strokeDasharray="4 4"/>` y `y={-20}` en líneas punteadas
+  - Tooltip: `"Fecha | Real: X | Pred: Y | Error: Z%"`
+- [ ] Agregar tab "**Error mensual**" en los 4 tabs de resultados de `forecast/page.tsx`
+  - Solo visible cuando `result.test_periods > 0`
+  - Placeholder educativo cuando no hay período de test
+
+### VIZ-1c: CumulativeBiasChart — BIAS acumulado
+
+> Línea de BIAS acumulado mes a mes. Zona verde ±10%, zonas rojas fuera.
+
+- [ ] `components/forecast/CumulativeBiasChart.tsx` — LineChart Recharts:
+  - Cálculo: `bias_acum[t] = cumsum((pred_i - real_i) / sum(real) * 100)`
+  - `<ReferenceArea y1={-10} y2={10} fill="#c6efce" fillOpacity={0.4}/>` (zona verde)
+  - `<ReferenceArea>` rojo/naranja arriba y abajo
+  - `<ReferenceLine y={0} label="0"/>` con `<ReferenceLine y={10}/>` y `y={-10}` punteados
+  - Tooltip: `"BIAS acum: X% → sobrestock"` o `"→ riesgo quiebre"` según signo
+  - Link a Enciclopedia Cap 4 en el footer de la card
+- [ ] Agregar tab "**BIAS acumulado**" en los tabs de resultados (reemplaza o agrega a los 4 actuales)
+  - Solo visible cuando `result.test_periods > 0`
+
+### VIZ-1d: SeasonalityHeatmap — heatmap año × mes
+
+> Tabla pivotada: filas=años, columnas=meses, color=intensidad del valor.
+
+- [ ] `components/forecast/SeasonalityHeatmap.tsx` — tabla HTML pura con CSS:
+  - Calculado desde `result.historical_data` (o el dataset activo)
+  - Columnas: Ene-Dic, Filas: años de historia
+  - Color de celda: `hsl(220, 80%, lerp(95%, 20%, intensity))` — blanco → azul oscuro
+  - Tooltip en hover: `"Ene 2023: 45.230"`
+  - Fila especial para el año en curso si hay datos parciales
+- [ ] Agregar al tab "**Diagnóstico**" en los tabs de resultados (debajo del DetectionReport)
+
+### VIZ-1e: YearlyTrendChart — tendencia interanual
+
+> Una línea por año sobre el mismo eje mensual (Ene-Dic).
+
+- [ ] `components/forecast/YearlyTrendChart.tsx` — LineChart Recharts:
+  - Una `<Line>` por año con color distinto (paleta de 6 colores)
+  - Eje X: meses (Ene-Dic), Eje Y: valor de la serie
+  - Leyenda automática por año
+  - Solo renderiza si `n_years >= 2`
+- [ ] Agregar al tab "**Diagnóstico**" debajo del SeasonalityHeatmap
+
+---
+
+## 📤 EXP-1 — Exportación de resultados analíticos
+
+> El gap más crítico. Hoy solo se exportan datos crudos (CSV/Parquet del dataset).
+> El objetivo: Excel con el análisis completo, listo para compartir con el equipo.
+
+### EXP-1a: Backend — export forecast analítico
+
+- [ ] Verificar que `openpyxl` está en `pyproject.toml` — si no, `uv add openpyxl`
+- [ ] `app/services/forecast_exporter.py` — clase `ForecastExporter`:
+  - `generate_xlsx(job_result: dict) -> BytesIO` — genera Excel en memoria
+  - Hoja 1 **Resumen**: fecha, dataset, modelo, WAPE/MAE/BIAS/FVA, horizonte, test periods
+  - Hoja 2 **Predicciones**: fecha, predicho, lower_ci, upper_ci (con formato numérico)
+  - Hoja 3 **Benchmark**: tabla modelos con métricas (colores semáforo por WAPE)
+  - Hoja 4 **Error mensual**: fecha, real, predicho, error%, BIAS acum% (colores semáforo)
+  - Hoja 5 **Parámetros**: alpha, beta, gamma, order, etc. según el modelo usado
+  - Estilos: headers navy `#1f4e78`, colores semáforo en celdas de métricas
+- [ ] `app/api/forecast.py`: nuevo endpoint
+  `GET /api/forecast/{job_id}/export` con `?format=xlsx|csv|json`
+  - Lee el job de Supabase, reconstruye el resultado, llama al exporter
+  - `FileResponse` para xlsx, `JSONResponse` para json, texto plano para csv
+  - 404 si el job no existe o no es del usuario autenticado
+- [ ] CSV export: predicciones como CSV tabular (fecha, predicho, lower, upper)
+- [ ] JSON export: el resultado completo serializado
+
+### EXP-1b: Frontend — ForecastExportButton
+
+- [ ] `components/forecast/ForecastExportButton.tsx` — split button:
+  - Opción 1 (principal): **Excel analítico** — llama al endpoint xlsx
+  - Opción 2: **CSV predicciones** — llama al endpoint csv
+  - Opción 3: **JSON** — llama al endpoint json
+  - Loading spinner mientras descarga
+  - Error toast si falla
+  - Solo aparece cuando `result !== null && result.job_id`
+- [ ] Integrar en tab "**Forecast**" de `forecast/page.tsx` — debajo del `MetricsCard`
+- [ ] Reemplazar / complementar el `ExportButton` actual (que exporta dataset crudo)
+  — dejar claro en el UI cuál exporta qué
+
+### EXP-1c: Export de benchmark
+
+- [ ] En tab "**Benchmark**" de `forecast/page.tsx`:
+  - Botón "Exportar comparación" → llama a `GET /api/forecast/benchmark/{job_id}/export`
+  - Backend: genera Excel con una hoja por modelo + hoja resumen comparativa
+  - Solo habilitado cuando `benchmarkResult !== null`
+
+---
+
+## 🏭 MSE-1 — Análisis multi-entidad desde un solo CSV
+
+> El Streamlit procesaba 64 departamentos desde un CSV con columna `Departamento`.
+> ForecastIQ debe poder hacer lo mismo con cualquier dataset y cualquier columna de agrupación.
+
+### MSE-1a: Selección de columna de entidad en Dataset
+
+- [ ] `dataset/page.tsx`: agregar selector opcional `"Columna de entidad"` en el paso de configuración de columnas
+  - Solo aparece cuando el dataset tiene columnas categóricas (strings)
+  - Tooltip: "Si tu dataset tiene múltiples productos, departamentos o tiendas, selección aquí para hacer forecast por entidad"
+  - Guardar en `appStore` como `entityCol: string | null`
+- [ ] `appStore.ts`: nueva clave `fiq_entity_col` + `setEntityCol/getEntityCol/clearEntityCol`
+- [ ] `types.ts`: `entity_col?: string | null` en `ForecastRunRequest`
+- [ ] Backend `api/forecast.py`: si `entity_col` está presente → redirigir al pipeline batch (Nixtla)
+
+### MSE-1b: Resultados multi-entidad en `/dashboard/batch`
+
+- [ ] Mejorar `batch/page.tsx`:
+  - Selector de entidad para drill-down (igual que el depto selector del Streamlit)
+  - Cuando se selecciona una entidad: mostrar `ForecastChart` filtrado por esa entidad
+  - Tabla de ranking de entidades por WAPE (mejor → peor) con colores semáforo
+  - Botón "Exportar Excel" — llama a EXP-1c adaptándolo para multi-entidad
+- [ ] `components/batch/EntityDrillDown.tsx` — selector + chart combinados
+- [ ] `components/batch/EntityRankingTable.tsx` — tabla WAPE por entidad
+
+### MSE-1c: Prueba de compatibilidad con el CSV del Streamlit
+
+- [ ] Cargar el CSV de departamentos en ForecastIQ
+- [ ] Verificar que el flujo Dataset → selección de columnas → entity_col → batch funciona
+- [ ] Los resultados de WAPE deben ser comparables (no necesariamente idénticos) a los del Streamlit
+- [ ] Documentar cualquier diferencia en el comportamiento (winzorización, frecuencia, etc.)
+
+---
+
+## 📚 Backlog general (diferido)
 
 - [ ] Landing page pública con hero + features + screenshots
 - [ ] i18n español / inglés
-- [ ] Export forecast a Excel / PDF
 - [ ] Notificaciones email cuando termina un job largo (Resend/SendGrid)
 - [ ] BYOK — el usuario trae su propia OpenRouter API key (ya hay base en Settings)
 - [ ] Modelo de demanda intermitente (Croston / TSB) — para productos con muchos ceros
 - [ ] Detección automática de categorías dentro de un dataset (multi-SKU EDA)
+- [ ] Regresión Lineal con Splines como modelo adicional (presente en el Streamlit de referencia)
 
 ---
 
@@ -583,7 +740,7 @@ Para LightGBM el impacto es mucho más correcto como **feature** — una columna
 ---
 
 | 2026-05-25 | header-badge + home-redirect | `TierBadge` rediseñado: 3 líneas (ícono+nombre / online\/offline / hardware specs). `CloudDoneIcon`/`CloudOffIcon` para cloud\/ec2, `ComputerIcon` para local. Rojo cuando offline. `capabilities.py` + `config.py`: nuevo campo `hardware_label` (env var `SERVER_HARDWARE_LABEL`). `useCapabilities.ts`: `backend_online` + `hardware_label` en interface y fallback. Login redirect: `callbackURL` Google/GitHub/anónimo corregido de `/dashboard/dataset` → `/dashboard/home`. |
-| 2026-05-25 | hydration-fix | `HomeDashboard.tsx`: `forecastResult` inicializado como `null` (SSR-safe). Lazy init `() => appStore.getLastResult()` causaba hydration mismatch — servidor renderizaba texto estático, cliente mostraba datos del localStorage. Fix: `useState(null)` + hidratar en `useEffect`. Los dos `useEffect` de forecast result consolidados en uno. |
+| 2026-05-25 | planning-VIZ-EXP-MSE | Análisis comparativo ForecastIQ vs Streamlit de referencia (64 departamentos). Identificadas 3 fases nuevas: VIZ-1 (gráficos interactivos), EXP-1 (export analítico), MSE-1 (multi-entidad). ROADMAP.md reescrito con las 3 fases nuevas + UX-1/UX-F cerradas. TODO.md limpiado: tabla de estado actualizada, backlog "Export forecast a Excel" integrado en EXP-1, nuevas secciones VIZ-1/EXP-1/MSE-1 con tareas detalladas. |
 | 2026-05-25 | demo-warmup | `main.py`: `_warmup_duckdb_httpfs()` en lifespan startup — corre en background con `run_in_executor`, instala httpfs y hace query mínima al R2 para cachear la extensión antes de la primera request real. Fix para timeout de Vercel (10s) en cold start de DuckDB. |
 | 2026-05-25 | type-check-fixes | Fixed 3 TS errors blocking CI. (1) `batch/page.tsx`: declared missing `filterSeries` state (`useState<string>("")`) — it was called via `setFilterSeries` in both run handlers but never declared. (2) `EventCalendar.tsx`: changed single cast `EventDay as ComponentType<PickersDayProps<Date>>` to double cast through `unknown` — required because `EventDayProps` adds `eventsMap` which is not in `PickersDayProps<Date>` so the types don't overlap sufficiently for a direct assertion. |
 

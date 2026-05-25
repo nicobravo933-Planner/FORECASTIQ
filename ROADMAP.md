@@ -6,7 +6,7 @@
 
 ---
 
-## Estado actual: Epics E1–E9 completados
+## Estado actual: Epics E1–E9 + UX-1 + UX-F completados
 
 Todo el flujo educativo core está implementado. Lo que sigue es pulido de UX vista a vista.
 
@@ -42,7 +42,165 @@ ForecastIQ sigue a **Nicolás Vandeputt** (_"Demand Forecasting Best Practices"_
 
 ---
 
-## Fase UX-1: Refactor de vistas (fase activa)
+## Fases completadas: UX-1 + UX-F (cerradas)
+
+UX-1 (refactor de vistas) y UX-F (Forecast profesional) están cerradas.
+Ver TODO.md para detalle de tareas completadas.
+
+---
+
+## ── NUEVA FASE ACTIVA ──────────────────────────────────────────────────────
+
+## Fase VIZ-1: Gráficos interactivos nivel producción
+
+> El Streamlit de referencia usaba Apache ECharts vía `streamlit-echarts`.
+> ForecastIQ usa Recharts. La brecha no es de librería — es de features:
+> falta el `dataZoom` (range slider), comparación multi-modelo simultánea,
+> y gráficos analíticos derivados (error mensual, BIAS acumulado, heatmap).
+>
+> **Decisión de arquitectura:** mantener Recharts para ForecastChart (ya tiene
+> Brush, zonas coloreadas, CI) y agregar los gráficos nuevos con Recharts también.
+> No introducir ECharts — sería una dependencia pesada para 3 gráficos.
+> Recharts puede hacer todo lo que necesitamos con ComposedChart + ResponsiveContainer.
+
+### VIZ-1a — ForecastChart con dataZoom y multi-modelo
+
+> El chart principal de Forecast hoy muestra 1 modelo. El Streamlit mostraba
+> histórico + real test + N líneas punteadas (una por modelo) + forecast futuro
+> + range slider. Ese es el target.
+
+Qué agregar al ForecastChart existente:
+- `dataZoom` = Recharts `<Brush>` ya existe, pero solo abarca el ancho del gráfico.
+  Convertirlo en un range slider visible y persistente debajo del gráfico (ya hay
+  código — revisar si el startIndex/endIndex está bien configurado).
+- **Multi-modelo overlay**: cuando el Benchmark corre, guardar las predicciones de
+  cada modelo en el resultado. En el tab "Forecast", mostrar checkbox por modelo →
+  línea punteada de color distinto por modelo activo. Máximo 4 modelos simultáneos.
+- **Animación de entrada**: `isAnimationActive={true}` en cada `<Line>` con
+  `animationDuration={800}` y `animationEasing="ease-out"` — Recharts ya soporta esto.
+- **Tooltip rico**: mostrar todos los modelos activos en el mismo tooltip al hacer hover.
+
+### VIZ-1b — Gráfico de error mensual
+
+> El Streamlit tenía barras verdes/rojas de error % mes a mes.
+> En ForecastIQ esto no existe. Se agrega como tab nuevo "Error mensual" en los resultados.
+
+- `ErrorMonthlyChart.tsx` — `<BarChart>` de Recharts con `<Cell>` coloreado:
+  - Verde: `|error| < 20%`
+  - Rojo: `|error| >= 20%`
+  - Gris: real ≤ 0 (no calculable)
+  - `<ReferenceLine y={0}/>` en cero y líneas punteadas en ±20%
+  - Tooltip: `"Pred: X | Real: Y | Error: Z%"`
+- Datos: calculados en el frontend desde `result.predictions` (fecha, real, predicho)
+- Condicional: solo visible cuando `testPeriods > 0`
+
+### VIZ-1c — Gráfico de BIAS acumulado
+
+> Identifica sobrestock (modelo sobreestima sistemáticamente) o riesgo de quiebre
+> (modelo subestima). Muy útil para analistas de demanda.
+
+- `CumulativeBiasChart.tsx` — `<LineChart>` de Recharts:
+  - Línea de BIAS acumulado mes a mes
+  - `<ReferenceArea>` verde entre -10% y +10% (zona aceptable)
+  - `<ReferenceArea>` rojo/naranja fuera de ese rango
+  - `<ReferenceLine y={0}/>` con label
+  - Tooltip: `"BIAS acum: X% → riesgo quiebre"` / `"→ sobrestock"`
+- Fórmula: `bias_acum[t] = cumsum((pred_i - real_i) / sum(real) * 100)`
+
+### VIZ-1d — Heatmap de estacionalidad (año × mes)
+
+> El Streamlit tenía un heatmap para visualizar la estacionalidad.
+> En ForecastIQ existe el detector de estacionalidad (FFT) pero no una visualización.
+
+- `SeasonalityHeatmap.tsx` — tabla pivotada años × meses con colores:
+  - Filas: años de historia
+  - Columnas: meses (Ene-Dic)
+  - Color: intensidad del valor (blanco → azul oscuro)
+  - Implementar como `<table>` con CSS `background` calculado (no necesita Recharts)
+  - Incluir en tab "Diagnóstico" de la vista Forecast
+
+### VIZ-1e — Tendencia interanual (líneas por año)
+
+> "¿Creció el año 2024 vs 2023?" — una línea por año sobre el mismo eje mensual.
+
+- `YearlyTrendChart.tsx` — `<LineChart>` con una línea de color distinto por año
+- Eje X: meses (Ene-Dic), eje Y: valor de la serie
+- Paleta de colores automática por año (hasta 6 años)
+- Condicional: solo visible cuando la serie tiene >= 2 años de historia
+- Incluir en tab "Diagnóstico" de la vista Forecast
+
+---
+
+## Fase EXP-1: Exportación de resultados analíticos
+
+> El gap más crítico respecto al Streamlit. El Excel con 12 hojas era el
+> entregable final del análisis. ForecastIQ hoy solo exporta datos crudos.
+> El objetivo: que el usuario pueda llevarse un Excel profesional con todo
+> el análisis, listo para compartir con su equipo.
+
+### EXP-1a — Backend: endpoint de export analítico
+
+- `GET /api/forecast/{job_id}/export?format=xlsx|csv|json` — genera el archivo
+  en memoria (BytesIO) y lo retorna como `FileResponse`
+- Contenido del Excel (siguiendo estructura del Streamlit, adaptado a ForecastIQ):
+  - Hoja 1: **Resumen** — dataset, modelo usado, métricas (WAPE/MAE/BIAS/FVA), fecha
+  - Hoja 2: **Predicciones** — fecha, predicho, lower_ci, upper_ci
+  - Hoja 3: **Benchmark** — tabla de todos los modelos con sus métricas
+  - Hoja 4: **Error mensual** — fecha, real, predicho, error%, color semáforo
+  - Hoja 5: **Serie histórica** — datos originales del dataset
+  - Hoja 6: **Parámetros del modelo** — alpha, beta, gamma, order, etc.
+- Librerías: `openpyxl` (ya disponible en el proyecto del Streamlit)
+- El endpoint debe reconstruir los datos desde el job_id en Supabase
+
+### EXP-1b — Frontend: botón export mejorado
+
+- Mejorar `ExportButton.tsx` actual (que solo exporta CSV/Parquet del dataset)
+- Nuevo `ForecastExportButton.tsx` en la vista Forecast, tab "Forecast":
+  - Split button: **Excel analítico** / CSV predicciones / JSON
+  - Muestra loader mientras descarga
+  - Aparece solo cuando `result !== null`
+
+### EXP-1c — Export de benchmark multi-modelo
+
+- Cuando el Benchmark corrió (tab "Benchmark"), agregar botón:
+  - `GET /api/forecast/benchmark/{job_id}/export?format=xlsx`
+  - Excel con una hoja por modelo + hoja de comparación
+
+---
+
+## Fase MSE-1: Análisis multi-entidad desde un solo CSV
+
+> El Streamlit procesaba 64 departamentos desde un CSV con columna `Departamento`.
+> ForecastIQ ya tiene `batch.py` con Nixtla, pero está desconectado del flujo
+> normal de upload. El objetivo: que cualquier CSV con una columna de agrupación
+> pueda tratarse como multi-serie desde la misma interfaz.
+
+### MSE-1a — Detección de columna de agrupación
+
+- En el paso de selección de columnas (Dataset page), agregar un selector opcional:
+  `"Columna de entidad / agrupación"` (ej: SKU, Departamento, Tienda, Producto)
+- Si se selecciona: el job se encola como batch, no como forecast individual
+- Si no se selecciona: comportamiento actual (serie única)
+- Backend: `ForecastRunRequest` acepta `entity_col: str | None`
+
+### MSE-1b — Resultados multi-entidad
+
+- Vista `/dashboard/batch` mejorada:
+  - Selector de entidad para drill-down (igual que el Streamlit con el depto selector)
+  - Chart principal = `ForecastChart` filtrado por entidad seleccionada
+  - Tabla de ranking de entidades por WAPE (mejor → peor)
+  - Export Excel con una hoja por entidad + hoja resumen
+
+### MSE-1c — Compatibilidad con el dataset del Streamlit
+
+- El CSV del Streamlit tiene columnas: `Fecha`, `Departamento`, `Cantidad Bultos`
+- ForecastIQ debe poder cargar ese CSV exactamente → seleccionar columnas →
+  elegir `Departamento` como entidad → correr batch → obtener resultados similares
+- Esto valida que ForecastIQ puede reemplazar al Streamlit para ese caso de uso
+
+---
+
+## Fase UX-1: Refactor de vistas (fase activa, previo — CERRADA)
 
 Cada vista tiene mejoras identificadas. Se implementan de a una, con criterio de calidad
 antes de pasar a la siguiente. Las tareas detalladas están en **TODO.md → sección UX-1**.
@@ -69,7 +227,7 @@ UX-1h: Home        → Stepper educativo EDA→ETL→Forecast visible
 
 ---
 
-## Fase UX-F: Forecast profesional — flujo Vandeput (fase siguiente)
+## Fase UX-F: Forecast profesional — flujo Vandeput (CERRADA)
 
 > El corazón de ForecastIQ. Esta fase convierte la vista Forecast en una herramienta
 > de análisis real, siguiendo el flujo que describe Vandeput en _Demand Forecasting Best Practices_.
@@ -184,7 +342,7 @@ si sus datos son buenos ni si está usando datos limpios. No hay indicador visua
 
 ---
 
-## Fase UX-2: Mejoras cruzadas (backlog)
+## Fase UX-2: Mejoras cruzadas (backlog diferido)
 
 ```
 UX-2a: Stepper educativo en EDA/ETL/Forecast (journey visible en header)
