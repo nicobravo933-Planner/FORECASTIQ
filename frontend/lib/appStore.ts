@@ -12,15 +12,16 @@ const KEYS = {
   dateColumn:    "fiq_active_date_col",
   targetColumn:  "fiq_active_target_col",
   freq:          "fiq_active_freq",
-  detectedModel: "fiq_detected_model",      // cached model recommendation per dataset
-  detectedDsId:  "fiq_detected_dataset_id", // which dataset the cache belongs to
-  pendingMsgs:   "fiq_pending_messages",    // transferencia globo → chat completo
-  qualityScore:  "fiq_quality_score",       // E5: quality score del dataset activo (0-100)
-  qualityLabel:  "fiq_quality_label",       // E5: "poor" | "fair" | "good" | "excellent"
-  modelsAvail:   "fiq_models_available",    // E5: JSON array de model ids disponibles
-  detectionReport: "fiq_detection_report",  // E6: DetectionResult cacheado del último detect
-  pendingModel:    "fiq_pending_model",       // UX-1e: model pre-selected from encyclopedia
-  cleanedDatasetId: "fiq_cleaned_dataset_id",  // F2.2: dataset processed by ETL
+  detectedModel: "fiq_detected_model",
+  detectedDsId:  "fiq_detected_dataset_id",
+  pendingMsgs:   "fiq_pending_messages",
+  qualityScore:  "fiq_quality_score",
+  qualityLabel:  "fiq_quality_label",
+  modelsAvail:   "fiq_models_available",
+  detectionReport: "fiq_detection_report",
+  pendingModel:    "fiq_pending_model",
+  cleanedDatasetId: "fiq_cleaned_dataset_id",
+  lastResult:    "fiq_last_forecast_result",  // ForecastResult completo — persiste entre navegaciones
 } as const
 
 function safeGet(key: string): string | null {
@@ -48,7 +49,14 @@ export const appStore = {
   getActiveFreq():      string | null  { return safeGet(KEYS.freq)         },
 
   // ── Forecast job ──────────────────────────────────────────────────────────
-  setActiveJobId(jobId: string): void { safeSet(KEYS.jobId, jobId) },
+  setActiveJobId(jobId: string): void {
+    safeSet(KEYS.jobId, jobId)
+    // Dispara evento custom para sincronizar componentes en el mismo tab
+    // (window 'storage' solo funciona entre tabs distintos)
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("fiq:store-update"))
+    }
+  },
   getActiveJobId(): string | null     { return safeGet(KEYS.jobId)  },
 
   // ── Detected model cache ──────────────────────────────────────────────────
@@ -152,5 +160,24 @@ export const appStore = {
   },
   clearCleanedDataset(): void {
     if (typeof window !== "undefined") localStorage.removeItem(KEYS.cleanedDatasetId)
+  },
+
+  // ── Last forecast result (persiste entre navegaciones) ───────────────────
+  // Se guarda al terminar el forecast y se restaura al volver a /forecast o /home.
+  // Límite: ~500 KB serializado. Si el JSON es mayor se silencia sin romper.
+  setLastResult(result: unknown): void {
+    try {
+      const json = JSON.stringify(result)
+      if (json.length > 500_000) return  // evitar llenar el localStorage
+      safeSet(KEYS.lastResult, json)
+    } catch { /* silenciar — el resultado sigue en estado React */ }
+  },
+  getLastResult<T>(): T | null {
+    const raw = safeGet(KEYS.lastResult)
+    if (!raw) return null
+    try { return JSON.parse(raw) as T } catch { return null }
+  },
+  clearLastResult(): void {
+    if (typeof window !== "undefined") localStorage.removeItem(KEYS.lastResult)
   },
 }

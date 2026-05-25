@@ -115,7 +115,8 @@ function MiniChart({ result }: { result: ForecastResult | null }) {
   const minV = Math.min(...allVals) * 0.92
   const maxV = Math.max(...allVals) * 1.05
 
-  const hist = result.historical.slice(-6)
+  // Usar toda la historia disponible (máx 24 puntos para no saturar el mini-chart)
+  const hist = result.historical.slice(-24)
   const preds = result.predictions
 
   const totalPts = hist.length + preds.length
@@ -271,21 +272,28 @@ export function HomeDashboard() {
       setActiveStep(newJobId ? 3 : newQs ? 2 : newDsId ? 1 : 0)
     }
     window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
+    window.addEventListener("fiq:store-update", onStorage)
+    return () => {
+      window.removeEventListener("storage", onStorage)
+      window.removeEventListener("fiq:store-update", onStorage)
+    }
   }, [])
 
   // ── Forecast result ────────────────────────────────────────────────────────
-  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null)
+  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(
+    () => appStore.getLastResult<ForecastResult>()  // restaurar desde localStorage al montar
+  )
   const [forecastLoading, setForecastLoading] = useState(false)
 
+  // Escucha fiq:store-update: cuando useForecast guarda el resultado, leerlo desde localStorage
   useEffect(() => {
-    if (!activeJobId) return
-    setForecastLoading(true)
-    api.get<ForecastResult>(`/api/forecast/result/${activeJobId}`)
-      .then(res => setForecastResult(res))
-      .catch(() => setForecastResult(null))
-      .finally(() => setForecastLoading(false))
-  }, [activeJobId])
+    const onUpdate = () => {
+      const persisted = appStore.getLastResult<ForecastResult>()
+      if (persisted) setForecastResult(persisted)
+    }
+    window.addEventListener("fiq:store-update", onUpdate)
+    return () => window.removeEventListener("fiq:store-update", onUpdate)
+  }, [])
 
   // ── Events (próximos) ──────────────────────────────────────────────────────
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([])
@@ -309,8 +317,8 @@ export function HomeDashboard() {
   const firstName = session?.user?.name ? session.user.name.split(" ")[0] : null
   const modelsAvailable = (caps.models_available as string[] | undefined) ?? []
 
-  const wape        = forecastResult?.metrics.wape ?? null
-  const fva         = forecastResult?.metrics.fva  ?? null
+  const wape        = forecastResult?.metrics.wape != null ? forecastResult.metrics.wape * 100 : null
+  const fva         = forecastResult?.metrics.fva  != null ? forecastResult.metrics.fva  * 100 : null
   const modelUsed   = forecastResult?.model_used   ?? null
   const wapeHistory = wape !== null ? [wape * 1.15, wape * 1.1, wape * 1.06, wape * 1.02, wape] : []
 

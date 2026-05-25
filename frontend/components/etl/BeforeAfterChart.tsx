@@ -68,9 +68,9 @@ export function BeforeAfterChart({ series, mode, nChanged, title, winsorLower, w
   return (
     <Card
       variant="outlined"
-      sx={{ borderRadius: "0.75rem", boxShadow: "0 0.125rem 0.5rem rgba(0,0,0,0.06)" }}
+      sx={{ borderRadius: "0.75rem", boxShadow: "0 0.125rem 0.5rem rgba(0,0,0,0.06)", height: "100%", display: "flex", flexDirection: "column" }}
     >
-      <CardContent sx={{ p: "1.5rem", "&:last-child": { pb: "1.5rem" } }}>
+      <CardContent sx={{ p: "1.5rem", "&:last-child": { pb: "1.5rem" }, flex: 1, display: "flex", flexDirection: "column" }}>
         {/* Header */}
         <Box
           sx={{
@@ -103,7 +103,7 @@ export function BeforeAfterChart({ series, mode, nChanged, title, winsorLower, w
         </Box>
 
         {/* Chart */}
-        <Box sx={{ height: "17rem" }}>
+        <Box sx={{ flex: 1, minHeight: "14rem" }}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.07)" />

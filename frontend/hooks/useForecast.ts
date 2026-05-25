@@ -7,7 +7,7 @@
  * Polling strategy: every 2s, max 120s (60 attempts), then timeout.
  */
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { api } from "@/lib/api"
 import { appStore } from "@/lib/appStore"
 import type {
@@ -38,15 +38,16 @@ const POLL_INTERVAL_MS = 2000
 const MAX_POLLS = 60 // 2 min timeout
 
 export function useForecast(): UseForecastReturn {
-  const [state, setState] = useState<UseForecastState>({
+  const [state, setState] = useState<UseForecastState>(() => ({
     stage: "idle",
     jobId: null,
     status: null,
     progressPct: 0,
     step: "",
-    result: null,
+    // Restaurar resultado persistido al montar (volver de otra vista)
+    result: appStore.getLastResult<ForecastResult>(),
     error: null,
-  })
+  }))
 
   const pollCountRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -80,10 +81,9 @@ export function useForecast(): UseForecastReturn {
 
         if (status.status === "done") {
           stopPolling()
-          // Fetch full result
           const result = await api.get<ForecastResult>(`/api/forecast/${jobId}/result`)
-          // Persist job_id to appStore so other pages (Home) can read it
           appStore.setActiveJobId(jobId)
+          appStore.setLastResult(result)  // persistir para sobrevivir navegación
           setState((s) => ({ ...s, stage: "done", result }))
           return
         }
@@ -130,6 +130,7 @@ export function useForecast(): UseForecastReturn {
         if (status === "done") {
           const result = await api.get<ForecastResult>(`/api/forecast/${job_id}/result`)
           appStore.setActiveJobId(job_id)
+          appStore.setLastResult(result)  // persistir para sobrevivir navegación
           setState((s) => ({ ...s, stage: "done", result, progressPct: 100, step: "Completado" }))
           return
         }

@@ -303,8 +303,8 @@ export default function ForecastPage() {
   const isFailed  = forecast.stage === "failed"
   const isIdle    = forecast.stage === "idle"
 
-  // Results visible when done and result is ready
-  const showResults = isDone && forecast.result != null
+  // Results visible when done OR when there's a persisted result to show
+  const showResults = forecast.result != null
 
   // F3.2: Accordion config — expanded when idle/failed, collapsed when running/done
   const [configExpanded, setConfigExpanded] = useState(true)
@@ -638,8 +638,8 @@ export default function ForecastPage() {
             </Box>
           )}
 
-          {/* Idle placeholder */}
-          {isIdle && (
+          {/* Idle placeholder — only when no result at all */}
+          {isIdle && !forecast.result && (
             <Paper
               variant="outlined"
               sx={{

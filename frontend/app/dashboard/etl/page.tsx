@@ -222,7 +222,7 @@ export default function EtlPage() {
           </Tabs>
 
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "20rem 1fr" },
-            gap: "1.25rem", alignItems: "start" }}>
+            gap: "1.25rem", alignItems: "stretch" }}>
             {tab === 0 ? (
               <WinsorizationPanel tier={tier} loading={loading && mode === "winsorize"}
                 onApply={applyWinsorize} currentResult={winsorize ?? null} />
