@@ -36,6 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Warm-up DuckDB httpfs — instala y cachea la extensión en background
     # Evita el timeout de Vercel en la primera request al dataset demo
     import asyncio
+
     asyncio.get_event_loop().run_in_executor(None, _warmup_duckdb_httpfs)
     yield
     # Shutdown — liberar recursos si es necesario
@@ -50,12 +51,13 @@ def _warmup_duckdb_httpfs() -> None:
     """
     try:
         import duckdb
+
         con = duckdb.connect()
         con.execute("INSTALL httpfs; LOAD httpfs;")
         con.execute("SET enable_progress_bar = false;")
         # Query mínima para forzar el handshake con R2 (solo metadata, sin scan completo)
-        _URL = "https://pub-d0a335fad6124970951095c7dce170c3.r2.dev/ventas_25k_skus.parquet"
-        con.execute(f"SELECT 1 FROM read_parquet(['{_URL}']) LIMIT 1")
+        _url = "https://pub-d0a335fad6124970951095c7dce170c3.r2.dev/ventas_25k_skus.parquet"
+        con.execute(f"SELECT 1 FROM read_parquet(['{_url}']) LIMIT 1")
         con.close()
     except Exception:
         pass  # warm-up falla silenciosamente — no rompe el servidor
