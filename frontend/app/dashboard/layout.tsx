@@ -11,9 +11,9 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
-import CloudIcon from "@mui/icons-material/Cloud";
+import CloudDoneIcon from "@mui/icons-material/CloudDone";
+import CloudOffIcon from "@mui/icons-material/CloudOff";
 import ComputerIcon from "@mui/icons-material/Computer";
-import DnsIcon from "@mui/icons-material/Dns";
 import EmailIcon from "@mui/icons-material/Email";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import HomeIcon from "@mui/icons-material/Home";
@@ -193,51 +193,82 @@ function NavItem({
 	);
 }
 
-// ── Tier badge (siempre con texto, independiente del sidebar) ─────────────────
-function TierBadge({ tier, label }: { tier: string; label: string }) {
-	const color =
-		tier === "local"
-			? "rgba(16,185,129,0.9)"
-			: tier === "ec2"
-				? "rgba(99,102,241,0.9)"
-				: "rgba(255,255,255,0.6)";
-	const border =
-		tier === "local"
-			? "rgba(16,185,129,0.45)"
-			: tier === "ec2"
-				? "rgba(99,102,241,0.45)"
-				: "rgba(255,255,255,0.2)";
-	const Icon =
-		tier === "local" ? ComputerIcon : tier === "ec2" ? DnsIcon : CloudIcon;
+// ── Tier badge — 3 líneas: icono+nombre / estado online / hardware ──────────
+function TierBadge({
+  tier,
+  label,
+  online,
+  hardwareLabel,
+}: {
+  tier: string
+  label: string
+  online: boolean
+  hardwareLabel: string
+}) {
+  const isLocal = tier === "local"
 
-	return (
-		<Box
-			sx={{
-				display: "flex",
-				alignItems: "center",
-				gap: "0.3rem",
-				px: "0.5rem",
-				py: "0.25rem",
-				borderRadius: "0.375rem",
-				border: "1px solid",
-				borderColor: border,
-				bgcolor: "rgba(255,255,255,0.07)",
-				flexShrink: 0,
-			}}
-		>
-			<Icon sx={{ fontSize: "0.875rem", color }} />
-			<Typography
-				sx={{
-					fontSize: "0.6875rem",
-					fontWeight: 700,
-					color,
-					whiteSpace: "nowrap",
-				}}
-			>
-				{label}
-			</Typography>
-		</Box>
-	);
+  // Icon: PC para local, nube verde/roja para cloud/ec2
+  const Icon = isLocal
+    ? ComputerIcon
+    : online
+      ? CloudDoneIcon
+      : CloudOffIcon
+
+  // Accent color del badge según estado
+  const accentColor = isLocal
+    ? "rgba(16,185,129,0.9)"   // verde esmeralda — siempre activo
+    : online
+      ? "rgba(99,102,241,0.9)" // índigo — EC2 online
+      : "rgba(239,68,68,0.85)" // rojo — backend offline
+
+  const borderColor = isLocal
+    ? "rgba(16,185,129,0.35)"
+    : online
+      ? "rgba(99,102,241,0.35)"
+      : "rgba(239,68,68,0.35)"
+
+  const statusText = isLocal ? "Backend online" : online ? "Backend online" : "Backend offline"
+  const statusColor = online || isLocal ? "rgba(255,255,255,0.6)" : "rgba(239,68,68,0.75)"
+
+  // Línea 3: hardware label — si no hay, la omitimos
+  const hw = hardwareLabel ||
+    (tier === "ec2" ? "t3.micro · 1 GB RAM · 1 vCPU" : "")
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "0.35rem",
+        px: "0.5rem",
+        py: "0.3rem",
+        borderRadius: "0.375rem",
+        border: "1px solid",
+        borderColor,
+        bgcolor: "rgba(255,255,255,0.06)",
+        flexShrink: 0,
+        minWidth: "8rem",
+      }}
+    >
+      <Icon sx={{ fontSize: "1rem", color: accentColor, mt: "0.1rem", flexShrink: 0 }} />
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
+        {/* Línea 1 — nombre del tier */}
+        <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: accentColor, lineHeight: 1.3, whiteSpace: "nowrap" }}>
+          {label}
+        </Typography>
+        {/* Línea 2 — estado online/offline */}
+        <Typography sx={{ fontSize: "0.625rem", color: statusColor, lineHeight: 1.3, whiteSpace: "nowrap" }}>
+          {statusText}
+        </Typography>
+        {/* Línea 3 — specs de hardware (solo si hay) */}
+        {hw && (
+          <Typography sx={{ fontSize: "0.5625rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.3, whiteSpace: "nowrap" }}>
+            {hw}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  )
 }
 
 // ── Layout ────────────────────────────────────────────────────────────────────
@@ -546,7 +577,12 @@ export default function DashboardLayout({
 							gap: "0.5rem",
 						}}
 					>
-						<TierBadge tier={caps.tier} label={caps.tier_label} />
+						<TierBadge
+						 tier={caps.tier}
+						 label={caps.tier_label}
+						 online={caps.backend_online}
+						 hardwareLabel={caps.hardware_label}
+						 />
 						<Tooltip title="Notificaciones">
 							<IconButton
 								sx={{

@@ -20,6 +20,8 @@ import { api } from "@/lib/api"
 export interface ServerCapabilities {
   tier: "local" | "ec2" | "cloud"
   tier_label: string
+  hardware_label: string   // specs: "t3.micro · 1 GB RAM" | "16 GB · Ryzen 5" | ""
+  backend_online: boolean  // true cuando el backend responde, false en fallback
   models_available: string[]
   features: {
     lightgbm: boolean
@@ -44,6 +46,8 @@ function capsFromTier(tier: string): ServerCapabilities {
   return {
     tier: (tier as ServerCapabilities["tier"]) ?? "cloud",
     tier_label: TIER_LABELS[tier] ?? "Cloud",
+    hardware_label: "",
+    backend_online: false,  // fallback = backend no respondió
     models_available: isLocal
       ? ["moving_average", "holt_winters", "sarima", "lightgbm"]
       : ["moving_average", "holt_winters", "sarima"],
@@ -90,6 +94,8 @@ export function useCapabilities() {
         const normalized: ServerCapabilities = {
           ...data,
           tier_label: data.tier_label ?? TIER_LABELS[data.tier] ?? `Backend (${data.tier})`,
+          hardware_label: data.hardware_label ?? "",
+          backend_online: true,  // si llegamos acá, el backend respondió
         }
         setCaps(normalized)
         try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(normalized)) } catch { /* ok */ }

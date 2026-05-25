@@ -31,6 +31,8 @@ class FeaturesResponse(BaseModel):
 class CapabilitiesResponse(BaseModel):
     tier: str  # "local" | "ec2" | "cloud"
     tier_label: str  # etiqueta legible para el header del frontend
+    hardware_label: str  # specs de hardware — configurado via SERVER_HARDWARE_LABEL
+    backend_online: bool  # siempre True cuando el endpoint responde
     models_available: list[str]
     features: FeaturesResponse
     message: str
@@ -82,9 +84,19 @@ async def get_capabilities() -> CapabilitiesResponse:
     }
     message = messages.get(tier, "Backend activo.")
 
+    # hardware_label: env var o default segun tier
+    default_hw = {
+        "ec2": "t3.micro · 1 GB RAM · 1 vCPU",
+        "local": "",  # el usuario configura SERVER_HARDWARE_LABEL en .env
+        "cloud": "",
+    }
+    hardware_label = settings.server_hardware_label or default_hw.get(tier, "")
+
     return CapabilitiesResponse(
         tier=tier,
         tier_label=tier_label,
+        hardware_label=hardware_label,
+        backend_online=True,
         models_available=models,
         features=FeaturesResponse(
             lightgbm=has_lgbm,

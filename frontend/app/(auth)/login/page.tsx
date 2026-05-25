@@ -27,10 +27,10 @@ const FEATURES = [
 
 export default function LoginPage() {
   const handleGoogle = () =>
-    signIn.social({ provider: "google", callbackURL: "/dashboard/dataset" })
+    signIn.social({ provider: "google", callbackURL: "/dashboard/home" })
 
   const handleGitHub = () =>
-    signIn.social({ provider: "github", callbackURL: "/dashboard/dataset" })
+    signIn.social({ provider: "github", callbackURL: "/dashboard/home" })
 
   return (
     <Box
@@ -279,10 +279,10 @@ export default function LoginPage() {
               onClick={async () => {
                 try {
                   await authClient.signIn.anonymous()
-                  window.location.href = "/dashboard/dataset"
+                  window.location.href = "/dashboard/home"
                 } catch {
                   // Si falla el login anónimo, redirige igual — la app funciona sin sesión
-                  window.location.href = "/dashboard/dataset"
+                  window.location.href = "/dashboard/home"
                 }
               }}
               sx={{
