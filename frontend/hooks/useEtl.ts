@@ -101,6 +101,7 @@ export function useEtl({ datasetId, dateCol, targetCol, freq }: UseEtlParams) {
         const tc = targetCol ?? ""
         const fr = freq ?? "M"
         appStore.setActiveDataset(result.cleaned_dataset_id, dc, tc, fr)
+        appStore.setCleanedDataset(result.cleaned_dataset_id)  // F2.2: badge ETL en ForecastContextBar
 
         setState((s) => ({
           ...s,
@@ -132,6 +133,7 @@ export function useEtl({ datasetId, dateCol, targetCol, freq }: UseEtlParams) {
         const tc = targetCol ?? ""
         const fr = freq ?? "M"
         appStore.setActiveDataset(result.cleaned_dataset_id, dc, tc, fr)
+        appStore.setCleanedDataset(result.cleaned_dataset_id)  // F2.2: badge ETL en ForecastContextBar
 
         setState((s) => ({
           ...s,

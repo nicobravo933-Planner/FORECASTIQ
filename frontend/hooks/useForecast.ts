@@ -9,6 +9,7 @@
 
 import { useState, useRef, useCallback } from "react"
 import { api } from "@/lib/api"
+import { appStore } from "@/lib/appStore"
 import type {
   ForecastRunRequest,
   ForecastStatusResponse,
@@ -81,6 +82,8 @@ export function useForecast(): UseForecastReturn {
           stopPolling()
           // Fetch full result
           const result = await api.get<ForecastResult>(`/api/forecast/${jobId}/result`)
+          // Persist job_id to appStore so other pages (Home) can read it
+          appStore.setActiveJobId(jobId)
           setState((s) => ({ ...s, stage: "done", result }))
           return
         }
@@ -126,6 +129,7 @@ export function useForecast(): UseForecastReturn {
         // Si el backend ya terminó síncronamente (eager mode dev), va directo al resultado
         if (status === "done") {
           const result = await api.get<ForecastResult>(`/api/forecast/${job_id}/result`)
+          appStore.setActiveJobId(job_id)
           setState((s) => ({ ...s, stage: "done", result, progressPct: 100, step: "Completado" }))
           return
         }

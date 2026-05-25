@@ -1,20 +1,21 @@
 "use client"
 
 /**
- * Encyclopedia page — interactive book layout
- * Left: ChapterSidebar (15rem fixed)
- * Right: Chapter content with scroll
- * Progress tracking via localStorage
+ * Encyclopedia page — 3-column book layout
+ * Left  (15rem fixed): ChapterSidebar — chapter list + collapsible sections
+ * Center (flex-1):     Chapter content — scrollable, maxWidth 52rem centered
+ * Right  (13rem fixed): TOC — sections of active chapter, scroll-spy highlight
  */
 
 import Box from "@mui/material/Box"
+import Divider from "@mui/material/Divider"
 import IconButton from "@mui/material/IconButton"
 import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward"
 import MenuBookIcon from "@mui/icons-material/MenuBook"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { ChapterSidebar, CHAPTERS } from "@/components/encyclopedia/ChapterSidebar"
 import {
   Chapter01, Chapter02, Chapter03, Chapter04,
@@ -24,18 +25,9 @@ import {
 
 // Map chapter id → component
 const CHAPTER_COMPONENTS: Record<number, React.ComponentType> = {
-  1:  Chapter01,
-  2:  Chapter02,
-  3:  Chapter03,
-  4:  Chapter04,
-  5:  Chapter05,
-  6:  Chapter06,
-  7:  Chapter07,
-  8:  Chapter08,
-  9:  Chapter09,
-  10: Chapter10,
-  11: Chapter11,
-  12: Chapter12,
+  1:  Chapter01, 2:  Chapter02, 3:  Chapter03, 4:  Chapter04,
+  5:  Chapter05, 6:  Chapter06, 7:  Chapter07, 8:  Chapter08,
+  9:  Chapter09, 10: Chapter10, 11: Chapter11, 12: Chapter12,
 }
 
 const STORAGE_KEY = "encyclopedia_read_chapters"
@@ -45,36 +37,108 @@ function loadReadChapters(): Set<number> {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return new Set()
     return new Set(JSON.parse(raw) as number[])
-  } catch {
-    return new Set()
-  }
+  } catch { return new Set() }
 }
 
 function saveReadChapters(set: Set<number>) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]))
-  } catch { /* ignore */ }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])) }
+  catch { /* ignore */ }
 }
 
+// ── TOC right panel ──────────────────────────────────────────────────────────
+function TocPanel({
+  chapterId,
+  activeSection,
+  onSectionClick,
+}: {
+  chapterId: number
+  activeSection: string | null
+  onSectionClick: (sectionId: string) => void
+}) {
+  const meta = CHAPTERS.find((c) => c.id === chapterId)
+  if (!meta) return null
+
+  return (
+    <Box
+      sx={{
+        width: "13rem",
+        flexShrink: 0,
+        height: "100%",
+        overflowY: "auto",
+        borderLeft: "1px solid",
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        px: "0.875rem",
+        py: "1.25rem",
+      }}
+    >
+      <Typography
+        sx={{ fontSize: "0.6875rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", letterSpacing: "0.06em", mb: "0.75rem" }}
+      >
+        En este capítulo
+      </Typography>
+
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.125rem" }}>
+        {meta.sections.map((sec) => {
+          const isActive = activeSection === sec.id
+          return (
+            <Box
+              key={sec.id}
+              onClick={() => onSectionClick(sec.id)}
+              sx={{
+                cursor: "pointer",
+                px: "0.5rem",
+                py: "0.3rem",
+                borderRadius: "0.375rem",
+                borderLeft: "0.125rem solid",
+                borderColor: isActive ? "primary.main" : "transparent",
+                bgcolor: isActive ? "rgba(59,130,246,0.07)" : "transparent",
+                transition: "all 0.15s ease",
+                "&:hover": { bgcolor: "rgba(59,130,246,0.05)", borderColor: "rgba(59,130,246,0.4)" },
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: "0.75rem",
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? "primary.main" : "text.secondary",
+                  lineHeight: 1.45,
+                }}
+              >
+                {sec.title}
+              </Typography>
+            </Box>
+          )
+        })}
+      </Box>
+    </Box>
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 export default function EncyclopediaPage() {
   const [activeChapter, setActiveChapter] = useState(1)
-  const [readChapters, setReadChapters]   = useState<Set<number>>(new Set())
+  const [activeSection,  setActiveSection]  = useState<string | null>(null)
+  const [readChapters,   setReadChapters]   = useState<Set<number>>(new Set())
   const contentRef = useRef<HTMLDivElement>(null)
 
   // Load progress from localStorage on mount
-  useEffect(() => {
-    setReadChapters(loadReadChapters())
-  }, [])
+  useEffect(() => { setReadChapters(loadReadChapters()) }, [])
 
-  // Mark chapter as read when user scrolls to bottom
+  // Mark chapter as read + scroll spy for active section
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
-    // Scroll to top when chapter changes
     el.scrollTop = 0
+    setActiveSection(null)
+
+    const chapter = CHAPTERS.find((c) => c.id === activeChapter)
+    if (!chapter) return
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = el
+
+      // Mark chapter as read when near bottom
       if (scrollTop + clientHeight >= scrollHeight - 80) {
         setReadChapters((prev) => {
           if (prev.has(activeChapter)) return prev
@@ -84,12 +148,47 @@ export default function EncyclopediaPage() {
           return next
         })
       }
+
+      // Scroll spy: find which section heading is currently visible
+      const headings = el.querySelectorAll("[data-section-id]")
+      let current: string | null = null
+      headings.forEach((h) => {
+        const rect = (h as HTMLElement).getBoundingClientRect()
+        // heading is above or near top of the scroll container
+        if (rect.top <= 120) {
+          current = (h as HTMLElement).dataset.sectionId ?? null
+        }
+      })
+      setActiveSection(current)
     }
+
     el.addEventListener("scroll", handleScroll)
     return () => el.removeEventListener("scroll", handleScroll)
   }, [activeChapter])
 
-  const handleSelect = (id: number) => setActiveChapter(id)
+  // Scroll to section heading when user clicks TOC or sidebar section
+  const scrollToSection = useCallback((sectionId: string) => {
+    const el = contentRef.current
+    if (!el) return
+    const target = el.querySelector(`[data-section-id="${sectionId}"]`) as HTMLElement | null
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+    setActiveSection(sectionId)
+  }, [])
+
+  const handleSelect = (id: number, sectionId?: string) => {
+    if (id !== activeChapter) {
+      setActiveChapter(id)
+      setActiveSection(null)
+      // After state update + render, scroll to section if provided
+      if (sectionId) {
+        setTimeout(() => scrollToSection(sectionId), 120)
+      }
+    } else if (sectionId) {
+      scrollToSection(sectionId)
+    }
+  }
 
   const goPrev = () => setActiveChapter((v) => Math.max(1, v - 1))
   const goNext = () => setActiveChapter((v) => Math.min(CHAPTERS.length, v + 1))
@@ -98,17 +197,18 @@ export default function EncyclopediaPage() {
   const meta = CHAPTERS.find((c) => c.id === activeChapter)!
 
   return (
-    <Box sx={{ display: "flex", height: "calc(100vh - 4rem)", overflow: "hidden", mx: "-1.75rem", mt: "-1.75rem" }}>
+    <Box sx={{ display: "flex", height: "calc(100vh - 4rem)", overflow: "hidden" }}>
 
-      {/* Left sidebar */}
+      {/* Left sidebar — chapter list */}
       <ChapterSidebar
         activeChapter={activeChapter}
+        activeSection={activeSection}
         onSelect={handleSelect}
         readChapters={readChapters}
       />
 
-      {/* Right: content area */}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Center — scrollable content */}
+      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
 
         {/* Chapter header bar */}
         <Box sx={{
@@ -120,13 +220,12 @@ export default function EncyclopediaPage() {
           <MenuBookIcon sx={{ color: "primary.main", fontSize: "1.25rem" }} />
           <Box sx={{ flex: 1 }}>
             <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", lineHeight: 1 }}>
-              Capítulo {meta.id} de {CHAPTERS.length}  ·  {meta.readTime} min lectura
+              Capítulo {meta.id} de {CHAPTERS.length}&nbsp;·&nbsp;{meta.readTime} min lectura
             </Typography>
             <Typography sx={{ fontWeight: 600, fontSize: "0.9375rem", mt: "0.125rem" }}>
               {meta.emoji} {meta.title}
             </Typography>
           </Box>
-          {/* Prev / Next navigation */}
           <Box sx={{ display: "flex", gap: "0.375rem" }}>
             <Tooltip title="Capítulo anterior">
               <span>
@@ -145,7 +244,7 @@ export default function EncyclopediaPage() {
           </Box>
         </Box>
 
-        {/* Scrollable content */}
+        {/* Scrollable chapter content */}
         <Box
           ref={contentRef}
           sx={{
@@ -185,6 +284,13 @@ export default function EncyclopediaPage() {
           </Box>
         </Box>
       </Box>
+
+      {/* Right — TOC panel */}
+      <TocPanel
+        chapterId={activeChapter}
+        activeSection={activeSection}
+        onSectionClick={scrollToSection}
+      />
     </Box>
   )
 }

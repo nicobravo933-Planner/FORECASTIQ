@@ -6,6 +6,7 @@ import Alert from "@mui/material/Alert"
 import { FormulaBlock } from "../FormulaBlock"
 import { PythonCodeBlock } from "../PythonCodeBlock"
 import { WhenToUseCard } from "../WhenToUseCard"
+import { TryInForecastButton } from "../TryInForecastButton"
 
 const SARIMA_CODE = `import pmdarima as pm
 
@@ -145,6 +146,8 @@ export function Chapter07() {
           ],
         }}
       />
+
+      <TryInForecastButton modelId="sarima" label="Probar SARIMA en Forecast" />
     </Box>
   )
 }

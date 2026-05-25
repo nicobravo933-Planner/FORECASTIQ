@@ -38,21 +38,21 @@ export function DataCompletenessBar({ data }: DataCompletenessBarProps) {
       color: "#10b981",
       label: "Completo",
       value: data.n_observations - data.null_count,
-      tooltip: `${(data.n_observations - data.null_count).toLocaleString()} observaciones con valor`,
+      tooltip: `${(data.n_observations - data.null_count).toLocaleString()} observaciones con valor válido. El modelo usará estos puntos directamente.`,
     },
     {
       pct:   pctNulls,
       color: "#f59e0b",
       label: "Nulos",
       value: data.null_count,
-      tooltip: `${data.null_count.toLocaleString()} valores nulos (${data.null_pct.toFixed(1)}%)`,
+      tooltip: `${data.null_count.toLocaleString()} valores nulos (${data.null_pct.toFixed(1)}%). En ETL podés imputarlos por forward-fill o interpolación. Los nulos degradan el quality score.`,
     },
     {
       pct:   pctGaps,
       color: "#ef4444",
       label: "Gaps",
       value: data.n_gaps,
-      tooltip: `${data.n_gaps.toLocaleString()} períodos faltantes en el índice temporal (${(data.gap_ratio * 100).toFixed(1)}%)`,
+      tooltip: `${data.n_gaps.toLocaleString()} períodos que deberían existir pero no están en el índice temporal (${(data.gap_ratio * 100).toFixed(1)}%). Los gaps rompen la continuidad de la serie y pueden confundir a Holt-Winters y SARIMA.`,
     },
   ].filter((s) => s.value > 0) // solo mostrar segmentos con valor
 

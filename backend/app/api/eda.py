@@ -27,6 +27,7 @@ def _f(x: object) -> float:
     """Cast seguro a float para mypy strict — pandas retorna tipos ambiguos en sus stubs."""
     return float(x)  # type: ignore[arg-type]
 
+
 router = APIRouter(prefix="/api/eda", tags=["eda"])
 
 
@@ -307,14 +308,14 @@ async def eda_summary(
 
     n_gaps, gap_ratio = _detect_gaps(dates, freq)
 
-    mean_val   = round(_f(valid.mean()),     4) if len(valid) > 0 else 0.0
-    median_val = round(_f(valid.median()),   4) if len(valid) > 0 else 0.0
-    std_val    = round(_f(valid.std()),      4) if len(valid) > 1 else 0.0
-    min_val    = round(_f(valid.min()),      4) if len(valid) > 0 else 0.0
-    max_val    = round(_f(valid.max()),      4) if len(valid) > 0 else 0.0
-    skewness   = round(_f(valid.skew()),     4) if len(valid) > 2 else 0.0
-    kurt       = round(_f(valid.kurtosis()), 4) if len(valid) > 3 else 0.0
-    cv         = round(_f(std_val / mean_val), 4) if mean_val != 0 else 0.0
+    mean_val = round(_f(valid.mean()), 4) if len(valid) > 0 else 0.0
+    median_val = round(_f(valid.median()), 4) if len(valid) > 0 else 0.0
+    std_val = round(_f(valid.std()), 4) if len(valid) > 1 else 0.0
+    min_val = round(_f(valid.min()), 4) if len(valid) > 0 else 0.0
+    max_val = round(_f(valid.max()), 4) if len(valid) > 0 else 0.0
+    skewness = round(_f(valid.skew()), 4) if len(valid) > 2 else 0.0
+    kurt = round(_f(valid.kurtosis()), 4) if len(valid) > 3 else 0.0
+    cv = round(_f(std_val / mean_val), 4) if mean_val != 0 else 0.0
 
     return SeriesSummary(
         dataset_id=dataset_id,
@@ -364,7 +365,7 @@ async def eda_outliers(
     # to_list() produce list[Any] pero cada elemento es numeric — cast con list comprehension
     vals: list[float] = [v for v in valid.to_numpy(dtype="float64").tolist()]
     n_v = len(vals)
-    winsor_lower = round(sorted(vals)[max(0, int(n_v * 0.05))], 4)       if n_v > 0 else 0.0
+    winsor_lower = round(sorted(vals)[max(0, int(n_v * 0.05))], 4) if n_v > 0 else 0.0
     winsor_upper = round(sorted(vals)[min(n_v - 1, int(n_v * 0.95))], 4) if n_v > 0 else 0.0
 
     return OutlierInfo(
@@ -502,28 +503,28 @@ class EtlPoint(BaseModel):
     date: str
     original: float | None
     cleaned: float | None
-    imputed: bool = False      # True si el punto fue imputado (fill-gaps)
-    winsorized: bool = False   # True si el punto fue clipeado (winsorización)
+    imputed: bool = False  # True si el punto fue imputado (fill-gaps)
+    winsorized: bool = False  # True si el punto fue clipeado (winsorización)
 
 
 class WinsorizeResponse(BaseModel):
     dataset_id: str
-    cleaned_dataset_id: str   # nuevo dataset guardado en storage con sufijo _etl
-    p_lower: float            # percentil inferior usado (ej. 5.0)
-    p_upper: float            # percentil superior usado (ej. 95.0)
-    winsor_lower: float       # valor límite inferior calculado
-    winsor_upper: float       # valor límite superior calculado
-    n_winsorized: int         # cantidad de puntos clipeados
-    series: list[EtlPoint]    # serie completa antes/después para el gráfico
-    new_quality_score: int    # quality score recalculado post-limpieza
+    cleaned_dataset_id: str  # nuevo dataset guardado en storage con sufijo _etl
+    p_lower: float  # percentil inferior usado (ej. 5.0)
+    p_upper: float  # percentil superior usado (ej. 95.0)
+    winsor_lower: float  # valor límite inferior calculado
+    winsor_upper: float  # valor límite superior calculado
+    n_winsorized: int  # cantidad de puntos clipeados
+    series: list[EtlPoint]  # serie completa antes/después para el gráfico
+    new_quality_score: int  # quality score recalculado post-limpieza
     new_quality_label: str
 
 
 class FillGapsResponse(BaseModel):
     dataset_id: str
     cleaned_dataset_id: str
-    method: str               # "ffill" | "linear"
-    n_imputed: int            # cantidad de períodos imputados
+    method: str  # "ffill" | "linear"
+    n_imputed: int  # cantidad de períodos imputados
     series: list[EtlPoint]
     new_quality_score: int
     new_quality_label: str
@@ -572,7 +573,9 @@ async def eda_winsorize(
     # Calcular límites sobre valores válidos
     valid_vals = series_orig.dropna().to_numpy(dtype="float64")
     if len(valid_vals) == 0:
-        raise HTTPException(status_code=400, detail="La columna objetivo no tiene valores numéricos válidos.")
+        raise HTTPException(
+            status_code=400, detail="La columna objetivo no tiene valores numéricos válidos."
+        )
 
     lower_val = float(pd.Series(valid_vals).quantile(p_lower / 100.0))
     upper_val = float(pd.Series(valid_vals).quantile(p_upper / 100.0))
@@ -591,11 +594,17 @@ async def eda_winsorize(
     etl_series: list[EtlPoint] = [
         EtlPoint(
             date=str(dates.iloc[i].date()),
-            original=round(float(series_orig.iloc[i]), 4) if pd.notna(series_orig.iloc[i]) else None,
-            cleaned=round(float(series_clean.iloc[i]), 4) if pd.notna(series_clean.iloc[i]) else None,
+            original=round(float(series_orig.iloc[i]), 4)
+            if pd.notna(series_orig.iloc[i])
+            else None,
+            cleaned=round(float(series_clean.iloc[i]), 4)
+            if pd.notna(series_clean.iloc[i])
+            else None,
             winsorized=(
                 pd.notna(series_orig.iloc[i])
-                and (float(series_orig.iloc[i]) < lower_val or float(series_orig.iloc[i]) > upper_val)
+                and (
+                    float(series_orig.iloc[i]) < lower_val or float(series_orig.iloc[i]) > upper_val
+                )
             ),
         )
         for i in range(len(series_orig))
@@ -680,10 +689,7 @@ async def eda_fill_gaps(
 
     # Marcar qué fechas son imputadas (estaban ausentes en el original)
     original_dates = set(dates.dt.strftime("%Y-%m-%d").tolist())
-    imputed_flags = [
-        d.strftime("%Y-%m-%d") not in original_dates
-        for d in full_index
-    ]
+    imputed_flags = [d.strftime("%Y-%m-%d") not in original_dates for d in full_index]
     n_imputed = sum(imputed_flags)
 
     # Imputar según método
@@ -694,10 +700,12 @@ async def eda_fill_gaps(
 
     # Guardar dataset completado
     cleaned_id = f"{dataset_id}_etl"
-    df_clean = pd.DataFrame({
-        date_col:   full_index.strftime("%Y-%m-%d"),
-        target_col: series_clean.values,
-    })
+    df_clean = pd.DataFrame(
+        {
+            date_col: full_index.strftime("%Y-%m-%d"),
+            target_col: series_clean.values,
+        }
+    )
     # Preservar columnas extra del df original (ej. SKU, categoría)
     for col in df.columns:
         if col not in (date_col, target_col):
@@ -710,8 +718,14 @@ async def eda_fill_gaps(
     etl_series: list[EtlPoint] = [
         EtlPoint(
             date=full_index[i].strftime("%Y-%m-%d"),
-            original=None if imputed_flags[i] else round(float(series_reindexed.iloc[i]), 4) if pd.notna(series_reindexed.iloc[i]) else None,
-            cleaned=round(float(series_clean.iloc[i]), 4) if pd.notna(series_clean.iloc[i]) else None,
+            original=None
+            if imputed_flags[i]
+            else round(float(series_reindexed.iloc[i]), 4)
+            if pd.notna(series_reindexed.iloc[i])
+            else None,
+            cleaned=round(float(series_clean.iloc[i]), 4)
+            if pd.notna(series_clean.iloc[i])
+            else None,
             imputed=imputed_flags[i],
         )
         for i in range(len(full_index))

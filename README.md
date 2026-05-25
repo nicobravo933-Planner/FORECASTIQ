@@ -62,25 +62,34 @@ Eventos → ¿Cómo impactan las promociones y feriados al forecast?
 
 ```Plaintext
 ┌─────────────────────────────────────────────────────────────┐
-│  1. DATOS        Subí tu CSV, Excel, Parquet o conectá DB   │
-│                  EDA: completitud, outliers, historia        │
-│                  ETL: winsorización MAD, limpieza            │
+│  1. DATOS         Subí CSV, Parquet, Excel o conectá DB       │
+│                  Explorer paginado · 25k SKUs demo           │
 │                                                             │
-│  2. ANÁLISIS     El detector automático te dice qué modelo  │
-│                  es apropiado y por qué (transparente)       │
+│  2. EDA           Quality Score 0-100 con semáforo           │
+│                  Outliers MAD · completitud · gaps           │
+│                  Modelos desbloqueados según calidad         │
 │                                                             │
-│  3. MODELOS      Corrés 2-3 modelos en paralelo             │
-│                  Comparás WAPE / MAE / BIAS / FVA            │
-│                  Entendés overfitting vs underfitting         │
+│  3. ETL           Winsorización MAD · imputación de gaps      │
+│                  Gráfico antes/después · export Parquet       │
 │                                                             │
-│  4. EVENTOS      Agregás promociones, feriados, campañas    │
-│                  El modelo los captura como variables        │
+│  4. ANÁLISIS      Detector transparente: MAD+FFT+Mann-Kendall │
+│                  Explica el razonamiento paso a paso         │
 │                                                             │
-│  5. ENCICLOPEDIA Libro interactivo dentro de la app:        │
-│                  fórmulas, código Python, cuándo usar cada  │
-│                  modelo, qué significa cada métrica          │
+│  5. MODELOS       2-4 modelos en paralelo · Benchmark        │
+│                  WAPE / MAE / BIAS / FVA · ganador destacado │
+│                  Tuneo de parámetros · Rolling CV K-folds     │
 │                                                             │
-│  6. CHAT IA      Preguntale a tus datos en lenguaje natural │
+│  6. EVENTOS       Promociones, feriados, campañas            │
+│                  LightGBM los usa como features binarias     │
+│                  Black Friday, Hot Sale, CyberWeek AR auto   │
+│                                                             │
+│  7. ENCICLOPEDIA  12 capítulos · fórmulas · código Python   │
+│                  Progreso guardado · basado en Vandeputt    │
+│                                                             │
+│  8. CHAT IA       Preguntale a tus datos en lenguaje natural │
+│                  SSE streaming · DuckDB tools · 7 modelos    │
+│                                                             │
+│  9. MLOPS         MLflow · Evidently drift · WAPE trend      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -115,13 +124,14 @@ Eventos → ¿Cómo impactan las promociones y feriados al forecast?
 ## Stack técnico
 
 ```
-Frontend    Next.js 14 + TypeScript + MUI v6   → Vercel
-Backend     FastAPI + Python 3.12 + UV         → AWS EC2 t3.micro
-Queue       Celery + Redis (Upstash)            → jobs ML asíncronos
-Database    Supabase (PostgreSQL + Storage)     → datos + auth + RLS
-Auth        Better Auth (Google + GitHub OAuth) → sesiones por usuario
-LLM         OpenRouter (modelos gratuitos)      → chat IA streaming
-CI/CD       GitHub Actions → Docker → EC2       → deploy automatizado
+Frontend    Next.js 14 + TypeScript + MUI v6      → Vercel
+Backend     FastAPI + Python 3.12 + UV             → AWS EC2 t3.micro
+Queue       Celery + Redis (Upstash)               → jobs ML asíncronos
+Database    Supabase (PostgreSQL + Storage)         → datos + auth + RLS
+Auth        Better Auth (Google + GitHub OAuth)     → sesiones por usuario
+LLM         OpenRouter (7 modelos gratuitos)        → chat IA streaming
+MLOps       MLflow (Dagshub) + Evidently AI         → tracking + drift
+CI/CD       GitHub Actions → Docker → EC2          → deploy automatizado
 ```
 
 ---
@@ -135,17 +145,20 @@ forecastiq/
 │       ├── ml/
 │       │   ├── detector.py     # MAD + FFT + Mann-Kendall → selección automática
 │       │   └── models/         # MA, Holt-Winters, SARIMA, LightGBM
-│       ├── api/                # datasets, forecast, chat, events, mlops
-│       └── services/           # Supabase, Redis, Celery, LLM router
+│       ├── api/                # datasets, eda, etl, forecast, chat, events, mlops, batch
+│       └── services/           # Supabase, Redis, Celery, LLM router, MLflow, Evidently
 ├── frontend/                   # Next.js 14
 │   └── app/dashboard/
-│       ├── home/               # Panel principal + estado del sistema
-│       ├── dataset/            # Subida + EDA + ETL (en desarrollo)
-│       ├── forecast/           # Resultados + gráfico interactivo
-│       ├── calendar/           # Eventos y promociones
-│       ├── chat/               # Asistente IA con streaming
-│       ├── mlops/              # MLflow experiments + drift
-│       └── batch/              # Forecasting multi-serie (25k SKUs)
+│       ├── home/               # Panel principal + estado del sistema (health check real)
+│       ├── data/               # Subida + explorer + connect DB
+│       ├── eda/                # Análisis exploratorio + Quality Score + outliers
+│       ├── etl/                # Winsorizaán MAD + imputación de gaps
+│       ├── forecast/           # Resultados + gráfico interactivo + benchmark
+│       ├── calendar/           # Eventos y promociones como features LightGBM
+│       ├── chat/               # Asistente IA con streaming SSE + historial
+│       ├── mlops/              # MLflow experiments + drift detection Evidently
+│       ├── batch/              # Forecasting multi-serie (25k SKUs)
+│       └── encyclopedia/       # 12 capítulos interactivos con progreso
 ├── ENCICLOPEDIA/               # Fuentes de aprendizaje (Vandeputt)
 ├── notebooks/                  # PySpark pipeline + benchmark
 ├── scripts/                    # Dataset sintético + benchmarks

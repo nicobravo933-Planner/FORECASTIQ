@@ -5,6 +5,11 @@ import Divider from "@mui/material/Divider"
 import Alert from "@mui/material/Alert"
 import { PythonCodeBlock } from "../PythonCodeBlock"
 import { WhenToUseCard } from "../WhenToUseCard"
+import { TryInForecastButton } from "../TryInForecastButton"
+
+function SectionAnchor({ id }: { id: string }) {
+  return <Box component="span" data-section-id={id} sx={{ display: "block", mt: "-1rem", pt: "1rem" }} />
+}
 
 const LGB_CODE = `import lightgbm as lgb
 import optuna
@@ -33,10 +38,46 @@ def objective(trial, X, y):
         scores.append(wape)
     return np.mean(scores)
 
-# Búsqueda bayesiana de hiperparámetros
 study = optuna.create_study(direction='minimize', pruner=optuna.pruners.MedianPruner())
 study.optimize(lambda t: objective(t, X_train, y_train), n_trials=50, show_progress_bar=True)
 best_params = study.best_params`
+
+const FEAT_IMP_CODE = `import pandas as pd
+import matplotlib.pyplot as plt
+
+# Feature importance del modelo entrenado
+feat_imp = pd.Series(
+    model.feature_importances_,
+    index=X_train.columns
+).sort_values(ascending=False)
+
+# Top 15 features
+print(feat_imp.head(15))
+
+# Visualización
+feat_imp.head(15).plot(kind='barh', figsize=(8, 5), title='Feature Importance (LightGBM)')
+plt.tight_layout()
+plt.show()`
+
+const RECURSIVE_CODE = `def predict_recursive(model, last_known, horizon, lag_cols, rolling_cols):
+    """
+    Predicción recursiva: usa predicciones previas como lags para las siguientes.
+    last_known: últimas observaciones reales (DataFrame con features)
+    """
+    predictions = []
+    current_row = last_known.copy()
+
+    for h in range(horizon):
+        pred = model.predict(current_row[model.feature_name_])[0]
+        predictions.append(pred)
+
+        # Actualizar lags con la predicción recién hecha
+        for lag in [1, 2, 3, 6, 12]:
+            if f'lag_{lag}' in current_row.columns:
+                current_row[f'lag_{lag}'] = current_row.get(f'lag_{lag-1}', pred)
+        current_row['lag_1'] = pred
+
+    return predictions`
 
 export function Chapter09() {
   return (
@@ -46,6 +87,7 @@ export function Chapter09() {
         Gradient boosting sobre features de series de tiempo + Optuna HPO
       </Typography>
 
+      <SectionAnchor id="9-1" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.1 ¿Por qué Gradient Boosting?</Typography>
       <Typography sx={{ mb: "1.5rem", lineHeight: 1.8 }}>
         Los modelos estadísticos (SARIMA, Holt-Winters) son excelentes para series univariadas limpias. Pero
@@ -64,26 +106,28 @@ export function Chapter09() {
         </Box>
       ))}
 
-      <Divider sx={{ my: "1.5rem" }} />
+      <Divider sx={{ my: "1.75rem" }} />
 
+      <SectionAnchor id="9-2" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.2 El flujo de entrenamiento</Typography>
       {[
-        "1. Feature Engineering (Cap. 8) → crear lags, rolling stats, variables de calendario",
-        "2. TimeSeriesSplit → validación cruzada temporal (nunca K-fold aleatorio)",
-        "3. Optuna → búsqueda bayesiana de hiperparámetros minimizando WAPE",
-        "4. Entrenamiento final con los mejores parámetros en todos los datos históricos",
-        "5. Predicción recursiva → se predice período a período usando predicciones previas como lags",
+        "Feature Engineering (Cap. 8) → crear lags, rolling stats, variables de calendario",
+        "TimeSeriesSplit → validación cruzada temporal (nunca K-fold aleatorio)",
+        "Optuna → búsqueda bayesiana de hiperparámetros minimizando WAPE",
+        "Entrenamiento final con los mejores parámetros en todos los datos históricos",
+        "Predicción recursiva → se predice período a período usando predicciones previas como lags",
       ].map((step, i) => (
         <Box key={i} sx={{ display: "flex", gap: "0.75rem", mb: "0.625rem", alignItems: "flex-start" }}>
           <Box sx={{ width: "1.5rem", height: "1.5rem", borderRadius: "50%", bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, mt: "0.0625rem" }}>
             <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: "#fff" }}>{i + 1}</Typography>
           </Box>
-          <Typography sx={{ fontSize: "0.875rem", lineHeight: 1.7 }}>{step.slice(3)}</Typography>
+          <Typography sx={{ fontSize: "0.875rem", lineHeight: 1.7 }}>{step}</Typography>
         </Box>
       ))}
 
-      <Divider sx={{ my: "1.5rem" }} />
+      <Divider sx={{ my: "1.75rem" }} />
 
+      <SectionAnchor id="9-3" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.3 Optuna — Búsqueda bayesiana</Typography>
       <Typography sx={{ mb: "1rem", lineHeight: 1.8 }}>
         Los hiperparámetros de LightGBM tienen un impacto enorme en la precisión. En lugar de un Grid Search
@@ -94,10 +138,39 @@ export function Chapter09() {
         Con <code>n_trials=50</code> y <code>MedianPruner</code>, Optuna encuentra parámetros muy buenos
         en minutos. El pruner mata los trials malos temprano, ahorrando tiempo de cómputo.
       </Alert>
-
       <PythonCodeBlock code={LGB_CODE} title="LightGBM + Optuna + TimeSeriesSplit" />
 
-      <Divider sx={{ my: "1.5rem" }} />
+      <Divider sx={{ my: "1.75rem" }} />
+
+      <SectionAnchor id="9-4" />
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.4 Feature importance</Typography>
+      <Typography sx={{ mb: "1rem", lineHeight: 1.8 }}>
+        Una de las ventajas de LightGBM sobre SARIMA/Holt-Winters es la <strong>interpretabilidad</strong>:
+        podés ver exactamente qué features impactaron más en el pronóstico. Esto es valioso para:
+        detectar cuándo los lags de largo plazo no aportan (eliminarlos acelera el modelo), confirmar que
+        las variables de eventos tienen impacto real, y explicar el modelo al negocio.
+      </Typography>
+      <PythonCodeBlock code={FEAT_IMP_CODE} title="Feature importance — visualización" />
+      <Alert severity="info" sx={{ mt: "1rem", mb: "1.5rem", fontSize: "0.8125rem" }}>
+        <strong>ForecastIQ muestra la feature importance</strong> en el Tab &quot;Parámetros&quot; del resultado del
+        forecast cuando se usa LightGBM. Los eventos del Calendario aparecen como columnas <code>is_*</code>.
+      </Alert>
+
+      <Divider sx={{ my: "1.75rem" }} />
+
+      <SectionAnchor id="9-5" />
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.5 Predicción recursiva</Typography>
+      <Typography sx={{ mb: "1rem", lineHeight: 1.8 }}>
+        LightGBM no predice directamente una secuencia de h períodos — predice <strong>un período a la vez</strong>.
+        Para proyectar el horizonte completo, se usa predicción recursiva: el valor predicho para t+1 se usa
+        como lag_1 para predecir t+2, y así sucesivamente.
+      </Typography>
+      <Typography sx={{ mb: "1.5rem", lineHeight: 1.8 }}>
+        Esto acumula error: el error en t+1 afecta t+2, que afecta t+3, etc. Por eso LightGBM suele tener
+        intervalos de confianza más anchos que SARIMA en horizontes largos, aunque sea más preciso en
+        horizontes cortos. La solución es no usar horizontes excesivamente largos con este modelo.
+      </Typography>
+      <PythonCodeBlock code={RECURSIVE_CODE} title="Predicción recursiva con lags actualizados" />
 
       <WhenToUseCard
         model="LightGBM"
@@ -123,6 +196,8 @@ export function Chapter09() {
           ],
         }}
       />
+
+      <TryInForecastButton modelId="lightgbm" label="Probar LightGBM en Forecast" />
     </Box>
   )
 }

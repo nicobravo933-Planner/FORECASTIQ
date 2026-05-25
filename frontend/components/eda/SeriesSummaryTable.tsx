@@ -59,6 +59,15 @@ export function SeriesSummaryTable({ data }: SeriesSummaryTableProps) {
   const cvColor =
     data.cv > 1 ? "#ef4444" : data.cv > 0.3 ? "#f59e0b" : "#10b981"
 
+  // Comparación contextual del CV según frecuencia
+  // Umbrales empíricos de Vandeputt: CV > 1 = demanda altamente volátil (usa LightGBM)
+  const cvContextLabel =
+    data.cv > 1.5 ? "Muy alta volatilidad — típico de SKUs intermitentes" :
+    data.cv > 1.0 ? "Alta volatilidad — LightGBM puede aprovechar features" :
+    data.cv > 0.5 ? "Volatilidad media — Holt-Winters o SARIMA adecuados" :
+    data.cv > 0.3 ? "Baja variabilidad — serie bastante estable" :
+                    "Muy estable — Moving Average puede ser suficiente"
+
   return (
     <Card variant="outlined" sx={{ borderRadius: "0.75rem", boxShadow: "0 0.125rem 0.5rem rgba(0,0,0,0.06)" }}>
       <CardContent sx={{ p: "1.5rem", "&:last-child": { pb: "1.5rem" } }}>
@@ -114,6 +123,12 @@ export function SeriesSummaryTable({ data }: SeriesSummaryTableProps) {
               <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary" }}>CV (dispersión)</Typography>
               <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: cvColor, fontVariantNumeric: "tabular-nums" }}>
                 {data.cv.toFixed(3)}
+              </Typography>
+            </Box>
+            {/* Comparación contextual del CV */}
+            <Box sx={{ px: "0.5rem", pt: "0.125rem", pb: "0.25rem" }}>
+              <Typography sx={{ fontSize: "0.6875rem", color: cvColor, fontStyle: "italic", lineHeight: 1.4 }}>
+                {cvContextLabel}
               </Typography>
             </Box>
           </Box>

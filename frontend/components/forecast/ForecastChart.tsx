@@ -277,7 +277,7 @@ export function ForecastChart({
       <ZoneLegend hasTest={hasTest} />
 
       {/* ── Chart ────────────────────────────────────────────────────────── */}
-      <ResponsiveContainer width="100%" height={460}>
+      <ResponsiveContainer width="100%" height={540}>
         <ComposedChart
           data={allData}
           margin={{ top: 8, right: 24, bottom: 8, left: 8 }}
@@ -324,7 +324,11 @@ export function ForecastChart({
           />
 
           <YAxis
-            tickFormatter={formatValue}
+            tickFormatter={(value: number) => {
+              if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+              if (value >= 1_000)     return `${(value / 1_000).toFixed(0)}K`
+              return String(value)
+            }}
             tick={{ fontSize: 11, fill: theme.palette.text.secondary }}
             tickLine={false}
             axisLine={false}

@@ -7,39 +7,35 @@ import Chip from "@mui/material/Chip"
 import { FormulaBlock } from "../FormulaBlock"
 import { PythonCodeBlock } from "../PythonCodeBlock"
 
+function SectionAnchor({ id }: { id: string }) {
+  return <Box component="span" data-section-id={id} sx={{ display: "block", mt: "-1rem", pt: "1rem" }} />
+}
+
 const KPI_CODE = `import numpy as np
 import pandas as pd
 
 def kpi(df):
-    # Solo filas donde tenemos error calculado (historia real)
-    mask = df['Error'].notnull()
+    mask    = df['Error'].notnull()
     dem_ave = df.loc[mask, 'Demand'].mean()
 
-    # BIAS — dirección del error (+ = subestimación, - = sobreestimación)
     bias_abs = df.loc[mask, 'Error'].mean()
     bias_rel = bias_abs / dem_ave
     print(f'Bias: {bias_abs:.2f}  ({bias_rel:.1%})')
 
-    # MAPE — evitar (sesgo a subestimación)
     mape = (df.loc[mask, 'Error'].abs() / df.loc[mask, 'Demand']).mean()
     print(f'MAPE: {mape:.1%}  ⚠️ usar con precaución')
 
-    # MAE — error absoluto medio (robusto)
     mae_abs = df.loc[mask, 'Error'].abs().mean()
     mae_rel = mae_abs / dem_ave
     print(f'MAE:  {mae_abs:.2f}  ({mae_rel:.1%})')
 
-    # RMSE — penaliza errores grandes
     rmse_abs = np.sqrt((df.loc[mask, 'Error'] ** 2).mean())
     rmse_rel = rmse_abs / dem_ave
     print(f'RMSE: {rmse_abs:.2f}  ({rmse_rel:.1%})')
 
-    # WAPE — métrica principal de ForecastIQ
     wape = df.loc[mask, 'Error'].abs().sum() / df.loc[mask, 'Demand'].abs().sum()
     print(f'WAPE: {wape:.1%}  ✅ métrica recomendada')
 
-    # FVA — Forecast Value Added vs Seasonal Naive
-    # (requiere baseline_errors del naive)
     return {'bias': bias_rel, 'mape': mape, 'mae': mae_rel, 'rmse': rmse_rel, 'wape': wape}`
 
 export function Chapter04() {
@@ -55,7 +51,7 @@ export function Chapter04() {
         solo por compatibilidad — evitarlo para decisiones de negocio.
       </Alert>
 
-      {/* BIAS */}
+      <SectionAnchor id="4-1" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>4.1 BIAS (Sesgo)</Typography>
       <Typography sx={{ mb: "1rem", lineHeight: 1.8 }}>
         El BIAS mide la <strong>dirección del error promedio</strong>. No dice cuánto te equivocás — dice
@@ -73,7 +69,7 @@ export function Chapter04() {
 
       <Divider sx={{ my: "1.5rem" }} />
 
-      {/* MAPE */}
+      <SectionAnchor id="4-2" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>4.2 MAPE — El indicador engañoso</Typography>
       <FormulaBlock
         label="MAPE"
@@ -88,7 +84,7 @@ export function Chapter04() {
 
       <Divider sx={{ my: "1.5rem" }} />
 
-      {/* MAE */}
+      <SectionAnchor id="4-3" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>4.3 MAE — Error Absoluto Medio</Typography>
       <FormulaBlock
         label="MAE"
@@ -102,7 +98,7 @@ export function Chapter04() {
 
       <Divider sx={{ my: "1.5rem" }} />
 
-      {/* RMSE */}
+      <SectionAnchor id="4-4" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>4.4 RMSE — Penaliza errores grandes</Typography>
       <FormulaBlock
         label="RMSE"
@@ -116,7 +112,7 @@ export function Chapter04() {
 
       <Divider sx={{ my: "1.5rem" }} />
 
-      {/* WAPE */}
+      <SectionAnchor id="4-5" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>4.5 WAPE — La métrica principal ✅</Typography>
       <FormulaBlock
         label="WAPE (Weighted Absolute Percentage Error)"
@@ -124,14 +120,13 @@ export function Chapter04() {
         description="Divide la suma total de errores por la suma total de demanda. Robusto a ceros y outliers. El estándar de la industria para portfolios."
       />
       <Alert severity="success" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
-        <strong>¿Por qué WAPE y no MAE?</strong> El MAE en unidades depende de la escala del producto
-        (no es lo mismo MAE=10 para un ítem de 15 unidades/semana que para uno de 10.000). El WAPE es
-        siempre un porcentaje comparable entre productos distintos.
+        <strong>¿Por qué WAPE y no MAE?</strong> El MAE en unidades depende de la escala del producto.
+        El WAPE es siempre un porcentaje comparable entre productos distintos — ideal para portfolios de miles de SKUs.
       </Alert>
 
       <Divider sx={{ my: "1.5rem" }} />
 
-      {/* FVA */}
+      <SectionAnchor id="4-6" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>4.6 FVA — Forecast Value Added</Typography>
       <FormulaBlock
         label="FVA vs Seasonal Naive"
@@ -145,6 +140,7 @@ export function Chapter04() {
 
       <Divider sx={{ my: "1.5rem" }} />
 
+      <SectionAnchor id="4-7" />
       <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>4.7 Código Python completo</Typography>
       <PythonCodeBlock code={KPI_CODE} title="kpi() — todas las métricas" />
 

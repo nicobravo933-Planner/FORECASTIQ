@@ -33,14 +33,19 @@ class HoltWintersModel(ForecastModel):
     name = "holt_winters"
     requires_min_observations = 24  # necesita al menos 2 ciclos estacionales
 
-    def __init__(self, ci_level: float = 0.95, n_simulations: int = 1000,
-                 alpha: float | None = None, beta: float | None = None,
-                 gamma: float | None = None) -> None:
+    def __init__(
+        self,
+        ci_level: float = 0.95,
+        n_simulations: int = 1000,
+        alpha: float | None = None,
+        beta: float | None = None,
+        gamma: float | None = None,
+    ) -> None:
         self.ci_level = ci_level
         self.n_simulations = n_simulations
         # Parámetros manuales (E4) — None = optimizado automáticamente por statsmodels
         self.manual_alpha = alpha
-        self.manual_beta  = beta
+        self.manual_beta = beta
         self.manual_gamma = gamma
 
         self._model_fit = None

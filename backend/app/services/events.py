@@ -244,7 +244,7 @@ def events_to_features_df(
     for ev in events:
         col = _sanitize(str(ev["name"]))
         start = pd.to_datetime(str(ev["start_date"]))
-        end   = pd.to_datetime(str(ev["end_date"]))
+        end = pd.to_datetime(str(ev["end_date"]))
 
         # Para frecuencias mensuales/semanales: el evento se activa si ALGÚN
         # día del período cae dentro del rango del evento.
@@ -279,75 +279,86 @@ def get_ar_commercial_events(year: int) -> list[dict[str, Any]]:
 
     # Black Friday — 4to viernes de noviembre
     bf_date = _nth_weekday(year, 11, 4, 4)  # mes=11, viernes=4, 4to
-    result.append({
-        "id": f"ar-commercial-black-friday-{year}",
-        "user_id": None,
-        "name": "Black Friday",
-        "type": "promotion",
-        "start_date": str(bf_date),
-        "end_date": str(bf_date),
-        "impact_pct": None,  # LightGBM aprende el impacto real de los datos
-        "is_global": True,
-        "source": "auto",
-    })
+    result.append(
+        {
+            "id": f"ar-commercial-black-friday-{year}",
+            "user_id": None,
+            "name": "Black Friday",
+            "type": "promotion",
+            "start_date": str(bf_date),
+            "end_date": str(bf_date),
+            "impact_pct": None,  # LightGBM aprende el impacto real de los datos
+            "is_global": True,
+            "source": "auto",
+        }
+    )
 
     # Cyber Monday — lunes siguiente al Black Friday
     from datetime import timedelta
+
     cm_date = bf_date + timedelta(days=3)  # viernes + 3 = lunes
-    result.append({
-        "id": f"ar-commercial-cyber-monday-{year}",
-        "user_id": None,
-        "name": "Cyber Monday",
-        "type": "promotion",
-        "start_date": str(cm_date),
-        "end_date": str(cm_date),
-        "impact_pct": None,
-        "is_global": True,
-        "source": "auto",
-    })
+    result.append(
+        {
+            "id": f"ar-commercial-cyber-monday-{year}",
+            "user_id": None,
+            "name": "Cyber Monday",
+            "type": "promotion",
+            "start_date": str(cm_date),
+            "end_date": str(cm_date),
+            "impact_pct": None,
+            "is_global": True,
+            "source": "auto",
+        }
+    )
 
     # Día del Niño AR — 3er domingo de agosto
     dia_nino = _nth_weekday(year, 8, 6, 3)  # mes=8, domingo=6, 3ro
-    result.append({
-        "id": f"ar-commercial-dia-nino-{year}",
-        "user_id": None,
-        "name": "Día del Niño",
-        "type": "seasonal",
-        "start_date": str(dia_nino),
-        "end_date": str(dia_nino),
-        "impact_pct": None,
-        "is_global": True,
-        "source": "auto",
-    })
+    result.append(
+        {
+            "id": f"ar-commercial-dia-nino-{year}",
+            "user_id": None,
+            "name": "Día del Niño",
+            "type": "seasonal",
+            "start_date": str(dia_nino),
+            "end_date": str(dia_nino),
+            "impact_pct": None,
+            "is_global": True,
+            "source": "auto",
+        }
+    )
 
     # Hot Sale AR — fechas CACE (tabla estática, se actualiza cada año)
     if year in _HOT_SALE_DATES:
         hs_start, hs_end = _HOT_SALE_DATES[year]
-        result.append({
-            "id": f"ar-commercial-hot-sale-{year}",
-            "user_id": None,
-            "name": "Hot Sale",
-            "type": "promotion",
-            "start_date": hs_start,
-            "end_date": hs_end,
-            "impact_pct": None,
-            "is_global": True,
-            "source": "auto",
-        })
+        result.append(
+            {
+                "id": f"ar-commercial-hot-sale-{year}",
+                "user_id": None,
+                "name": "Hot Sale",
+                "type": "promotion",
+                "start_date": hs_start,
+                "end_date": hs_end,
+                "impact_pct": None,
+                "is_global": True,
+                "source": "auto",
+            }
+        )
 
     # CyberWeek AR — fechas CACE (tabla estática)
     if year in _CYBER_WEEK_DATES:
         cw_start, cw_end = _CYBER_WEEK_DATES[year]
-        result.append({
-            "id": f"ar-commercial-cyber-week-{year}",
-            "user_id": None,
-            "name": "CyberWeek",
-            "type": "promotion",
-            "start_date": cw_start,
-            "end_date": cw_end,
-            "impact_pct": None,
-            "is_global": True,
-            "source": "auto",
-        })
+        result.append(
+            {
+                "id": f"ar-commercial-cyber-week-{year}",
+                "user_id": None,
+                "name": "CyberWeek",
+                "type": "promotion",
+                "start_date": cw_start,
+                "end_date": cw_end,
+                "impact_pct": None,
+                "is_global": True,
+                "source": "auto",
+            }
+        )
 
     return result

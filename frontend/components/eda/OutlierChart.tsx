@@ -22,6 +22,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell,
 } from "recharts"
 import type { OutlierInfo, SeriesSummary } from "@/hooks/useEda"
 
@@ -35,11 +38,18 @@ interface OutlierChartProps {
 interface ChartPoint {
   date: string
   value: number
-  outlier?: number   // solo definido si el punto es outlier
+  outlier?: number    // solo definido si el punto es outlier
+}
+
+interface HistoBin {
+  bin: string
+  count: number
+  isOutlier: boolean  // true si el bin cae fuera del rango winsor
 }
 
 export function OutlierChart({ summary, outliers, series }: OutlierChartProps) {
   // Construir datos del gráfico marcando outliers
+  // Nota: gaps del índice temporal se reportan vía summary.n_gaps (chip debajo del header)
   const outlierDateSet = new Set(outliers.outlier_dates)
 
   const data: ChartPoint[] = series.map((pt) => ({
@@ -49,6 +59,30 @@ export function OutlierChart({ summary, outliers, series }: OutlierChartProps) {
   }))
 
   const hasOutliers = outliers.n_outliers > 0
+  const hasGaps     = summary.n_gaps > 0
+
+  // ── Histograma de distribución ──────────────────────────────────────────
+  // Divide el rango [min, max] en 12 bins y cuenta observaciones por bin
+  const buildHistogram = (): HistoBin[] => {
+    if (series.length === 0) return []
+    const min = summary.min_val
+    const max = summary.max_val
+    if (min === max) return [{ bin: min.toLocaleString(), count: series.length, isOutlier: false }]
+    const N_BINS = 12
+    const binWidth = (max - min) / N_BINS
+    const bins: HistoBin[] = Array.from({ length: N_BINS }, (_, i) => ({
+      bin: (min + i * binWidth).toLocaleString("es-AR", { maximumFractionDigits: 0 }),
+      count: 0,
+      isOutlier: (min + i * binWidth) < outliers.winsor_lower ||
+                 (min + (i + 1) * binWidth) > outliers.winsor_upper,
+    }))
+    for (const pt of series) {
+      const idx = Math.min(Math.floor((pt.value - min) / binWidth), N_BINS - 1)
+      if (idx >= 0) bins[idx].count++
+    }
+    return bins
+  }
+  const histData = buildHistogram()
 
   return (
     <Card variant="outlined" sx={{ borderRadius: "0.75rem", boxShadow: "0 0.125rem 0.5rem rgba(0,0,0,0.06)" }}>
@@ -80,6 +114,17 @@ export function OutlierChart({ summary, outliers, series }: OutlierChartProps) {
             />
           </Box>
         </Box>
+
+        {/* Chips de gaps si los hay */}
+        {hasGaps && (
+          <Box sx={{ mb: "0.75rem" }}>
+            <Chip
+              label={`${summary.n_gaps} períodos faltantes (gaps)`}
+              size="small"
+              sx={{ fontSize: "0.75rem", fontWeight: 600, bgcolor: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" }}
+            />
+          </Box>
+        )}
 
         {/* Gráfico */}
         <Box sx={{ height: "16rem" }}>
@@ -150,6 +195,50 @@ export function OutlierChart({ summary, outliers, series }: OutlierChartProps) {
               />
             </ComposedChart>
           </ResponsiveContainer>
+        </Box>
+
+        {/* Mini-histograma de distribución */}
+        <Box sx={{ mt: "1.25rem" }}>
+          <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "text.secondary", mb: "0.5rem" }}>
+            Distribución de valores · {series.length} observaciones
+            {(outliers.winsor_lower > summary.min_val || outliers.winsor_upper < summary.max_val) && (
+              <Typography component="span" sx={{ fontSize: "0.6875rem", color: "#f59e0b", ml: "0.5rem" }}>
+                — barras naranja fuera del rango winsorización
+              </Typography>
+            )}
+          </Typography>
+          <Box sx={{ height: "5.5rem" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={histData} margin={{ top: 2, right: 8, bottom: 0, left: 0 }} barCategoryGap="8%">
+                <XAxis
+                  dataKey="bin"
+                  tick={{ fontSize: 9 }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={2}
+                />
+                <YAxis hide />
+                <Tooltip
+                  contentStyle={{ fontSize: "0.75rem", borderRadius: "0.375rem", border: "1px solid #e5e7eb", padding: "0.25rem 0.5rem" }}
+                  formatter={(v: number) => [`${v} obs`, "Frecuencia"]}
+                  labelFormatter={(label: string) => `Desde ${label}`}
+                />
+                <Bar
+                  dataKey="count"
+                  radius={[2, 2, 0, 0]}
+                  isAnimationActive={false}
+                >
+                  {histData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.isOutlier ? "#f59e0b" : "#3b82f6"}
+                      fillOpacity={0.8}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
         </Box>
 
         {/* Leyenda explicativa */}

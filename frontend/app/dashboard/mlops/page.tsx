@@ -18,17 +18,20 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DriftCard } from "@/components/mlops/DriftCard";
 import { ExperimentTable } from "@/components/mlops/ExperimentTable";
 import { MLflowLink } from "@/components/mlops/MLflowLink";
 import { WapeTrendChart } from "@/components/mlops/WapeTrendChart";
 import { useCapabilities } from "@/hooks/useCapabilities";
+import { appStore } from "@/lib/appStore";
 import { api, ApiError } from "@/lib/api";
 import { type DriftSummary, type MlflowRun } from "@/lib/types";
 
 export default function MlopsPage() {
   const { caps } = useCapabilities();
   const isCloud = caps.tier === "cloud";
+  const router = useRouter();
   // ── Experiment runs ────────────────────────────────────────────
   const [runs, setRuns] = useState<MlflowRun[]>([]);
   const [runsLoading, setRunsLoading] = useState(true);
@@ -88,6 +91,13 @@ export default function MlopsPage() {
       setDriftLoading(false);
     }
   }, []);
+
+  // Drill-down: set dataset as active and navigate to Forecast
+  const handleDrillDown = useCallback((datasetId: string) => {
+    // We only have dataset_id from the run — columns stay null so user picks them in Forecast
+    appStore.setActiveDataset(datasetId, "", "", "");
+    router.push("/dashboard/forecast");
+  }, [router]);
 
   useEffect(() => {
     void fetchRuns();
@@ -152,6 +162,7 @@ export default function MlopsPage() {
         loading={runsLoading}
         error={runsError}
         onDeleted={(id) => setRuns((prev) => prev.filter((r) => r.run_id !== id))}
+        onDrillDown={handleDrillDown}
       />
 
       {/* Drift section */}
@@ -191,7 +202,7 @@ export default function MlopsPage() {
 
         <Grid item xs={12} md={6}>
           {/* WAPE trend chart — uses already-loaded runs, no extra fetch */}
-          <Box
+        <Box
             sx={{
               border: "1px solid",
               borderColor: "divider",
@@ -207,7 +218,31 @@ export default function MlopsPage() {
               Evolución WAPE por run
             </Typography>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              <WapeTrendChart runs={runs} />
+              {isCloud && runs.length === 0 ? (
+                // Cloud placeholder — no runs until user runs local worker
+                <Box
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                    color: "text.disabled",
+                  }}
+                >
+                  <ScienceIcon sx={{ fontSize: "2.5rem", opacity: 0.35 }} />
+                  <Typography variant="body2" color="text.disabled" textAlign="center">
+                    Sin datos de evolución.
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled" textAlign="center">
+                    Conectá el worker local con{" "}
+                    <code style={{ fontSize: "0.7rem" }}>SERVER_TIER=local</code>
+                  </Typography>
+                </Box>
+              ) : (
+                <WapeTrendChart runs={runs} />
+              )}
             </Box>
           </Box>
         </Grid>

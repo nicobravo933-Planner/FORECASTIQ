@@ -28,9 +28,12 @@ class SarimaModel(ForecastModel):
     name = "sarima"
     requires_min_observations = 36  # mínimo para estimar correctamente
 
-    def __init__(self, ci_level: float = 0.95,
-                 order: tuple[int, int, int] | None = None,
-                 seasonal_order: tuple[int, int, int, int] | None = None) -> None:
+    def __init__(
+        self,
+        ci_level: float = 0.95,
+        order: tuple[int, int, int] | None = None,
+        seasonal_order: tuple[int, int, int, int] | None = None,
+    ) -> None:
         self.ci_level = ci_level
         # E4: órdenes manuales — None = auto_arima los selecciona
         self.manual_order = order
@@ -51,13 +54,14 @@ class SarimaModel(ForecastModel):
             # E4: usuario especificó orden — ajuste directo sin búsqueda
             p, d, q = self.manual_order
             if self.manual_seasonal_order is not None:
-                P, D, Q, s = self.manual_seasonal_order
+                p_s, d_s, q_s, s = self.manual_seasonal_order
             else:
-                P, D, Q, s = 1, 1, 1, m
+                p_s, d_s, q_s, s = 1, 1, 1, m
             import pmdarima as _pm
+
             self._model_fit = _pm.ARIMA(
                 order=(p, d, q),
-                seasonal_order=(P, D, Q, s),
+                seasonal_order=(p_s, d_s, q_s, s),
                 suppress_warnings=True,
             ).fit(series.values)
         else:

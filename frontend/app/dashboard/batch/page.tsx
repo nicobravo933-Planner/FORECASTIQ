@@ -33,12 +33,7 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
+import { DataGrid, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -47,7 +42,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { appStore } from "@/lib/appStore";
-import { addSessionDataset } from "@/lib/sessionDatasets";
 import { type BatchForecastResponse } from "@/lib/types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -138,7 +132,7 @@ export default function BatchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [result, setResult]   = useState<BatchForecastResponse | null>(null);
-  const [filterSeries, setFilterSeries] = useState<string>("");
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [mode, setMode] = useState<"dataset" | "json">("dataset");
 
   // ── Cargar dataset activo al montar ────────────────────────────────────────
@@ -209,6 +203,7 @@ export default function BatchPage() {
       const data = await api.post<BatchForecastResponse>("/api/batch/forecast-dataset", body);
       setResult(data);
       setMode("dataset");
+      setPaginationModel({ page: 0, pageSize: 25 });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Error al ejecutar el forecast.");
     } finally { setLoading(false); }
@@ -240,31 +235,90 @@ export default function BatchPage() {
       const data = await api.post<BatchForecastResponse>("/api/batch/forecast", body);
       setResult(data);
       setMode("json");
+      setPaginationModel({ page: 0, pageSize: 25 });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Error al llamar al endpoint.");
     } finally { setLoading(false); }
   };
 
-  // ── Drill-down: navegar a Forecast con una serie específica ───────────────
+  // ── Drill-down: navegar a Forecast con la serie seleccionada ───────────────
+  // Passes unique_id via sessionStorage so ForecastPage can pre-filter
   const handleDrillDown = (uniqueId: string) => {
     if (mode === "dataset" && datasetId) {
       appStore.setActiveDataset(datasetId, dateCol, targetCol, freq);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("fiq_batch_drilldown_id", uniqueId);
+      }
       router.push("/dashboard/forecast");
     }
   };
 
-  // ── Datos de resultado filtrados ───────────────────────────────────────────
+  // ── Rows for DataGrid — add stable id ────────────────────────────────────
   const allSeries = result
     ? [...new Set(result.predictions.map((p) => p.unique_id))].sort()
     : [];
-  const previewRows = result
-    ? result.predictions
-        .filter((p) => !filterSeries || p.unique_id === filterSeries)
-        .slice(0, 300)
+  const gridRows = result
+    ? result.predictions.map((p, idx) => ({ ...p, id: idx }))
     : [];
-  const hasMore = result
-    ? result.predictions.filter((p) => !filterSeries || p.unique_id === filterSeries).length > 300
-    : false;
+
+  // ── DataGrid column definitions ───────────────────────────────────────────
+  const gridCols: GridColDef[] = [
+    ...(allSeries.length > 1
+      ? [{
+          field: "unique_id",
+          headerName: "ID Serie",
+          flex: 1,
+          minWidth: 120,
+          renderCell: (params: GridRenderCellParams) => (
+            <Typography
+              variant="body2"
+              sx={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
+              {params.value as string}
+            </Typography>
+          ),
+        } as GridColDef]
+      : []),
+    { field: "ds",        headerName: "Fecha",      flex: 1, minWidth: 110 },
+    {
+      field: "predicted",
+      headerName: "Predicción",
+      flex: 1,
+      minWidth: 110,
+      type: "number",
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2" sx={{ fontWeight: 500, fontSize: "0.75rem" }}>
+          {(params.value as number).toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+        </Typography>
+      ),
+    },
+    ...(mode === "dataset"
+      ? [{
+          field: "__actions",
+          headerName: "",
+          width: 130,
+          sortable: false,
+          filterable: false,
+          disableColumnMenu: true,
+          renderCell: (params: GridRenderCellParams) => (
+            <Tooltip title="Ver esta serie en Forecast">
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<ShowChartIcon sx={{ fontSize: "0.75rem !important" }} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDrillDown(params.row.unique_id as string);
+                }}
+                sx={{ textTransform: "none", fontSize: "0.6875rem", py: "0.125rem" }}>
+                Forecast →
+              </Button>
+            </Tooltip>
+          ),
+        } as GridColDef]
+      : []),
+  ];
 
   const numericCols = columns.filter((c) => c.dtype === "numeric");
   const datetimeCols = columns.filter((c) => c.dtype === "datetime" || c.dtype === "text");
@@ -500,107 +554,76 @@ export default function BatchPage() {
 
           {result && (
             <>
-              {/* KPIs */}
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(7rem, 1fr))", gap: "0.75rem" }}>
-                {[
-                  { label: "Series",     value: result.n_series.toString() },
-                  { label: "Horizonte",  value: result.horizon.toString() },
-                  { label: "Frecuencia", value: result.freq },
-                  { label: "Modelo",     value: result.model_used },
-                  { label: "Duración",   value: `${result.duration_s.toFixed(2)}s` },
-                  { label: "Predicciones", value: result.predictions.length.toLocaleString("es-AR") },
-                ].map(({ label, value }) => (
-                  <Paper key={label} variant="outlined" sx={{ p: "0.875rem", borderRadius: "0.625rem" }}>
-                    <Typography variant="caption" color="text.disabled">{label}</Typography>
-                    <Typography variant="h6" fontWeight={700} sx={{ mt: "0.125rem" }}>{value}</Typography>
-                  </Paper>
-                ))}
+              {/* KPIs — config (outlined) vs resultado (filled) */}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                <Typography variant="caption" color="text.disabled" sx={{ pl: "0.125rem" }}>Configuración</Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(7rem, 1fr))", gap: "0.5rem" }}>
+                  {[
+                    { label: "Frecuencia", value: result.freq },
+                    { label: "Horizonte",  value: result.horizon.toString() },
+                    { label: "Modelo",     value: result.model_used },
+                  ].map(({ label, value }) => (
+                    <Paper key={label} variant="outlined"
+                      sx={{ p: "0.75rem", borderRadius: "0.5rem", borderColor: "divider" }}>
+                      <Typography variant="caption" color="text.disabled">{label}</Typography>
+                      <Typography variant="body1" fontWeight={600} sx={{ mt: "0.125rem", fontSize: "0.875rem" }}>{value}</Typography>
+                    </Paper>
+                  ))}
+                </Box>
+              </Box>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                <Typography variant="caption" color="text.disabled" sx={{ pl: "0.125rem" }}>Resultado</Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(7rem, 1fr))", gap: "0.5rem" }}>
+                  {[
+                    { label: "Series",       value: result.n_series.toString() },
+                    { label: "Predicciones", value: result.predictions.length.toLocaleString("es-AR") },
+                    { label: "Duración",     value: `${result.duration_s.toFixed(2)}s` },
+                  ].map(({ label, value }) => (
+                    <Paper key={label} elevation={0}
+                      sx={{ p: "0.75rem", borderRadius: "0.5rem",
+                        bgcolor: "primary.main", color: "primary.contrastText" }}>
+                      <Typography variant="caption" sx={{ opacity: 0.75 }}>{label}</Typography>
+                      <Typography variant="body1" fontWeight={700} sx={{ mt: "0.125rem", fontSize: "0.875rem" }}>{value}</Typography>
+                    </Paper>
+                  ))}
+                </Box>
               </Box>
 
-              {/* Filtro por serie */}
-              {allSeries.length > 1 && (
-                <FormControl size="small" sx={{ maxWidth: "20rem" }}>
-                  <InputLabel>Filtrar por serie</InputLabel>
-                  <Select value={filterSeries} label="Filtrar por serie"
-                    onChange={(e) => setFilterSeries(e.target.value)}>
-                    <MenuItem value=""><em>Todas las series ({allSeries.length})</em></MenuItem>
-                    {allSeries.map((s) => (
-                      <MenuItem key={s} value={s} sx={{ fontFamily: "monospace", fontSize: "0.8125rem" }}>
-                        {s}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-
-              {/* Tabla de predicciones */}
+              {/* DataGrid de predicciones */}
               <Paper variant="outlined" sx={{ borderRadius: "0.75rem", overflow: "hidden" }}>
                 <Box sx={{ px: "1.25rem", py: "0.875rem", borderBottom: "1px solid",
                   borderColor: "divider", display: "flex", alignItems: "center",
                   justifyContent: "space-between" }}>
                   <Typography variant="subtitle2" fontWeight={600}>
                     Predicciones
-                    {hasMore && (
-                      <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: "0.5rem" }}>
-                        (mostrando 300 de {result.predictions.filter(
-                          (p) => !filterSeries || p.unique_id === filterSeries
-                        ).length})
-                      </Typography>
-                    )}
+                    <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: "0.5rem" }}>
+                      ({result.predictions.length.toLocaleString("es-AR")} filas · sorting y filtros habilitados)
+                    </Typography>
                   </Typography>
-                  {mode === "dataset" && filterSeries && (
-                    <Tooltip title="Ver esta serie en Forecast">
-                      <Button size="small" variant="outlined"
-                        startIcon={<ShowChartIcon sx={{ fontSize: "0.875rem !important" }} />}
-                        onClick={() => handleDrillDown(filterSeries)}
-                        sx={{ textTransform: "none", fontSize: "0.75rem" }}>
-                        Forecast →
-                      </Button>
-                    </Tooltip>
-                  )}
                 </Box>
-                <TableContainer sx={{ maxHeight: "32rem" }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        {allSeries.length > 1 && (
-                          <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", bgcolor: "background.default" }}>
-                            ID Serie
-                          </TableCell>
-                        )}
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", bgcolor: "background.default" }}>
-                          Fecha
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.75rem", bgcolor: "background.default" }}>
-                          Predicción
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {previewRows.map((row, idx) => (
-                        <TableRow key={idx} hover
-                          sx={{ cursor: mode === "dataset" ? "pointer" : "default" }}
-                          onClick={() => mode === "dataset" && handleDrillDown(row.unique_id)}>
-                          {allSeries.length > 1 && (
-                            <TableCell sx={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
-                              {row.unique_id}
-                            </TableCell>
-                          )}
-                          <TableCell sx={{ fontSize: "0.75rem" }}>{row.ds}</TableCell>
-                          <TableCell align="right" sx={{ fontSize: "0.75rem", fontWeight: 500 }}>
-                            {row.predicted.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <DataGrid
+                  rows={gridRows}
+                  columns={gridCols}
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={setPaginationModel}
+                  pageSizeOptions={[25, 50, 100]}
+                  disableRowSelectionOnClick
+                  density="compact"
+                  autoHeight
+                  sx={{
+                    border: "none",
+                    fontSize: "0.75rem",
+                    "& .MuiDataGrid-columnHeaders": { bgcolor: "background.default" },
+                    "& .MuiDataGrid-cell": { borderColor: "divider" },
+                  }}
+                />
               </Paper>
 
               {/* Hint drill-down */}
               {mode === "dataset" && allSeries.length > 1 && (
                 <Typography variant="caption" color="text.disabled">
-                  Filtrá por serie y hacé clic en &quot;Forecast →&quot; para analizar esa serie en detalle.
+                  Usá los filtros de columna para aislar una serie, luego hacé clic en
+                  &quot;Forecast →&quot; para analizarla en detalle.
                 </Typography>
               )}
             </>

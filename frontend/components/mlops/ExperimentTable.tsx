@@ -8,6 +8,7 @@
 
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import ShowChartIcon from "@mui/icons-material/ShowChart";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -36,6 +37,8 @@ interface ExperimentTableProps {
   loading: boolean;
   error: string | null;
   onDeleted?: (runId: string) => void;
+  /** Called when user clicks "Ver en Forecast" — receives the run's dataset_id */
+  onDrillDown?: (datasetId: string) => void;
 }
 
 function wapeColor(wape: number | null): "success" | "warning" | "error" | "default" {
@@ -54,7 +57,7 @@ function formatDate(isoString: string): string {
   }
 }
 
-export function ExperimentTable({ runs, loading, error, onDeleted }: ExperimentTableProps) {
+export function ExperimentTable({ runs, loading, error, onDeleted, onDrillDown }: ExperimentTableProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting]   = useState(false);
 
@@ -88,7 +91,7 @@ export function ExperimentTable({ runs, loading, error, onDeleted }: ExperimentT
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: "background.default" }}>
-              {["Run", "Modelo", "Freq", "Horizonte", "WAPE %", "MAE", "Fecha", ""].map((h) => (
+              {["Run", "Modelo", "Freq", "Horizonte", "WAPE %", "MAE", "Fecha", "Acciones"].map((h) => (
                 <TableCell key={h} sx={{ fontWeight: 600, fontSize: "0.75rem", color: "text.secondary" }}>
                   {h}
                 </TableCell>
@@ -128,6 +131,15 @@ export function ExperimentTable({ runs, loading, error, onDeleted }: ExperimentT
                 </TableCell>
 
                 <TableCell sx={{ pr: "0.5rem", whiteSpace: "nowrap" }}>
+                  {/* Drill-down to Forecast — only when dataset_id is available */}
+                  {run.dataset_id && onDrillDown && (
+                    <Tooltip title="Ver en Forecast">
+                      <IconButton size="small" onClick={() => onDrillDown(run.dataset_id!)}
+                        sx={{ color: "primary.main" }}>
+                        <ShowChartIcon sx={{ fontSize: "1rem" }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   {run.dagshub_url && (
                     <Tooltip title="Ver en Dagshub">
                       <IconButton size="small" href={run.dagshub_url} target="_blank"

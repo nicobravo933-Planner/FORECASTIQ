@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import Alert from "@mui/material/Alert"
@@ -25,13 +26,20 @@ import Skeleton from "@mui/material/Skeleton"
 import Divider from "@mui/material/Divider"
 import Tooltip from "@mui/material/Tooltip"
 import CircularProgress from "@mui/material/CircularProgress"
+import Tabs from "@mui/material/Tabs"
+import Tab from "@mui/material/Tab"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import PlayArrowIcon from "@mui/icons-material/PlayArrow"
 import EventIcon from "@mui/icons-material/Event"
 import TuneIcon from "@mui/icons-material/Tune"
 import PsychologyIcon from "@mui/icons-material/Psychology"
 import CompareArrowsIcon from "@mui/icons-material/CompareArrows"
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore"
+import Accordion from "@mui/material/Accordion"
+import AccordionSummary from "@mui/material/AccordionSummary"
+import AccordionDetails from "@mui/material/AccordionDetails"
 import { useForecast } from "@/hooks/useForecast"
+import { useColumnPreview } from "@/hooks/useColumnPreview"
 import { appStore } from "@/lib/appStore"
 import { ForecastConfigPanel, type ForecastConfig } from "@/components/forecast/ForecastConfigPanel"
 import { ForecastChart } from "@/components/forecast/ForecastChart"
@@ -40,6 +48,7 @@ import { CvResultsCard } from "@/components/forecast/CvResultsCard"
 import { ParameterExplorer, type ManualParams } from "@/components/forecast/ParameterExplorer"
 import { ModelGatingPanel } from "@/components/forecast/ModelGatingPanel"
 import { DetectionReportModal } from "@/components/forecast/DetectionReportModal"
+import { ForecastContextBar } from "@/components/forecast/ForecastContextBar"
 import { BenchmarkTable } from "@/components/forecast/BenchmarkTable"
 import { ExportButton } from "@/components/dataset/ExportButton"
 import type { DataFreq, ModelName, PredictionPoint, DetectionResult, BenchmarkResult } from "@/lib/types"
@@ -56,18 +65,25 @@ const MODEL_LABELS: Record<ModelName, string> = {
 
 export default function ForecastPage() {
   const forecast = useForecast()
+  const router = useRouter()
 
   // Consolidated config state — driven by ForecastConfigPanel
   const [config, setConfig] = useState<ForecastConfig>({
-    datasetId:     appStore.getActiveDatasetId()    ?? "",
-    dateCol:       appStore.getActiveDateCol()       ?? "",
-    targetCol:     appStore.getActiveTargetCol()     ?? "",
-    freq:          (appStore.getActiveFreq() as DataFreq) ?? "M",
-    horizon:       12,
-    modelOverride: "auto",
-    testPeriods:   0,
-    cvFolds:       0,
+    datasetId:      appStore.getActiveDatasetId()    ?? "",
+    dateCol:        appStore.getActiveDateCol()       ?? "",
+    targetCol:      appStore.getActiveTargetCol()     ?? "",
+    freq:           (appStore.getActiveFreq() as DataFreq) ?? "M",
+    horizon:        12,
+    modelOverride:  "auto",
+    testPeriods:    0,
+    cvFolds:        0,
+    // F2.3: default = full history
+    trainWindow:    "auto",
+    trainStartDate: null,
   })
+
+  // F1.3: preview data to validate test/total ratio before run
+  const preview = useColumnPreview(config.datasetId || null)
 
   const [forceReoptimize, setForceReoptimize] = useState(false)
   const [hpoCache, setHpoCache] = useState<{ wape: number | null; optimized_at: string | null } | null>(null)
@@ -90,6 +106,9 @@ export default function ForecastPage() {
     const raw = appStore.getDetectionReport()
     return raw ? (raw as unknown as DetectionResult) : null
   })
+
+  // UX-1a: active results tab (0=Forecast, 1=Benchmark, 2=Diagnóstico, 3=Parámetros)
+  const [activeTab, setActiveTab] = useState(0)
 
   // E7: benchmark state
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null)
@@ -134,6 +153,15 @@ export default function ForecastPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.datasetId])
+
+  // UX-1e: pre-select model coming from Encyclopedia "Try in Forecast" button
+  useEffect(() => {
+    const pending = appStore.popPendingModel()
+    if (pending) {
+      patchConfig({ modelOverride: pending as typeof config.modelOverride })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // E5: re-leer quality score cuando cambia el dataset
   useEffect(() => {
@@ -193,6 +221,7 @@ export default function ForecastPage() {
   // E4: re-run con parámetros manuales
   const handleRerunWithParams = (manualParams: ManualParams) => {
     appStore.setActiveDataset(config.datasetId, config.dateCol, config.targetCol, config.freq)
+    setActiveTab(0) // UX-1a: reset to Forecast tab on re-run
     forecast.runForecast({
       dataset_id:     config.datasetId.trim(),
       date_column:    config.dateCol.trim(),
@@ -240,8 +269,20 @@ export default function ForecastPage() {
     config.dateCol          !== config.targetCol &&
     !isRunning
 
+  // F2.3: compute the effective train_start_date from trainWindow config
+  const getTrainStartDate = (): string | null => {
+    if (config.trainWindow === "auto" || !config.trainWindow) return null
+    if (config.trainWindow === "custom") return config.trainStartDate ?? null
+    const years = parseInt(config.trainWindow, 10)
+    if (isNaN(years)) return null
+    const d = new Date()
+    d.setFullYear(d.getFullYear() - years)
+    return d.toISOString().split("T")[0]
+  }
+
   const handleRun = () => {
     appStore.setActiveDataset(config.datasetId, config.dateCol, config.targetCol, config.freq)
+    setActiveTab(0) // UX-1a: reset to Forecast tab on new run
     forecast.runForecast({
       dataset_id:       config.datasetId.trim(),
       date_column:      config.dateCol.trim(),
@@ -252,6 +293,7 @@ export default function ForecastPage() {
       force_reoptimize: forceReoptimize,
       test_periods:     config.testPeriods,
       cv_folds:         config.cvFolds,
+      train_start_date: getTrainStartDate(),
     })
     setForceReoptimize(false) // reset tras correr
   }
@@ -260,8 +302,17 @@ export default function ForecastPage() {
   const isFailed  = forecast.stage === "failed"
   const isIdle    = forecast.stage === "idle"
 
-  // Whether to show results panel alongside config
+  // Results visible when done and result is ready
   const showResults = isDone && forecast.result != null
+
+  // F3.2: Accordion config — expanded when idle/failed, collapsed when running/done
+  const [configExpanded, setConfigExpanded] = useState(true)
+  // Auto-collapse on run start, auto-expand on idle/failed
+  useEffect(() => {
+    if (isRunning || isDone) setConfigExpanded(false)
+    if (isIdle || isFailed) setConfigExpanded(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forecast.stage])
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -293,23 +344,11 @@ export default function ForecastPage() {
         )}
       </Box>
 
-      {/* ── Layout: 2-col while idle/running, full-width when results are ready ── */}
-      <Box
-        sx={{
-          display: "grid",
-          // While idle or running: config left + placeholder/progress right
-          // When done: single column — chart takes full width below compact config bar
-          gridTemplateColumns: showResults
-            ? "1fr"
-            : { xs: "1fr", md: "26rem 1fr" },
-          gap: "1.5rem",
-          alignItems: "start",
-        }}
-      >
+      {/* ── Layout: vertical full-width (F3.1) ─────────────────────────────── */}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
-        {/* ── LEFT: config panel ──────────────────────────────────────────── */}
-        {/* When results are shown this Box spans full width — the RIGHT Box follows below */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem", gridColumn: showResults ? "1 / -1" : undefined }}>
+        {/* ── Row 1: config panel (full-width) ─────────────────────────────── */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {/* E5: Model Gating Panel — siempre visible cuando hay dataset activo */}
           {config.datasetId && (
             <ModelGatingPanel
@@ -320,165 +359,223 @@ export default function ForecastPage() {
               onSelectModel={(id) => patchConfig({ modelOverride: id as ModelName | "auto" })}
             />
           )}
-          {(isIdle || isFailed) && (
-            <Paper variant="outlined" sx={{ p: "1.5rem" }}>
-              <ForecastConfigPanel
-                config={config}
-                onChange={patchConfig}
-                disabled={isRunning}
-                availableModelIds={qualityData?.modelIds ?? null}
-                onOpenDetectionReport={handleOpenDetectionReport}
-              />
+          {/* F2.1: ForecastContextBar — visible when there's an active dataset */}
+          {config.datasetId && preview.status === "ready" && (
+            <ForecastContextBar
+              datasetName={config.datasetId.slice(0, 12) + "…"}
+              nObs={preview.totalRows}
+              freq={config.freq}
+              qualityScore={qualityData?.score ?? null}
+              qualityLabel={qualityData?.label ?? null}
+              isEtlCleaned={!!appStore.getCleanedDatasetId()}
+              onGoToEda={() => router.push("/dashboard/eda")}
+              onGoToEtl={() => router.push("/dashboard/etl")}
+            />
+          )}
+          {/* F3.2: Config Accordion — collapses after run, expands when idle/failed */}
+          <Accordion
+            expanded={configExpanded}
+            onChange={(_, expanded) => setConfigExpanded(expanded)}
+            disableGutters
+            elevation={0}
+            sx={{
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: "0.5rem !important",
+              "&:before": { display: "none" },
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{ px: "1.25rem", py: "0.5rem", minHeight: "3rem" }}
+            >
+              {/* Summary chips — visible when collapsed */}
+              {!configExpanded ? (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", alignItems: "center" }}>
+                  {[
+                    { label: config.datasetId ? config.datasetId.slice(0, 10) + "…" : "Sin dataset" },
+                    { label: config.modelOverride === "auto" ? "Auto" : config.modelOverride },
+                    { label: `+${config.horizon}p` },
+                    { label: config.testPeriods > 0 ? `Test ${config.testPeriods}p` : "Test auto" },
+                  ].map(({ label }) => (
+                    <Chip
+                      key={label}
+                      label={label}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: "0.6875rem", height: "1.375rem" }}
+                    />
+                  ))}
+                  <Chip
+                    label="Editar configuración"
+                    size="small"
+                    color="primary"
+                    onClick={(e) => { e.stopPropagation(); setConfigExpanded(true) }}
+                    sx={{ fontSize: "0.6875rem", height: "1.375rem", cursor: "pointer" }}
+                  />
+                </Box>
+              ) : (
+                <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                  Configuración del forecast
+                </Typography>
+              )}
+            </AccordionSummary>
 
-              <Divider sx={{ my: "1.25rem" }} />
-
-              {/* HPO cache info + Re-optimizar (solo para LightGBM) */}
-              {(config.modelOverride === "lightgbm" || config.modelOverride === "auto") && config.datasetId && (
-                <Box sx={{ mb: "1rem", p: "0.875rem", bgcolor: "background.default", borderRadius: "0.5rem", border: "1px solid", borderColor: "divider" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <PsychologyIcon sx={{ fontSize: "1rem", color: hpoCache ? "success.main" : "text.disabled" }} />
-                      <Typography variant="caption" color="text.secondary">
-                        {hpoCache
-                          ? <>HPO cache: WAPE <strong>{hpoCache.wape?.toFixed(3) ?? "—"}</strong> · {hpoCache.optimized_at ?? ""}</>
-                          : "Sin cache HPO — Optuna correrá (~60s)"}
-                      </Typography>
-                    </Box>
-                    {hpoCache && (
-                      <Tooltip title="Ignora el cache y corre Optuna desde cero para encontrar mejores hiperparámetros">
-                        <Chip
-                          label={forceReoptimize ? "Re-optimizar: ON" : "Re-optimizar"}
-                          size="small"
-                          onClick={() => setForceReoptimize((v) => !v)}
-                          color={forceReoptimize ? "warning" : "default"}
-                          variant={forceReoptimize ? "filled" : "outlined"}
-                          icon={<PsychologyIcon />}
-                          sx={{ cursor: "pointer", fontSize: "0.75rem" }}
-                        />
-                      </Tooltip>
-                    )}
+            <AccordionDetails sx={{ px: "1.25rem", pt: 0, pb: "1.25rem" }}>
+              {/* Running: progress bar */}
+              {isRunning && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem", mb: "1rem" }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {forecast.step || "Iniciando…"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {forecast.progressPct}%
+                    </Typography>
                   </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={forecast.progressPct}
+                    sx={{ borderRadius: "0.25rem", height: "0.5rem" }}
+                  />
                 </Box>
               )}
 
-              <Button
-                variant="contained"
-                startIcon={<PlayArrowIcon />}
-                onClick={handleRun}
-                disabled={!canRun}
-                fullWidth
-                sx={{ py: "0.625rem" }}
-              >
-                {forceReoptimize ? "Optimizar + Forecast" : "Generar forecast"}
-              </Button>
-            </Paper>
-          )}
-
-          {/* Progress — shown in left column while running */}
-          {isRunning && (
-            <Paper variant="outlined" sx={{ p: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
-                Procesando…
-              </Typography>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  {forecast.step || "Iniciando…"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {forecast.progressPct}%
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={forecast.progressPct}
-                sx={{ borderRadius: "0.25rem", height: "0.5rem" }}
-              />
-              {/* Summary of selected config */}
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", pt: "0.25rem" }}>
-                {[
-                  config.datasetId.slice(0, 8) + "…",
-                  config.dateCol,
-                  config.targetCol,
-                  config.freq,
-                  `+${config.horizon}p`,
-                ].map((label) => (
-                  <Chip
-                    key={label}
-                    label={label}
-                    size="small"
-                    variant="outlined"
-                    sx={{ fontSize: "0.6875rem", height: "1.375rem", color: "text.disabled" }}
+              {/* Done: events toggle + config summary */}
+              {isDone && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "0.875rem", mb: "1rem" }}>
+                  <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+                    Configuración activa
+                  </Typography>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
+                    {[
+                      { label: "Dataset", value: config.datasetId.slice(0, 8) + "…" },
+                      { label: "Fecha",   value: config.dateCol },
+                      { label: "Obj.",    value: config.targetCol },
+                      { label: "Freq",    value: config.freq },
+                      { label: "Horizon", value: `+${config.horizon}p` },
+                    ].map(({ label, value }) => (
+                      <Box
+                        key={label}
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          bgcolor: "action.hover",
+                          borderRadius: "0.375rem",
+                          px: "0.625rem",
+                          py: "0.375rem",
+                          minWidth: "4rem",
+                        }}
+                      >
+                        <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.625rem" }}>
+                          {label}
+                        </Typography>
+                        <Typography variant="caption" fontWeight={600} color="text.primary" sx={{ fontSize: "0.75rem" }}>
+                          {value}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                  <Divider />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={eventsOn}
+                        onChange={(e) => handleEventsToggle(e.target.checked)}
+                        disabled={loadingCompare}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <EventIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                        <Typography variant="body2">Ver con eventos</Typography>
+                        {eventsOn && eventsCount > 0 && (
+                          <Chip label={`${eventsCount} evento${eventsCount > 1 ? "s" : ""}`} size="small" color="primary" />
+                        )}
+                        {eventsOn && eventsCount === 0 && (
+                          <Chip label="Sin eventos" size="small" variant="outlined" />
+                        )}
+                      </Box>
+                    }
                   />
-                ))}
-              </Box>
-            </Paper>
-          )}
+                </Box>
+              )}
 
-          {/* Config summary after done — compact re-run card */}
-          {isDone && (
-            <Paper variant="outlined" sx={{ p: "1.25rem", display: "flex", flexDirection: "column", gap: "0.875rem" }}>
-              <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
-                Configuración activa
-              </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
-                {[
-                  { label: "Dataset", value: config.datasetId.slice(0, 8) + "…" },
-                  { label: "Fecha",   value: config.dateCol },
-                  { label: "Obj.",    value: config.targetCol },
-                  { label: "Freq",    value: config.freq },
-                  { label: "Horizon", value: `+${config.horizon}p` },
-                ].map(({ label, value }) => (
-                  <Box
-                    key={label}
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      bgcolor: "action.hover",
-                      borderRadius: "0.375rem",
-                      px: "0.625rem",
-                      py: "0.375rem",
-                      minWidth: "4rem",
-                    }}
+              {/* Idle / failed: full config form */}
+              {(isIdle || isFailed) && (
+                <>
+                  <ForecastConfigPanel
+                    config={config}
+                    onChange={patchConfig}
+                    disabled={isRunning}
+                    availableModelIds={qualityData?.modelIds ?? null}
+                    onOpenDetectionReport={handleOpenDetectionReport}
+                  />
+
+                  <Divider sx={{ my: "1.25rem" }} />
+
+                  {/* HPO cache info + Re-optimizar (solo para LightGBM) */}
+                  {(config.modelOverride === "lightgbm" || config.modelOverride === "auto") && config.datasetId && (
+                    <Box sx={{ mb: "1rem", p: "0.875rem", bgcolor: "background.default", borderRadius: "0.5rem", border: "1px solid", borderColor: "divider" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <PsychologyIcon sx={{ fontSize: "1rem", color: hpoCache ? "success.main" : "text.disabled" }} />
+                          <Typography variant="caption" color="text.secondary">
+                            {hpoCache
+                              ? <>HPO cache: WAPE <strong>{hpoCache.wape?.toFixed(3) ?? "—"}</strong> · {hpoCache.optimized_at ?? ""}</>
+                              : "Sin cache HPO — Optuna correrá (~60s)"}
+                          </Typography>
+                        </Box>
+                        {hpoCache && (
+                          <Tooltip title="Ignora el cache y corre Optuna desde cero para encontrar mejores hiperparámetros">
+                            <Chip
+                              label={forceReoptimize ? "Re-optimizar: ON" : "Re-optimizar"}
+                              size="small"
+                              onClick={() => setForceReoptimize((v) => !v)}
+                              color={forceReoptimize ? "warning" : "default"}
+                              variant={forceReoptimize ? "filled" : "outlined"}
+                              icon={<PsychologyIcon />}
+                              sx={{ cursor: "pointer", fontSize: "0.75rem" }}
+                            />
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* F1.3 — Pre-run warning: test set > 50% of total data */}
+                  {(() => {
+                    const total = preview.status === "ready" ? preview.totalRows : 0
+                    if (total > 0 && config.testPeriods > 0 && config.testPeriods > total * 0.5) {
+                      return (
+                        <Alert severity="warning" sx={{ fontSize: "0.8125rem", py: "0.375rem" }}>
+                          Reserás <strong>{config.testPeriods}</strong> períodos como test sobre{" "}
+                          <strong>{total}</strong> obs totales ({((config.testPeriods / total) * 100).toFixed(0)}%).
+                          El modelo puede no tener suficiente historia para entrenarse bien.
+                        </Alert>
+                      )
+                    }
+                    return null
+                  })()}
+
+                  <Button
+                    variant="contained"
+                    startIcon={<PlayArrowIcon />}
+                    onClick={handleRun}
+                    disabled={!canRun}
+                    fullWidth
+                    sx={{ py: "0.625rem", mt: "0.25rem" }}
                   >
-                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.625rem" }}>
-                      {label}
-                    </Typography>
-                    <Typography variant="caption" fontWeight={600} color="text.primary" sx={{ fontSize: "0.75rem" }}>
-                      {value}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-
-              {/* Events toggle */}
-              <Divider />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={eventsOn}
-                    onChange={(e) => handleEventsToggle(e.target.checked)}
-                    disabled={loadingCompare}
-                    size="small"
-                  />
-                }
-                label={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <EventIcon fontSize="small" sx={{ color: "text.secondary" }} />
-                    <Typography variant="body2">Ver con eventos</Typography>
-                    {eventsOn && eventsCount > 0 && (
-                      <Chip label={`${eventsCount} evento${eventsCount > 1 ? "s" : ""}`} size="small" color="primary" />
-                    )}
-                    {eventsOn && eventsCount === 0 && (
-                      <Chip label="Sin eventos" size="small" variant="outlined" />
-                    )}
-                  </Box>
-                }
-              />
-            </Paper>
-          )}
+                    {forceReoptimize ? "Optimizar + Forecast" : "Generar forecast"}
+                  </Button>
+                </>
+              )}
+            </AccordionDetails>
+          </Accordion>
         </Box>
 
-        {/* ── RIGHT: results panel ─────────────────────────────────────────── */}
+        {/* ── Row 2: results panel (full-width) ──────────────────────────── */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem", minWidth: 0 }}>
 
           {/* Error */}
@@ -519,95 +616,197 @@ export default function ForecastPage() {
             </Paper>
           )}
 
-          {/* Results */}
+          {/* Results — UX-1a: Tabs layout */}
           {showResults && (
             <>
-              <ForecastChart
-                historical={forecast.result!.historical}
-                predictions={eventsOn && compareData ? compareData : forecast.result!.predictions}
-                modelName={MODEL_LABELS[forecast.result!.model_used]}
-                testActual={forecast.result!.test_actual}
-                testPredicted={forecast.result!.test_predicted}
-                trainEndDate={forecast.result!.train_end_date}
-                testStartDate={forecast.result!.test_start_date}
-              />
-              <MetricsCard
-                metrics={forecast.result!.metrics}
-                modelUsed={forecast.result!.model_used}
-                testPeriods={forecast.result!.test_periods}
-              />
-              {/* E8: export the dataset used for this forecast */}
-              {config.datasetId && (
-                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                  <ExportButton
-                    datasetId={config.datasetId}
-                    showBoth
-                    variant="outlined"
-                    size="small"
+              {/* Tab bar */}
+              <Tabs
+                value={activeTab}
+                onChange={(_, v: number) => setActiveTab(v)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{ mb: "1rem", borderBottom: "1px solid", borderColor: "divider" }}
+              >
+                <Tab label="Forecast"     sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
+                <Tab label="Benchmark"    sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
+                <Tab label="Diagnóstico"  sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
+                <Tab label="Parámetros"   sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
+              </Tabs>
+
+              {/* ── Tab 0: Forecast ────────────────────────────────────────── */}
+              {activeTab === 0 && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  <ForecastChart
+                    historical={forecast.result!.historical}
+                    predictions={eventsOn && compareData ? compareData : forecast.result!.predictions}
+                    modelName={MODEL_LABELS[forecast.result!.model_used]}
+                    testActual={forecast.result!.test_actual}
+                    testPredicted={forecast.result!.test_predicted}
+                    trainEndDate={forecast.result!.train_end_date}
+                    testStartDate={forecast.result!.test_start_date}
                   />
+                  <MetricsCard
+                    metrics={forecast.result!.metrics}
+                    modelUsed={forecast.result!.model_used}
+                    testPeriods={forecast.result!.test_periods}
+                    orientation="horizontal"
+                  />
+                  {config.datasetId && (
+                    <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                      <ExportButton
+                        datasetId={config.datasetId}
+                        showBoth
+                        variant="outlined"
+                        size="small"
+                      />
+                    </Box>
+                  )}
                 </Box>
               )}
-              {/* E6 + E7: action chips row */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.625rem", flexWrap: "wrap" }}>
-                <Chip
-                  icon={<PsychologyIcon sx={{ fontSize: "0.9rem !important" }} />}
-                  label="¿Por qué este modelo?"
-                  onClick={handleOpenDetectionReport}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                  sx={{ cursor: "pointer", fontSize: "0.75rem" }}
-                />
-                {/* E7: Benchmark button */}
-                <Tooltip title="Corre MA + HW + SARIMA + Seasonal Naive en paralelo y compara sus métricas">
-                  <span>
-                    <Chip
-                      icon={
-                        benchmarkRunning
-                          ? <CircularProgress size="0.875rem" sx={{ color: "secondary.main" }} />
-                          : <CompareArrowsIcon sx={{ fontSize: "0.9rem !important" }} />
-                      }
-                      label={benchmarkRunning ? "Comparando..." : "Comparar modelos"}
-                      onClick={!benchmarkRunning ? handleRunBenchmark : undefined}
-                      color="secondary"
-                      variant="outlined"
-                      size="small"
-                      sx={{ cursor: benchmarkRunning ? "default" : "pointer", fontSize: "0.75rem" }}
+
+              {/* ── Tab 1: Benchmark ───────────────────────────────────────── */}
+              {activeTab === 1 && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Tooltip title="Corre MA + HW + SARIMA + Seasonal Naive en paralelo y compara sus métricas">
+                      <span>
+                        <Chip
+                          icon={
+                            benchmarkRunning
+                              ? <CircularProgress size="0.875rem" sx={{ color: "secondary.main" }} />
+                              : <CompareArrowsIcon sx={{ fontSize: "0.9rem !important" }} />
+                          }
+                          label={benchmarkRunning ? "Comparando..." : "Comparar modelos"}
+                          onClick={!benchmarkRunning ? handleRunBenchmark : undefined}
+                          color="secondary"
+                          variant={benchmarkResult ? "filled" : "outlined"}
+                          size="small"
+                          sx={{ cursor: benchmarkRunning ? "default" : "pointer", fontSize: "0.75rem" }}
+                        />
+                      </span>
+                    </Tooltip>
+                  </Box>
+                  {benchmarkError && (
+                    <Alert severity="error" sx={{ fontSize: "0.8125rem" }}>{benchmarkError}</Alert>
+                  )}
+                  {!benchmarkResult && !benchmarkRunning && (
+                    <Paper variant="outlined" sx={{ p: "2rem", textAlign: "center", borderStyle: "dashed", borderRadius: "0.75rem" }}>
+                      <CompareArrowsIcon sx={{ fontSize: "2.5rem", color: "text.disabled", mb: "0.5rem" }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Presá <strong>Comparar modelos</strong> para ver cómo rinden MA, Holt-Winters, SARIMA y Seasonal Naive en tu serie.
+                      </Typography>
+                    </Paper>
+                  )}
+                  {benchmarkResult && <BenchmarkTable result={benchmarkResult} />}
+                </Box>
+              )}
+
+              {/* ── Tab 2: Diagnóstico ─────────────────────────────────────── */}
+              {activeTab === 2 && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  {detectionReport ? (
+                    <>
+                      {/* Resultado final */}
+                      <Paper
+                        variant="outlined"
+                        sx={{ p: "1.25rem", borderRadius: "0.625rem", bgcolor: "rgba(99,102,241,0.04)" }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", mb: "0.5rem" }}>
+                          <PsychologyIcon sx={{ color: "primary.main", fontSize: "1.125rem" }} />
+                          <Typography variant="subtitle2" fontWeight={700}>Modelo seleccionado</Typography>
+                          <Chip
+                            label={MODEL_LABELS[detectionReport.model] ?? detectionReport.model}
+                            color="primary"
+                            size="small"
+                            sx={{ fontWeight: 700 }}
+                          />
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, mb: "0.75rem" }}>
+                          {detectionReport.reason}
+                        </Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <Typography variant="caption" color="text.disabled" sx={{ minWidth: "6.5rem" }}>
+                            Confianza: {Math.round(detectionReport.confidence * 100)}%
+                          </Typography>
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.round(detectionReport.confidence * 100)}
+                            sx={{ flex: 1, height: "0.375rem", borderRadius: "0.25rem" }}
+                            color={detectionReport.confidence >= 0.8 ? "success" : detectionReport.confidence >= 0.65 ? "warning" : "error"}
+                          />
+                        </Box>
+                      </Paper>
+                      {/* Stats rápidas */}
+                      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem" }}>
+                        {[
+                          { label: "Observaciones", value: String(detectionReport.n_observations) },
+                          { label: "Outliers",      value: `${detectionReport.outlier_count} (${detectionReport.outlier_pct.toFixed(1)}%)` },
+                          { label: "CV",            value: detectionReport.cv.toFixed(3) },
+                        ].map(({ label, value }) => (
+                          <Box key={label} sx={{ p: "0.625rem", borderRadius: "0.375rem", bgcolor: "action.hover", textAlign: "center" }}>
+                            <Typography variant="caption" color="text.disabled" sx={{ display: "block", fontSize: "0.625rem" }}>{label}</Typography>
+                            <Typography variant="body2" fontWeight={700}>{value}</Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                      {/* Steps del pipeline — reutiliza el modal completo */}
+                      <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ display: "block", mt: "0.25rem" }}>
+                        Pipeline de detección
+                      </Typography>
+                      <Chip
+                        icon={<PsychologyIcon sx={{ fontSize: "0.9rem !important" }} />}
+                        label="Ver reporte completo"
+                        onClick={handleOpenDetectionReport}
+                        color="primary"
+                        variant="outlined"
+                        size="small"
+                        sx={{ alignSelf: "flex-start", cursor: "pointer", fontSize: "0.75rem" }}
+                      />
+                    </>
+                  ) : (
+                    <Paper variant="outlined" sx={{ p: "2rem", textAlign: "center", borderStyle: "dashed", borderRadius: "0.75rem" }}>
+                      <PsychologyIcon sx={{ fontSize: "2.5rem", color: "text.disabled", mb: "0.5rem" }} />
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        No hay reporte de detección todavía.
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        Usá el botón <strong>Analizar serie</strong> en la configuración para generar el reporte.
+                      </Typography>
+                    </Paper>
+                  )}
+                  {overfitWarning && (
+                    <Alert severity="warning" sx={{ fontSize: "0.8125rem" }}>{overfitWarning}</Alert>
+                  )}
+                </Box>
+              )}
+
+              {/* ── Tab 3: Parámetros ──────────────────────────────────────── */}
+              {activeTab === 3 && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  {forecast.result!.model_params && Object.keys(forecast.result!.model_params).length > 0 ? (
+                    <ParameterExplorer
+                      modelUsed={forecast.result!.model_used}
+                      modelParams={forecast.result!.model_params}
+                      overfitWarning={overfitWarning}
+                      onRerun={handleRerunWithParams}
+                      disabled={isRunning}
                     />
-                  </span>
-                </Tooltip>
-              </Box>
-              {/* E7: Benchmark error */}
-              {benchmarkError && (
-                <Alert severity="error" sx={{ fontSize: "0.8125rem" }}>{benchmarkError}</Alert>
-              )}
-              {/* E7: Benchmark results table */}
-              {benchmarkResult && (
-                <BenchmarkTable result={benchmarkResult} />
-              )}
-              {/* E4: Parameter Explorer */}
-              {forecast.result!.model_params && Object.keys(forecast.result!.model_params).length > 0 && (
-                <ParameterExplorer
-                  modelUsed={forecast.result!.model_used}
-                  modelParams={forecast.result!.model_params}
-                  overfitWarning={overfitWarning}
-                  onRerun={handleRerunWithParams}
-                  disabled={isRunning}
-                />
-              )}
-              {/* CV results — solo si se solicitaron folds */}
-              {forecast.result!.cv_summary && (
-                <CvResultsCard
-                  cvSummary={forecast.result!.cv_summary}
-                  cvWarning={forecast.result!.cv_warning}
-                  modelName={MODEL_LABELS[forecast.result!.model_used]}
-                />
-              )}
-              {/* Warning de CV sin resultados (serie demasiado corta) */}
-              {!forecast.result!.cv_summary && forecast.result!.cv_warning && (
-                <Alert severity="warning" sx={{ fontSize: "0.8125rem" }}>
-                  {forecast.result!.cv_warning}
-                </Alert>
+                  ) : (
+                    <Alert severity="info" sx={{ fontSize: "0.8125rem" }}>Los parámetros del modelo no están disponibles para este resultado.</Alert>
+                  )}
+                  {forecast.result!.cv_summary && (
+                    <CvResultsCard
+                      cvSummary={forecast.result!.cv_summary}
+                      cvWarning={forecast.result!.cv_warning}
+                      modelName={MODEL_LABELS[forecast.result!.model_used]}
+                    />
+                  )}
+                  {!forecast.result!.cv_summary && forecast.result!.cv_warning && (
+                    <Alert severity="warning" sx={{ fontSize: "0.8125rem" }}>
+                      {forecast.result!.cv_warning}
+                    </Alert>
+                  )}
+                </Box>
               )}
             </>
           )}

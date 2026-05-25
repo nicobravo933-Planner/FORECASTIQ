@@ -58,10 +58,7 @@ class SeasonalNaiveModel(ForecastModel):
         # Predicción: índice i → repite values[n - m + (i % m)]
         # Si la serie es más corta que un ciclo, repite el último valor (naive simple)
         predicted = np.array(
-            [
-                values[n - m + (i % m)] if n >= m else values[-1]
-                for i in range(horizon)
-            ],
+            [values[n - m + (i % m)] if n >= m else values[-1] for i in range(horizon)],
             dtype=float,
         )
 

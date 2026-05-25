@@ -65,9 +65,7 @@ def _extract_model_params(model: Any, model_name: str) -> dict[str, Any]:
             window_effective = 6
             if series is not None:
                 n = len(series)
-                window_effective = min(
-                    getattr(model, "window", 6), max(2, n // 3)
-                )
+                window_effective = min(getattr(model, "window", 6), max(2, n // 3))
             return {"window": window_effective}
 
         if model_name == "holt_winters":
@@ -78,12 +76,12 @@ def _extract_model_params(model: Any, model_name: str) -> dict[str, Any]:
             # statsmodels expone los parámetros optimizados en params_
             params = getattr(fit, "params", {})
             alpha = float(params.get("smoothing_level", params.get("alpha", 0.0)))
-            beta  = float(params.get("smoothing_trend", params.get("beta", 0.0)))
+            beta = float(params.get("smoothing_trend", params.get("beta", 0.0)))
             gamma = float(params.get("smoothing_seasonal", params.get("gamma", 0.0)))
             use_seasonal = getattr(fit.model, "seasonal", None) is not None
             return {
                 "alpha": round(alpha, 4),
-                "beta":  round(beta,  4),
+                "beta": round(beta, 4),
                 "gamma": round(gamma, 4),
                 "seasonal_periods": sp,
                 "use_seasonal": use_seasonal,
@@ -96,7 +94,7 @@ def _extract_model_params(model: Any, model_name: str) -> dict[str, Any]:
             order = tuple(int(x) for x in fit.order)
             seasonal_order = tuple(int(x) for x in fit.seasonal_order)
             return {
-                "order": list(order),           # [p, d, q]
+                "order": list(order),  # [p, d, q]
                 "seasonal_order": list(seasonal_order),  # [P, D, Q, s]
             }
 
@@ -138,6 +136,7 @@ def run_forecast_task(
     test_periods: int = 0,
     cv_folds: int = 0,
     manual_params: dict[str, object] | None = None,
+    train_start_date: str | None = None,
 ) -> dict[str, Any]:
     """
     Pipeline completo de forecasting:
@@ -217,7 +216,17 @@ def run_forecast_task(
             p95 = float(series.quantile(0.95))
             series = series.clip(lower=p5, upper=p95)
 
-            # 3. Detección / selección de modelo
+            # 3. F2.3: recortar serie si el usuario definió ventana de entrenamiento
+            if train_start_date:
+                cutoff = pd.Timestamp(train_start_date)
+                series = series[series.index >= cutoff]
+                if len(series) < 4:
+                    raise ValueError(
+                        f"La ventana de entrenamiento desde {train_start_date} deja menos de 4 "
+                        "observaciones. Elegió una fecha de inicio más antigua o usá 'Auto'."
+                    )
+
+            # 3→(4). Detección / selección de modelo
             _update(25, "Seleccionando modelo")
             if model_override:
                 model_name = model_override
@@ -285,6 +294,7 @@ def run_forecast_task(
                         )
                 except Exception as _ev_err:
                     import structlog as _sl2
+
                     _sl2.get_logger().warning(
                         "event_features_load_failed",
                         dataset_id=dataset_id,

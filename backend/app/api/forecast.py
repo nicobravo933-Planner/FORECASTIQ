@@ -39,6 +39,8 @@ class ForecastRunRequest(BaseModel):
     )  # 0 = hold-out auto 20%; N = hold-out manual N períodos
     cv_folds: int = Field(default=0, ge=0, le=5)  # 0 = sin CV; 2–5 = TimeSeriesSplit k folds
     manual_params: dict[str, object] | None = None  # E4: parámetros manuales del usuario
+    # F2.3: fecha de inicio del train (None = historia completa)
+    train_start_date: str | None = None
 
 
 class ForecastRunResponse(BaseModel):
@@ -193,6 +195,7 @@ async def run_forecast(
         test_periods=body.test_periods,
         cv_folds=body.cv_folds,
         manual_params=body.manual_params,
+        train_start_date=body.train_start_date,
     )
     job_id: str = str(task.id)
     return ForecastRunResponse(job_id=job_id, status="done" if _eager_mode() else "pending")
@@ -411,10 +414,10 @@ class BenchmarkModelResult(BaseModel):
     mae: float | None = None
     bias: float | None = None
     rmse: float | None = None
-    fva: float | None = None       # FVA vs Seasonal Naive (None para el Naive mismo)
-    is_winner: bool = False        # True = menor WAPE entre los no-naive
-    is_baseline: bool = False      # True = Seasonal Naive
-    error: str | None = None       # Si el modelo falló al correr
+    fva: float | None = None  # FVA vs Seasonal Naive (None para el Naive mismo)
+    is_winner: bool = False  # True = menor WAPE entre los no-naive
+    is_baseline: bool = False  # True = Seasonal Naive
+    error: str | None = None  # Si el modelo falló al correr
 
 
 class BenchmarkResult(BaseModel):
@@ -424,10 +427,10 @@ class BenchmarkResult(BaseModel):
     n_obs: int
     test_periods: int
     models: list[BenchmarkModelResult]
-    winner: str | None = None      # model id del ganador (menor WAPE)
+    winner: str | None = None  # model id del ganador (menor WAPE)
     winner_label: str | None = None
     naive_wape: float | None = None  # WAPE del Seasonal Naive (denominador del FVA)
-    conclusion: str = ""           # texto educativo automático
+    conclusion: str = ""  # texto educativo automático
     run_at: str = ""
 
 
@@ -463,6 +466,7 @@ async def run_benchmark(
     _lgbm_cls: type | None = None
     try:
         from app.ml.models.lightgbm_model import LightGBMModel as _LgbmCls
+
         _lgbm_cls = _LgbmCls
     except ImportError:
         pass
@@ -485,7 +489,7 @@ async def run_benchmark(
     series = series.asfreq(freq, method="ffill")
 
     # Winsorización p5/p95
-    p5  = float(series.quantile(0.05))
+    p5 = float(series.quantile(0.05))
     p95 = float(series.quantile(0.95))
     series = series.clip(lower=p5, upper=p95)
 
@@ -500,15 +504,15 @@ async def run_benchmark(
         tp = n - split
 
     train = series.iloc[:split]
-    test  = series.iloc[split:]
+    test = series.iloc[split:]
 
     # ── Definir modelos a correr ─────────────────────────────────────────────
-    MODEL_LABELS: dict[str, str] = {
+    model_labels: dict[str, str] = {
         "seasonal_naive": "Seasonal Naive (baseline)",
         "moving_average": "Promedio Móvil",
-        "holt_winters":   "Holt-Winters",
-        "sarima":         "SARIMA",
-        "lightgbm":       "LightGBM",
+        "holt_winters": "Holt-Winters",
+        "sarima": "SARIMA",
+        "lightgbm": "LightGBM",
     }
 
     # Siempre incluir Naive + los modelos solicitados (o todos los disponibles si lista vacía)
@@ -547,7 +551,7 @@ async def run_benchmark(
             metrics = model.evaluate(test) if len(test) > 0 else {}
             return BenchmarkModelResult(
                 model=model_id,
-                label=MODEL_LABELS.get(model_id, model_id),
+                label=model_labels.get(model_id, model_id),
                 wape=metrics.get("wape"),
                 mae=metrics.get("mae"),
                 bias=metrics.get("bias"),
@@ -557,7 +561,7 @@ async def run_benchmark(
         except Exception as exc:  # noqa: BLE001
             return BenchmarkModelResult(
                 model=model_id,
-                label=MODEL_LABELS.get(model_id, model_id),
+                label=model_labels.get(model_id, model_id),
                 is_baseline=(model_id == "seasonal_naive"),
                 error=str(exc)[:200],
             )
@@ -568,17 +572,21 @@ async def run_benchmark(
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         future_map = {executor.submit(_run_one, mid): mid for mid in model_ids}
-        for future in concurrent.futures.as_completed(future_map, timeout=timeout_secs * len(model_ids)):
+        for future in concurrent.futures.as_completed(
+            future_map, timeout=timeout_secs * len(model_ids)
+        ):
             try:
                 results.append(future.result(timeout=timeout_secs))
             except concurrent.futures.TimeoutError:
                 mid = future_map[future]
-                results.append(BenchmarkModelResult(
-                    model=mid,
-                    label=MODEL_LABELS.get(mid, mid),
-                    is_baseline=(mid == "seasonal_naive"),
-                    error="Timeout — modelo demasiado lento para esta serie.",
-                ))
+                results.append(
+                    BenchmarkModelResult(
+                        model=mid,
+                        label=model_labels.get(mid, mid),
+                        is_baseline=(mid == "seasonal_naive"),
+                        error="Timeout — modelo demasiado lento para esta serie.",
+                    )
+                )
 
     # ── Calcular FVA ─────────────────────────────────────────────────────────
     naive_result = next((r for r in results if r.model == "seasonal_naive"), None)
@@ -595,8 +603,7 @@ async def run_benchmark(
 
     # ── Determinar ganador (menor WAPE entre los no-naive con éxito) ─────────
     candidates = [
-        r for r in results
-        if not r.is_baseline and r.wape is not None and r.error is None
+        r for r in results if not r.is_baseline and r.wape is not None and r.error is None
     ]
     winner_result: BenchmarkModelResult | None = None
     if candidates:
@@ -604,9 +611,7 @@ async def run_benchmark(
         winner_result.is_winner = True
 
     # Ordenar: Naive primero, luego por WAPE ascendente (None al final)
-    results.sort(
-        key=lambda r: (not r.is_baseline, r.wape if r.wape is not None else float("inf"))
-    )
+    results.sort(key=lambda r: (not r.is_baseline, r.wape if r.wape is not None else float("inf")))
 
     # ── Conclusión educativa automática ──────────────────────────────────────
     conclusion = ""
@@ -623,7 +628,9 @@ async def run_benchmark(
         elif naive_wape and winner_result.wape and winner_result.wape < naive_wape:
             conclusion += " El modelo agrega valor real vs el baseline."
     elif naive_result and naive_result.wape is not None:
-        conclusion = f"Solo el Seasonal Naive completó con éxito. WAPE={naive_result.wape * 100:.1f}%."
+        conclusion = (
+            f"Solo el Seasonal Naive completó con éxito. WAPE={naive_result.wape * 100:.1f}%."
+        )
 
     return BenchmarkResult(
         dataset_id=body.dataset_id,

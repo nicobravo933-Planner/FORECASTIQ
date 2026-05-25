@@ -10,6 +10,7 @@ import Paper from "@mui/material/Paper"
 import Typography from "@mui/material/Typography"
 import Tooltip from "@mui/material/Tooltip"
 import Chip from "@mui/material/Chip"
+import Alert from "@mui/material/Alert"
 import type { ForecastMetrics, ModelName } from "@/lib/types"
 
 const MODEL_LABELS: Record<ModelName, string> = {
@@ -57,10 +58,12 @@ interface MetricsCardProps {
   metrics: ForecastMetrics
   modelUsed: ModelName
   testPeriods?: number   // 0 = hold-out auto; N = hold-out manual
+  orientation?: "vertical" | "horizontal"  // F3.4: horizontal = chips in a row
 }
 
-export function MetricsCard({ metrics, modelUsed, testPeriods = 0 }: MetricsCardProps) {
+export function MetricsCard({ metrics, modelUsed, testPeriods = 0, orientation = "vertical" }: MetricsCardProps) {
   const isManualTest = testPeriods > 0
+  const isHorizontal = orientation === "horizontal"
   return (
     <Paper
       variant="outlined"
@@ -94,7 +97,11 @@ export function MetricsCard({ metrics, modelUsed, testPeriods = 0 }: MetricsCard
         />
       </Box>
 
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+      <Box sx={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: isHorizontal ? "0.5rem" : "0.75rem",
+      }}>
         {METRIC_INFO.map(({ key, label, tooltip, primary }) => {
           const val = metrics[key]
           if (val === null || val === undefined) return null
@@ -123,9 +130,9 @@ export function MetricsCard({ metrics, modelUsed, testPeriods = 0 }: MetricsCard
                   bgcolor: primary ? "primary.main" : isFva ? fvaBgColor : "action.hover",
                   color: primary || isFva ? "primary.contrastText" : "text.primary",
                   borderRadius: "0.5rem",
-                  px: "1rem",
-                  py: "0.5rem",
-                  minWidth: "5rem",
+                  px: isHorizontal ? "0.625rem" : "1rem",
+                  py: isHorizontal ? "0.25rem" : "0.5rem",
+                  minWidth: isHorizontal ? "3.5rem" : "5rem",
                   cursor: "default",
                 }}
               >
@@ -140,6 +147,38 @@ export function MetricsCard({ metrics, modelUsed, testPeriods = 0 }: MetricsCard
           )
         })}
       </Box>
+
+      {/* F4.2 — BIAS alert: warn when systematic over/under-estimation exceeds 5% */}
+      {metrics.bias !== null && metrics.bias !== undefined && Math.abs(metrics.bias) > 0.05 && (
+        <Alert severity="warning" sx={{ fontSize: "0.8125rem", py: "0.375rem" }}>
+          {metrics.bias > 0
+            ? `Sobreestimás un +${(metrics.bias * 100).toFixed(1)}%. Riesgo de sobrestock. Revisá si hay tendencia bajista o eventos que el modelo no captura.`
+            : `Subestimás un ${(metrics.bias * 100).toFixed(1)}%. Riesgo de quiebre de stock. Puede ser demanda estacional no capturada.`
+          }
+          {" "}Estudiá en{" "}
+          <span
+            style={{ textDecoration: "underline", cursor: "pointer" }}
+            onClick={() => { if (typeof window !== "undefined") window.location.href = "/dashboard/encyclopedia?chapter=4" }}
+          >
+            Enciclopedia Cap. 4 — Métricas
+          </span>.
+        </Alert>
+      )}
+
+      {/* F4.3 — FVA alert: error when model underperforms the Naive baseline */}
+      {metrics.fva !== null && metrics.fva !== undefined && metrics.fva < 0 && (
+        <Alert severity="error" sx={{ fontSize: "0.8125rem", py: "0.375rem" }}>
+          Tu modelo rinde peor que copiar el año pasado (FVA = {(metrics.fva * 100).toFixed(1)}%).
+          Considerá más datos de historia, cambiar el modelo o revisar el ETL.{" "}
+          Estudiá en{" "}
+          <span
+            style={{ textDecoration: "underline", cursor: "pointer" }}
+            onClick={() => { if (typeof window !== "undefined") window.location.href = "/dashboard/encyclopedia?chapter=11" }}
+          >
+            Enciclopedia Cap. 11 — FVA
+          </span>.
+        </Alert>
+      )}
     </Paper>
   )
 }

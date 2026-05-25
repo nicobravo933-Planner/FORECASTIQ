@@ -17,6 +17,7 @@ import Paper from "@mui/material/Paper"
 import Chip from "@mui/material/Chip"
 import IconButton from "@mui/material/IconButton"
 import Tooltip from "@mui/material/Tooltip"
+import ModelTrainingIcon from "@mui/icons-material/ModelTraining"
 import EditIcon from "@mui/icons-material/Edit"
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff"
@@ -110,12 +111,25 @@ export default function CalendarPage() {
               onMonthChange={handleMonthChange}
               onDelete={deleteEvent}
             />
+            {/* Dismiss tooltip — behavior note */}
           </Box>
 
           {/* Sidebar: month events list */}
           <Paper
-            variant="outlined"
-            sx={{ width: "20rem", flexShrink: 0, p: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}
+            elevation={0}
+            sx={{
+              width: "20rem",
+              flexShrink: 0,
+              p: "1.25rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.75rem",
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: "1rem",
+              boxShadow: "0 0.125rem 0.75rem rgba(0,0,0,0.06)",
+            }}
           >
             <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
               Eventos del mes ({monthEvents.length})
@@ -156,7 +170,7 @@ export default function CalendarPage() {
                     )}
                     {/* Dismiss — for auto-generated events (hides for this session) */}
                     {ev.source === "auto" && (
-                      <Tooltip title="Ocultar este evento">
+                      <Tooltip title="Ocultar este evento (solo esta sesión — se vuelve a mostrar al recargar)">
                         <IconButton size="small" onClick={() => handleDismiss(ev.id)} sx={{ p: "0.2rem" }}>
                           <VisibilityOffIcon sx={{ fontSize: "0.95rem" }} />
                         </IconButton>
@@ -182,6 +196,24 @@ export default function CalendarPage() {
                   <EventChip type={ev.type} />
                   <ImpactBadge impact_pct={ev.impact_pct} />
                   {ev.source === "auto" && <AutoBadge />}
+                  {ev.source === "auto" && (
+                    <Tooltip title="Este evento se usa como feature binaria en LightGBM durante el entrenamiento">
+                      <Chip
+                        icon={<ModelTrainingIcon sx={{ fontSize: "0.75rem !important" }} />}
+                        label="Activo en LightGBM"
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontSize: "0.6rem",
+                          fontWeight: 600,
+                          borderColor: "secondary.main",
+                          color: "secondary.main",
+                          height: "1.2rem",
+                          "& .MuiChip-icon": { color: "secondary.main" },
+                        }}
+                      />
+                    </Tooltip>
+                  )}
                   {ev.is_global && ev.source !== "auto" && (
                     <Chip label="Global" size="small" variant="outlined" sx={{ fontSize: "0.65rem" }} />
                   )}

@@ -19,6 +19,8 @@ const KEYS = {
   qualityLabel:  "fiq_quality_label",       // E5: "poor" | "fair" | "good" | "excellent"
   modelsAvail:   "fiq_models_available",    // E5: JSON array de model ids disponibles
   detectionReport: "fiq_detection_report",  // E6: DetectionResult cacheado del último detect
+  pendingModel:    "fiq_pending_model",       // UX-1e: model pre-selected from encyclopedia
+  cleanedDatasetId: "fiq_cleaned_dataset_id",  // F2.2: dataset processed by ETL
 } as const
 
 function safeGet(key: string): string | null {
@@ -125,5 +127,30 @@ export const appStore = {
     if (!raw) return []
     localStorage.removeItem(KEYS.pendingMsgs)
     try { return JSON.parse(raw) as unknown[] } catch { return [] }
+  },
+
+  // ── UX-1e: pending model pre-selection from Encyclopedia ──────────────────
+  // Set when user clicks "Try in Forecast" from an encyclopedia chapter.
+  // Forecast page reads and clears this on mount to pre-select the model.
+  setPendingModel(modelId: string): void {
+    safeSet(KEYS.pendingModel, modelId)
+  },
+  popPendingModel(): string | null {
+    const val = safeGet(KEYS.pendingModel)
+    if (typeof window !== "undefined") localStorage.removeItem(KEYS.pendingModel)
+    return val
+  },
+
+  // ── F2.2: cleaned dataset (post-ETL) ─────────────────────────────────────
+  // etl/page.tsx writes this when ETL succeeds.
+  // forecast/page.tsx reads it to show the ForecastContextBar badge.
+  setCleanedDataset(id: string): void {
+    safeSet(KEYS.cleanedDatasetId, id)
+  },
+  getCleanedDatasetId(): string | null {
+    return safeGet(KEYS.cleanedDatasetId)
+  },
+  clearCleanedDataset(): void {
+    if (typeof window !== "undefined") localStorage.removeItem(KEYS.cleanedDatasetId)
   },
 }

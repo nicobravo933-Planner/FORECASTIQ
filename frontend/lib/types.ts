@@ -123,6 +123,8 @@ export interface ForecastRunRequest {
   test_periods?: number   // 0 = hold-out auto 20%; N = hold-out manual N períodos
   cv_folds?: number       // 0 = sin CV; 2–5 = TimeSeriesSplit k folds
   manual_params?: Record<string, unknown> | null  // E4: parámetros manuales del usuario
+  // F2.3: trim training series to this date (null = full history)
+  train_start_date?: string | null
 }
 
 export interface ForecastStatusResponse {

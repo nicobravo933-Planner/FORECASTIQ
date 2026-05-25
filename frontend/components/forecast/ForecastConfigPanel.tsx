@@ -26,13 +26,19 @@ import Chip from "@mui/material/Chip"
 import Tooltip from "@mui/material/Tooltip"
 import Alert from "@mui/material/Alert"
 import ToggleButton from "@mui/material/ToggleButton"
+import Switch from "@mui/material/Switch"
+import FormControlLabel from "@mui/material/FormControlLabel"
 import CircularProgress from "@mui/material/CircularProgress"
 import LockIcon from "@mui/icons-material/Lock"
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline"
 import WarningAmberIcon from "@mui/icons-material/WarningAmber"
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome"
 import SearchIcon from "@mui/icons-material/Search"
+import { DatePicker } from "@mui/x-date-pickers/DatePicker"
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider"
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { useColumnPreview } from "@/hooks/useColumnPreview"
 import { useCapabilities } from "@/hooks/useCapabilities"
 import { DatasetPicker } from "@/components/forecast/DatasetPicker"
@@ -45,14 +51,17 @@ import type { DataFreq, ModelName, DatasetColumn } from "@/lib/types"
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ForecastConfig {
-  datasetId:     string
-  dateCol:       string
-  targetCol:     string
-  freq:          DataFreq
-  horizon:       number
-  modelOverride: ModelName | "auto"
-  testPeriods:   number   // 0 = hold-out auto; N = hold-out manual
-  cvFolds:       number   // 0 = sin CV; 2–5 = TimeSeriesSplit k folds
+  datasetId:      string
+  dateCol:        string
+  targetCol:      string
+  freq:           DataFreq
+  horizon:        number
+  modelOverride:  ModelName | "auto"
+  testPeriods:    number   // 0 = hold-out auto; N = hold-out manual
+  cvFolds:        number   // 0 = sin CV; 2–5 = TimeSeriesSplit k folds
+  // F2.3: training window — "auto" = full history; "custom" = user-picked date
+  trainWindow:    "auto" | "1y" | "2y" | "3y" | "custom"
+  trainStartDate: string | null  // ISO date, only used when trainWindow = "custom"
 }
 
 interface ForecastConfigPanelProps {
@@ -81,6 +90,15 @@ const FREQ_OPTIONS: { value: DataFreq; label: string }[] = [
   { value: "M", label: "Mensual" },
   { value: "Q", label: "Trimestral" },
 ]
+
+// F1.2 — test period options change based on frequency.
+// Values represent "reserve last N periods for test".
+const TEST_PERIODS_OPTIONS: Record<DataFreq, number[]> = {
+  D: [7, 30, 90],
+  W: [4, 8, 13],
+  M: [3, 6, 12],
+  Q: [2, 4, 8],
+}
 
 // ── Column type validation helpers ────────────────────────────────────────────
 
@@ -130,11 +148,29 @@ export function ForecastConfigPanel({ config, onChange, disabled = false, availa
   const preview  = useColumnPreview(config.datasetId || null)
   const { caps } = useCapabilities()
   const isLocal  = caps.tier === "local"
+  const router   = useRouter()
   const [detectedFreq, setDetectedFreq] = useState<FreqDetectionResult | null>(null)
 
   // E6: run detect and cache the result in appStore
   const [detecting, setDetecting] = useState(false)
   const [detectError, setDetectError] = useState<string | null>(null)
+
+  // F1.2: local state for manual test period input
+  const [testManualMode, setTestManualMode] = useState(false)
+  const [testManualVal, setTestManualVal]   = useState("")
+
+  // F1.4: link horizon <-> test periods when active
+  const [linkHorizonTest, setLinkHorizonTest] = useState(false)
+
+  // F1.2: reset testPeriods when freq changes and current value is not in new options
+  useEffect(() => {
+    if (testManualMode) return  // user is in manual mode, leave it alone
+    const opts = TEST_PERIODS_OPTIONS[config.freq]
+    if (config.testPeriods !== 0 && !opts.includes(config.testPeriods)) {
+      onChange({ testPeriods: 0 })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.freq])
 
   const handleDetect = async () => {
     if (!config.datasetId || !config.dateCol || !config.targetCol) return
@@ -414,61 +450,215 @@ export function ForecastConfigPanel({ config, onChange, disabled = false, availa
         </FormControl>
       </Box>
 
-      {/* Horizon */}
-      <HorizonSelector
-        value={config.horizon}
-        freq={config.freq}
-        onChange={(h) => onChange({ horizon: h })}
-        disabled={disabled}
-      />
+      {/* Horizon — F4.1: chip ? links to Encyclopedia Ch.1 */}
+      <Box sx={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+        <Box sx={{ flex: 1 }}>
+          <HorizonSelector
+            value={config.horizon}
+            freq={config.freq}
+            onChange={(h) => {
+              onChange(linkHorizonTest ? { horizon: h, testPeriods: h } : { horizon: h })
+            }}
+            disabled={disabled}
+          />
+        </Box>
+        <Tooltip
+          title="Cu\u00e1ntos per\u00edodos futuros proyectar. Vandeput recomienda no superar 1 ciclo estacional completo: 12 per\u00edodos para datos mensuales, 52 para datos semanales."
+          placement="top"
+        >
+          <Chip
+            label="?"
+            size="small"
+            variant="outlined"
+            onClick={() => router.push("/dashboard/encyclopedia?chapter=1")}
+            sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer", mt: "0.375rem" }}
+          />
+        </Tooltip>
+      </Box>
 
-      {/* Hold-out manual */}
+      {/* F1.4 — Link horizon ↔ test periods */}
+      <Box sx={{ display: "flex", alignItems: "center", mt: "-0.5rem" }}>
+        <Tooltip
+          title="Vandeput recomienda que el horizonte de proyección sea igual al período de evaluación"
+          placement="top"
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={linkHorizonTest}
+                onChange={(e) => {
+                  setLinkHorizonTest(e.target.checked)
+                  if (e.target.checked) {
+                    // Sync test to current horizon immediately
+                    setTestManualMode(false)
+                    onChange({ testPeriods: config.horizon })
+                  }
+                }}
+                disabled={disabled}
+              />
+            }
+            label={
+              <Typography variant="caption" color="text.secondary">
+                Horizonte = test (Vandeput)
+              </Typography>
+            }
+          />
+        </Tooltip>
+      </Box>
+
+      {/* Hold-out manual — F1.2: opciones adaptativas por frecuencia */}
       <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Typography variant="body2" color="text.secondary" fontWeight={500}>
             Períodos de evaluación (test)
           </Typography>
+          {/* F4.1 + F4.4 — tooltip ampliado con recomendaci\u00f3n Vandeput */}
           <Tooltip
-            title="Reserva los últimos N períodos como test. El modelo se entrena sin ellos y sus predicciones se comparan contra los valores reales. Ves las 3 zonas en el gráfico."
+            title="Reserv\u00e1 los \u00faltimos N per\u00edodos como test. Vandeput recomienda al menos 1 ciclo estacional completo: 12 per\u00edodos (mensual), 52 semanas, 4 trimestres. Un test m\u00e1s corto subestima el error real en producci\u00f3n."
             placement="top"
           >
             <Chip
               label="?"
               size="small"
               variant="outlined"
-              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "help" }}
+              onClick={() => router.push("/dashboard/encyclopedia?chapter=4")}
+              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }}
             />
           </Tooltip>
         </Box>
         <Box sx={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          {[0, 3, 6, 12].map((v) => (
+          {/* Auto option always first */}
+          <ToggleButton
+            value={0}
+            selected={config.testPeriods === 0 && !testManualMode}
+            onChange={() => { if (!disabled) { setTestManualMode(false); onChange({ testPeriods: 0 }) } }}
+            size="small"
+            sx={{
+              px: "0.75rem", py: "0.25rem", fontSize: "0.75rem", textTransform: "none",
+              borderRadius: "0.375rem", border: "1px solid",
+              borderColor: config.testPeriods === 0 && !testManualMode ? "primary.main" : "divider",
+              bgcolor: config.testPeriods === 0 && !testManualMode ? "primary.main" : "transparent",
+              color: config.testPeriods === 0 && !testManualMode ? "primary.contrastText" : "text.secondary",
+              "&:hover": { bgcolor: config.testPeriods === 0 && !testManualMode ? "primary.dark" : "action.hover" },
+            }}
+          >
+            Auto (20%)
+          </ToggleButton>
+
+          {/* Adaptive quick options per frequency */}
+          {TEST_PERIODS_OPTIONS[config.freq].map((v) => (
             <ToggleButton
               key={v}
               value={v}
-              selected={config.testPeriods === v}
-              onChange={() => !disabled && onChange({ testPeriods: v })}
+              selected={config.testPeriods === v && !testManualMode}
+              onChange={() => { if (!disabled) { setTestManualMode(false); onChange({ testPeriods: v }) } }}
               size="small"
               sx={{
-                px: "0.75rem",
-                py: "0.25rem",
-                fontSize: "0.75rem",
-                textTransform: "none",
-                borderRadius: "0.375rem",
-                border: "1px solid",
-                borderColor: config.testPeriods === v ? "primary.main" : "divider",
-                bgcolor: config.testPeriods === v ? "primary.main" : "transparent",
-                color: config.testPeriods === v ? "primary.contrastText" : "text.secondary",
-                "&:hover": { bgcolor: config.testPeriods === v ? "primary.dark" : "action.hover" },
+                px: "0.75rem", py: "0.25rem", fontSize: "0.75rem", textTransform: "none",
+                borderRadius: "0.375rem", border: "1px solid",
+                borderColor: config.testPeriods === v && !testManualMode ? "primary.main" : "divider",
+                bgcolor: config.testPeriods === v && !testManualMode ? "primary.main" : "transparent",
+                color: config.testPeriods === v && !testManualMode ? "primary.contrastText" : "text.secondary",
+                "&:hover": { bgcolor: config.testPeriods === v && !testManualMode ? "primary.dark" : "action.hover" },
               }}
             >
-              {v === 0 ? "Auto (20%)" : `Últimos ${v}`}
+              {`Últ. ${v}`}
             </ToggleButton>
           ))}
+
+          {/* Manual input toggle */}
+          <ToggleButton
+            value="manual"
+            selected={testManualMode}
+            onChange={() => { if (!disabled) setTestManualMode((m) => !m) }}
+            size="small"
+            sx={{
+              px: "0.75rem", py: "0.25rem", fontSize: "0.75rem", textTransform: "none",
+              borderRadius: "0.375rem", border: "1px solid",
+              borderColor: testManualMode ? "primary.main" : "divider",
+              bgcolor: testManualMode ? "primary.main" : "transparent",
+              color: testManualMode ? "primary.contrastText" : "text.secondary",
+              "&:hover": { bgcolor: testManualMode ? "primary.dark" : "action.hover" },
+            }}
+          >
+            Manual
+          </ToggleButton>
+
+          {/* Manual number input */}
+          {testManualMode && (
+            <TextField
+              size="small"
+              type="number"
+              label="períodos"
+              value={testManualVal}
+              onChange={(e) => {
+                const raw = e.target.value
+                setTestManualVal(raw)
+                const n = parseInt(raw, 10)
+                if (!isNaN(n) && n >= 1) onChange({ testPeriods: n })
+              }}
+              disabled={disabled}
+              inputProps={{ min: 1 }}
+              sx={{ width: "6rem" }}
+            />
+          )}
         </Box>
         {config.testPeriods > 0 && (
           <Typography variant="caption" color="text.disabled">
             El gráfico mostrará las zonas: Entrenamiento · Test · Proyección
           </Typography>
+        )}
+      </Box>
+
+      {/* F2.3 — Training window selector */}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography variant="body2" color="text.secondary" fontWeight={500}>
+            Ventana de entrenamiento
+          </Typography>
+          <Tooltip
+            title="Limita la historia que usa el modelo. 'Auto' = toda la historia disponible. Útil cuando la demanda cambió estructuralmente (ej: pandemia) y la historia vieja 'contamina' el modelo."
+            placement="top"
+          >
+            <Chip label="?" size="small" variant="outlined"
+              onClick={() => router.push("/dashboard/encyclopedia?chapter=2")}
+              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }} />
+          </Tooltip>
+        </Box>
+        <TextField
+          select
+          size="small"
+          label="Ventana"
+          value={config.trainWindow ?? "auto"}
+          onChange={(e) => {
+            const val = e.target.value as ForecastConfig["trainWindow"]
+            onChange({ trainWindow: val, trainStartDate: val !== "custom" ? null : config.trainStartDate })
+          }}
+          disabled={disabled}
+          sx={{ width: "12rem" }}
+        >
+          <MenuItem value="auto">Auto (toda la historia)</MenuItem>
+          <MenuItem value="1y">Últimos 1 año</MenuItem>
+          <MenuItem value="2y">Últimos 2 años</MenuItem>
+          <MenuItem value="3y">Últimos 3 años</MenuItem>
+          <MenuItem value="custom">Desde fecha…</MenuItem>
+        </TextField>
+        {/* DatePicker: only shown in "custom" mode */}
+        {config.trainWindow === "custom" && (
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              label="Fecha de inicio del train"
+              value={config.trainStartDate ? new Date(config.trainStartDate) : null}
+              onChange={(date) => {
+                if (!date) { onChange({ trainStartDate: null }); return }
+                const iso = (date as Date).toISOString().split("T")[0]
+                onChange({ trainStartDate: iso })
+              }}
+              disabled={disabled}
+              slotProps={{ textField: { size: "small", sx: { width: "12rem" } } }}
+            />
+          </LocalizationProvider>
         )}
       </Box>
 
@@ -486,7 +676,8 @@ export function ForecastConfigPanel({ config, onChange, disabled = false, availa
               label="?"
               size="small"
               variant="outlined"
-              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "help" }}
+              onClick={() => router.push("/dashboard/encyclopedia?chapter=10")}
+              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }}
             />
           </Tooltip>
         </Box>

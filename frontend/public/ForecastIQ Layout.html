@@ -459,7 +459,477 @@ function Sidebar({ theme, t, open, activeNav, setActiveNav }) {
   );
 }
 
-// ─── Home View ───────────────────────────────────────────────────────────────
+// ─── SVG helpers ─────────────────────────────────────────────────────────────
+function Sparkline({ data, color, width = 80, height = 28, fill = true }) {
+  if (!data || data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => [
+    (i / (data.length - 1)) * width,
+    height - 4 - ((v - min) / range) * (height - 8) + 4,
+  ]);
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const area = fill
+    ? `${line} L${width},${height} L0,${height} Z`
+    : null;
+  const last = pts[pts.length - 1];
+  return (
+    <svg width={width} height={height} style={{ overflow: "visible", flexShrink: 0, display: "block" }}>
+      {fill && <path d={area} fill={color} opacity={0.13} />}
+      <path d={line} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r={3} fill={color} />
+    </svg>
+  );
+}
+
+function QualityRing({ score, color, size = 52 }) {
+  const r = size * 0.36;
+  const circ = 2 * Math.PI * r;
+  const dash = Math.max(0, Math.min(1, score / 100)) * circ;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={`${color}22`} strokeWidth={4.5} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={4.5}
+        strokeDasharray={`${dash.toFixed(2)} ${(circ - dash).toFixed(2)}`}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      <text x={size / 2} y={size / 2 + 4.5} textAnchor="middle"
+        fontSize={size * 0.22} fontWeight="700" fill={color} fontFamily="Inter,sans-serif">
+        {score}
+      </text>
+    </svg>
+  );
+}
+
+function ForecastMiniChart({ theme }) {
+  const th = THEMES[theme];
+  const W = 520, H = 130;
+  const PAD = { t: 14, b: 26, l: 36, r: 12 };
+  const cW = W - PAD.l - PAD.r;
+  const cH = H - PAD.t - PAD.b;
+
+  const data = [
+    { label: "Dic", actual: 128, forecast: null, lo: null, hi: null },
+    { label: "Ene", actual: 142, forecast: null, lo: null, hi: null },
+    { label: "Feb", actual: 138, forecast: null, lo: null, hi: null },
+    { label: "Mar", actual: 155, forecast: null, lo: null, hi: null },
+    { label: "Abr", actual: 161, forecast: null, lo: null, hi: null },
+    { label: "May", actual: 148, forecast: 152, lo: 132, hi: 172 },
+    { label: "Jun", actual: null, forecast: 163, lo: 140, hi: 186 },
+    { label: "Jul", actual: null, forecast: 171, lo: 145, hi: 197 },
+    { label: "Ago", actual: null, forecast: 179, lo: 149, hi: 209 },
+  ];
+
+  const allVals = data.flatMap(d => [d.actual, d.hi].filter(Boolean));
+  const minV = Math.min(...allVals) - 8;
+  const maxV = Math.max(...allVals) + 8;
+  const xS = i => PAD.l + (i / (data.length - 1)) * cW;
+  const yS = v => PAD.t + cH - ((v - minV) / (maxV - minV)) * cH;
+
+  const actualPts = data.map((d, i) => d.actual != null ? [i, d.actual] : null).filter(Boolean);
+  const fxPts = data.map((d, i) => d.forecast != null ? [i, d.forecast] : null).filter(Boolean);
+  const ciPts = data.map((d, i) => d.lo != null ? [i, d.lo, d.hi] : null).filter(Boolean);
+
+  const actualPath = actualPts.map(([i, v], j) => `${j === 0 ? "M" : "L"}${xS(i).toFixed(1)},${yS(v).toFixed(1)}`).join(" ");
+  const fxPath = fxPts.map(([i, v], j) => `${j === 0 ? "M" : "L"}${xS(i).toFixed(1)},${yS(v).toFixed(1)}`).join(" ");
+  const ciPath = ciPts.length > 0
+    ? [
+        ...ciPts.map(([i,,hi], j) => `${j === 0 ? "M" : "L"}${xS(i).toFixed(1)},${yS(hi).toFixed(1)}`),
+        ...ciPts.slice().reverse().map(([i, lo]) => `L${xS(i).toFixed(1)},${yS(lo).toFixed(1)}`),
+        "Z",
+      ].join(" ")
+    : "";
+
+  const divX = xS(5);
+  const gridVals = [minV + (maxV - minV) * 0.8, minV + (maxV - minV) * 0.5, minV + (maxV - minV) * 0.2];
+  const accentColor = th.accent;
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible", display: "block" }}>
+      {gridVals.map((v, i) => (
+        <g key={i}>
+          <line x1={PAD.l} y1={yS(v)} x2={W - PAD.r} y2={yS(v)}
+            stroke={th.calBorder} strokeWidth={1} strokeDasharray="2,3" />
+          <text x={PAD.l - 5} y={yS(v) + 3.5} textAnchor="end" fontSize={8.5} fill={th.pageMeta} fontFamily="Inter,sans-serif">
+            {Math.round(v)}
+          </text>
+        </g>
+      ))}
+
+      <rect x={divX} y={PAD.t} width={W - PAD.r - divX} height={cH}
+        fill="rgba(139,92,246,0.04)" rx={2} />
+
+      {ciPath && <path d={ciPath} fill="rgba(139,92,246,0.13)" />}
+      <path d={actualPath} fill="none" stroke={accentColor} strokeWidth={2.2}
+        strokeLinecap="round" strokeLinejoin="round" />
+      <path d={fxPath} fill="none" stroke="#8b5cf6" strokeWidth={2}
+        strokeDasharray="5,3" strokeLinecap="round" />
+      <line x1={divX} y1={PAD.t} x2={divX} y2={PAD.t + cH}
+        stroke={th.pageMeta} strokeWidth={1} strokeDasharray="3,3" opacity={0.6} />
+
+      {actualPts.map(([i, v]) => (
+        <circle key={i} cx={xS(i)} cy={yS(v)} r={2.5} fill={accentColor} />
+      ))}
+      {fxPts.map(([i, v]) => (
+        <circle key={i} cx={xS(i)} cy={yS(v)} r={2.5} fill="#8b5cf6" opacity={0.7} />
+      ))}
+
+      {data.map((d, i) => (
+        <text key={i} x={xS(i)} y={H - 4} textAnchor="middle" fontSize={8.5}
+          fill={i >= 5 ? "#8b5cf6" : th.pageSubtitle}
+          fontWeight={i >= 5 ? "600" : "400"}
+          fontFamily="Inter,sans-serif">
+          {d.label}
+        </text>
+      ))}
+
+      <text x={divX + 6} y={PAD.t + 10} fontSize={8} fill="#8b5cf6"
+        fontWeight="600" letterSpacing="0.06em" fontFamily="Inter,sans-serif">FORECAST →</text>
+    </svg>
+  );
+}
+
+// ─── HomeViewV2 — data-forward dashboard ──────────────────────────────────────
+function HomeViewV2({ theme, setActiveNav }) {
+  const th = THEMES[theme];
+  const heroBgMap = {
+    slateSidebar: "linear-gradient(135deg, #1e293b 0%, #2d3f55 100%)",
+    indigoLinear:  "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+    graphiteDark:  "linear-gradient(135deg, #27272a 0%, #3f3f46 100%)",
+  };
+  const heroBg = heroBgMap[theme] || th.headerBg;
+
+  const wapeHistory = [26.1, 23.4, 22.0, 20.8, 20.1, 18.4];
+  const datasetsHistory = [1, 1, 2, 2, 3, 3];
+
+  const UPCOMING_EVENTS = [
+    { date: "25 Mayo",  label: "Revolución de Mayo", type: "Feriado",    color: "#3b82f6", days: 1  },
+    { date: "31 Mayo",  label: "Hot Sale AR",         type: "Comercial",  color: "#f59e0b", days: 7  },
+    { date: "20 Jun",   label: "Día del Padre",       type: "Comercial",  color: "#ec4899", days: 27 },
+    { date: "9 Jul",    label: "Independencia",       type: "Feriado",    color: "#3b82f6", days: 46 },
+  ];
+
+  const QUICK_ACTIONS = [
+    { icon: "upload_file",   label: "Subir dataset",       sub: "CSV · Parquet · DB",        color: "#3b82f6", nav: "csv"       },
+    { icon: "trending_up",   label: "Nuevo forecast",      sub: "4 modelos · auto-detección", color: "#8b5cf6", nav: "forecast"  },
+    { icon: "smart_toy",     label: "Chat IA",             sub: "Preguntá en lenguaje natural",color: "#f59e0b", nav: "chatia"   },
+    { icon: "bar_chart",     label: "Batch 25k SKUs",      sub: "Nixtla StatsForecast",       color: "#ec4899", nav: "batch"    },
+  ];
+
+  const card = {
+    background: th.calBg,
+    borderRadius: 14,
+    border: `1px solid ${th.calBorder}`,
+    boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+  };
+
+  return (
+    <div style={{
+      height: "100%", display: "flex", flexDirection: "column",
+      gap: 11, padding: "14px 22px 14px", overflow: "hidden",
+    }}>
+
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <div style={{
+        background: heroBg, borderRadius: 14,
+        padding: "13px 20px", display: "flex", alignItems: "center", gap: 18,
+        position: "relative", overflow: "hidden", flexShrink: 0,
+      }}>
+        <div style={{ position:"absolute", right:-24, top:-24, width:180, height:180,
+          borderRadius:"50%", background:"rgba(255,255,255,0.04)", pointerEvents:"none" }} />
+
+        <img src="logo.png" alt="ForecastIQ" style={{
+          width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+        }} />
+
+        <div style={{ flex: 1, position: "relative", zIndex: 1 }}>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom: 3 }}>
+            Domingo, 24 de Mayo 2026
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing:"-0.4px", lineHeight: 1.2 }}>
+            Buenos días, Nicolás
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
+            Tu pipeline está activo · último forecast hace 2h · 3 eventos esta semana
+          </div>
+        </div>
+
+        <div style={{ display:"flex", gap:8, alignItems:"center", flexShrink:0, zIndex:1 }}>
+          <span style={{ fontSize:11, fontWeight:600, padding:"4px 12px", borderRadius:20,
+            background:"rgba(34,197,94,0.18)", color:"#4ade80",
+            display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e",
+              animation:"pulseDot 2s ease-in-out infinite" }} />
+            Backend online
+          </span>
+          <span style={{ fontSize:11, fontWeight:500, padding:"4px 12px", borderRadius:20,
+            background:"rgba(255,255,255,0.1)", color:"rgba(255,255,255,0.7)" }}>
+            LightGBM · 4 modelos
+          </span>
+        </div>
+      </div>
+
+      {/* ── KPI Row ───────────────────────────────────────────────────────── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, flexShrink:0 }}>
+
+        {/* WAPE */}
+        <div style={{ ...card, padding:"13px 15px", display:"flex", flexDirection:"column", gap:6 }}>
+          <div style={{ fontSize:9.5, color:th.pageMeta, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+            WAPE último forecast
+          </div>
+          <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between" }}>
+            <div>
+              <span style={{ fontSize:26, fontWeight:800, color:"#10b981", lineHeight:1 }}>18.4</span>
+              <span style={{ fontSize:13, fontWeight:600, color:"#10b981" }}>%</span>
+              <div style={{ fontSize:10.5, color:"#10b981", marginTop:3, display:"flex", alignItems:"center", gap:3 }}>
+                <span>↘</span> 1.8pp vs anterior
+              </div>
+            </div>
+            <Sparkline data={wapeHistory} color="#10b981" width={72} height={30} fill={true} />
+          </div>
+          <div style={{ fontSize:10.5, color:th.pageSubtitle }}>LightGBM · ventas_electronica</div>
+        </div>
+
+        {/* Quality Score */}
+        <div style={{ ...card, padding:"13px 15px", display:"flex", flexDirection:"column", gap:6 }}>
+          <div style={{ fontSize:9.5, color:th.pageMeta, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+            Calidad del dataset
+          </div>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flex:1 }}>
+            <div>
+              <div style={{ fontSize:22, fontWeight:800, color:"#10b981", lineHeight:1.1 }}>87<span style={{ fontSize:13, fontWeight:500 }}>/100</span></div>
+              <div style={{ fontSize:11, marginTop:4 }}>
+                <span style={{ background:"#dcfce7", color:"#16a34a", fontSize:10, fontWeight:600, padding:"2px 7px", borderRadius:20 }}>🟢 Buena</span>
+              </div>
+              <div style={{ fontSize:10.5, color:th.pageSubtitle, marginTop:4 }}>LightGBM disponible</div>
+            </div>
+            <QualityRing score={87} color="#10b981" size={54} />
+          </div>
+        </div>
+
+        {/* Modelos activos */}
+        <div style={{ ...card, padding:"13px 15px", display:"flex", flexDirection:"column", gap:6 }}>
+          <div style={{ fontSize:9.5, color:th.pageMeta, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+            Modelos disponibles
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:2 }}>
+            <div style={{ fontSize:26, fontWeight:800, color:th.accent, lineHeight:1 }}>4</div>
+            <div style={{ fontSize:10.5, color:th.pageSubtitle }}>activos</div>
+          </div>
+          <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+            {[
+              { label:"MA",    color:"#3b82f6" },
+              { label:"HW",    color:"#0ea5e9" },
+              { label:"SARIMA",color:"#8b5cf6" },
+              { label:"LGB",   color:"#10b981" },
+            ].map(m => (
+              <span key={m.label} style={{
+                fontSize:10, fontWeight:600, padding:"2px 7px", borderRadius:20,
+                background:`${m.color}16`, color:m.color, border:`1px solid ${m.color}30`,
+              }}>{m.label}</span>
+            ))}
+          </div>
+          <div style={{ fontSize:10.5, color:th.pageSubtitle }}>Score 87 → todos desbloqueados</div>
+        </div>
+
+        {/* Próximo evento */}
+        <div style={{ ...card, padding:"13px 15px", display:"flex", flexDirection:"column", gap:6 }}>
+          <div style={{ fontSize:9.5, color:th.pageMeta, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+            Próximo evento
+          </div>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+            <div style={{ width:38, height:38, borderRadius:10, background:"rgba(245,158,11,0.12)",
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <span style={{ fontSize:9, fontWeight:700, color:"#f59e0b", lineHeight:1 }}>MAY</span>
+              <span style={{ fontSize:15, fontWeight:800, color:"#f59e0b", lineHeight:1.1 }}>31</span>
+            </div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:th.pageTitle }}>Hot Sale AR</div>
+              <div style={{ fontSize:10.5, color:th.pageSubtitle, marginTop:2 }}>en 7 días · feature LightGBM</div>
+              <span style={{ fontSize:10, fontWeight:600, padding:"2px 7px", borderRadius:20,
+                background:"rgba(245,158,11,0.12)", color:"#f59e0b", marginTop:4, display:"inline-block" }}>Comercial</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main area ─────────────────────────────────────────────────────── */}
+      <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 272px", gap:11, minHeight:0 }}>
+
+        {/* Left col: chart + stepper */}
+        <div style={{ display:"flex", flexDirection:"column", gap:11, minHeight:0 }}>
+
+          {/* Forecast chart */}
+          <div style={{ ...card, padding:"14px 18px", flex:1, minHeight:0, display:"flex", flexDirection:"column" }}>
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10, flexShrink:0 }}>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:th.pageTitle, display:"flex", alignItems:"center", gap:8 }}>
+                  Último forecast
+                  <span style={{ fontSize:10, fontWeight:600, padding:"2px 8px", borderRadius:20,
+                    background:"rgba(139,92,246,0.12)", color:"#8b5cf6" }}>LightGBM</span>
+                </div>
+                <div style={{ fontSize:11, color:th.pageSubtitle, marginTop:2 }}>
+                  ventas_electronica_mensual · horizonte 3 meses · WAPE <span style={{ color:"#10b981", fontWeight:600 }}>18.4%</span> · FVA <span style={{ color:"#10b981", fontWeight:600 }}>+4.2pp</span>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:14, alignItems:"center", flexShrink:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:10.5, color:th.pageSubtitle }}>
+                  <span style={{ display:"inline-block", width:18, height:2, background:th.accent, borderRadius:2 }} />
+                  Real
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:10.5, color:th.pageSubtitle }}>
+                  <span style={{ display:"inline-block", width:18, height:2, background:"#8b5cf6",
+                    borderRadius:2, borderTop:"2px dashed #8b5cf6", marginTop:-2 }} />
+                  Forecast
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:10.5, color:th.pageSubtitle }}>
+                  <span style={{ display:"inline-block", width:12, height:8, background:"rgba(139,92,246,0.13)", borderRadius:2 }} />
+                  IC 90%
+                </div>
+                <button
+                  onClick={() => setActiveNav("forecast")}
+                  style={{ fontSize:11, fontWeight:600, color:th.accent, background:"none",
+                    border:`1px solid ${th.calBorder}`, borderRadius:8, padding:"5px 11px",
+                    cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+                  Ver forecast <Icon name="arrow_forward" size={12} style={{ color:th.accent }} />
+                </button>
+              </div>
+            </div>
+            <div style={{ flex:1, minHeight:0, display:"flex", alignItems:"center" }}>
+              <ForecastMiniChart theme={theme} />
+            </div>
+          </div>
+
+          {/* Stepper pipeline */}
+          <div style={{ ...card, padding:"13px 20px", flexShrink:0 }}>
+            <div style={{ fontSize:9.5, color:th.pageMeta, fontWeight:600, letterSpacing:"0.07em",
+              textTransform:"uppercase", marginBottom:10 }}>
+              Tu pipeline actual
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:0 }}>
+              {[
+                { step:1, label:"Datos / EDA",  sub:"ventas_electronica",    done:true,   nav:"datasets" },
+                { step:2, label:"ETL · Calidad", sub:"Winsorizado · Score 87", done:true,   nav:"csv" },
+                { step:3, label:"Forecast",      sub:"LightGBM · WAPE 18.4%", done:true,   nav:"forecast", active:true },
+                { step:4, label:"MLOps",         sub:"Drift monitoring",       done:false,  nav:"mlops" },
+              ].map((s, i, arr) => (
+                <React.Fragment key={s.step}>
+                  <div
+                    onClick={() => setActiveNav(s.nav)}
+                    style={{ flex:1, display:"flex", alignItems:"center", gap:9, cursor:"pointer",
+                      padding:"4px 6px", borderRadius:8,
+                      background: s.active ? th.accentBg : "transparent",
+                      border: s.active ? `1px solid ${th.accent}30` : "1px solid transparent",
+                      transition:"background 0.15s" }}>
+                    <div style={{ width:26, height:26, borderRadius:"50%", flexShrink:0,
+                      background: s.done ? (s.active ? th.accent : `${th.accent}20`) : th.calBorder,
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      {s.done
+                        ? <Icon name={s.active ? "radio_button_checked" : "check"} size={13}
+                            style={{ color: s.active ? "#fff" : th.accent }} />
+                        : <span style={{ fontSize:10, fontWeight:700, color:th.pageMeta }}>{s.step}</span>
+                      }
+                    </div>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:11.5, fontWeight: s.active ? 700 : 600,
+                        color: s.active ? th.accent : (s.done ? th.pageTitle : th.pageSubtitle),
+                        whiteSpace:"nowrap" }}>{s.label}</div>
+                      <div style={{ fontSize:10, color: s.active ? th.accent : th.pageMeta,
+                        opacity: s.active ? 0.85 : 1,
+                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.sub}</div>
+                    </div>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <div style={{ width:20, height:1, background: s.done ? `${th.accent}50` : th.calBorder,
+                      flexShrink:0 }} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right col: events + quick actions */}
+        <div style={{ display:"flex", flexDirection:"column", gap:11, minHeight:0 }}>
+
+          {/* Próximos eventos */}
+          <div style={{ ...card, padding:"13px 15px", flex:1, minHeight:0, display:"flex", flexDirection:"column" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, flexShrink:0 }}>
+              <div style={{ fontSize:9.5, color:th.pageMeta, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase" }}>
+                Próximos eventos
+              </div>
+              <button onClick={() => setActiveNav("calendario")}
+                style={{ fontSize:10.5, fontWeight:600, color:th.accent, background:"none",
+                  border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
+                Ver todos <Icon name="arrow_forward" size={11} style={{ color:th.accent }} />
+              </button>
+            </div>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:7, overflowY:"auto", minHeight:0 }}>
+              {UPCOMING_EVENTS.map((ev, i) => (
+                <div key={i} style={{
+                  display:"flex", alignItems:"center", gap:10,
+                  padding:"8px 10px", borderRadius:9,
+                  background:`${ev.color}08`,
+                  border:`1px solid ${ev.color}20`,
+                }}>
+                  <div style={{ width:34, height:34, borderRadius:8, flexShrink:0,
+                    background:`${ev.color}18`,
+                    display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <Icon name="event" size={16} style={{ color:ev.color }} />
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:th.pageTitle,
+                      whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{ev.label}</div>
+                    <div style={{ fontSize:10.5, color:th.pageSubtitle, marginTop:1 }}>{ev.date}</div>
+                  </div>
+                  <div style={{ fontSize:10, fontWeight:700, color:ev.color,
+                    background:`${ev.color}15`, padding:"2px 7px", borderRadius:20, flexShrink:0 }}>
+                    {ev.days === 1 ? "mañana" : `${ev.days}d`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick actions */}
+          <div style={{ ...card, padding:"13px 15px", flexShrink:0 }}>
+            <div style={{ fontSize:9.5, color:th.pageMeta, fontWeight:600, letterSpacing:"0.07em",
+              textTransform:"uppercase", marginBottom:10 }}>
+              Acciones rápidas
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {QUICK_ACTIONS.map(a => (
+                <div key={a.nav}
+                  onClick={() => setActiveNav(a.nav)}
+                  style={{ display:"flex", alignItems:"center", gap:9,
+                    padding:"7px 8px", borderRadius:9, cursor:"pointer",
+                    transition:"background 0.14s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = `${a.color}0d`}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <div style={{ width:30, height:30, borderRadius:8, flexShrink:0,
+                    background:`${a.color}14`,
+                    display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <Icon name={a.icon} size={15} style={{ color:a.color }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize:12, fontWeight:600, color:th.pageTitle }}>{a.label}</div>
+                    <div style={{ fontSize:10, color:th.pageSubtitle }}>{a.sub}</div>
+                  </div>
+                  <Icon name="chevron_right" size={14} style={{ color:th.pageMeta, marginLeft:"auto" }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Home View (v1 — original) ────────────────────────────────────────────────
 function HomeView({ theme, setActiveNav }) {
   const th = THEMES[theme];
   const [hoveredCard, setHoveredCard] = React.useState(null);
@@ -783,7 +1253,8 @@ function App() {
     "theme": "navyPro",
     "sidebarWidth": 240,
     "logoSize": "md",
-    "density": "normal"
+    "density": "normal",
+    "homeVersion": "v2"
   }/*EDITMODE-END*/;
 
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
@@ -811,7 +1282,9 @@ function App() {
         background: th.bodyBg,
       }}>
         {activeNav === "inicio" ? (
-          <HomeView theme={theme} setActiveNav={setActiveNav} />
+          t.homeVersion === "v2"
+            ? <HomeViewV2 theme={theme} setActiveNav={setActiveNav} />
+            : <HomeView theme={theme} setActiveNav={setActiveNav} />
         ) : (
           <>
             {/* Page header */}
@@ -851,6 +1324,12 @@ function App() {
 
       {/* Tweaks Panel */}
       <TweaksPanel>
+        <TweakSection title="Vista Home">
+          <TweakRadio id="homeVersion" label="Versión"
+            options={[{value:"v2",label:"V2 · Data"},{value:"v1",label:"V1 · Nav"}]}
+            value={t.homeVersion} onChange={v => setTweak("homeVersion", v)}
+          />
+        </TweakSection>
         <TweakSection title="Tema de color">
           <TweakSelect id="theme" label="Variante"
             options={[

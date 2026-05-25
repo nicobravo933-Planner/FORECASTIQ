@@ -52,22 +52,33 @@ export function HorizonSelector({
   disabled = false,
 }: HorizonSelectorProps) {
   const cfg = FREQ_CONFIG[freq] ?? FREQ_CONFIG["M"]
-  const isCustom = !cfg.quickOptions.includes(value)
 
-  const [customVal, setCustomVal] = useState(isCustom ? String(value) : "")
+  // isCustomMode is separate from the value so clicking "Otro" activates
+  // the input immediately, even before the user types a number.
+  const [isCustomMode, setIsCustomMode] = useState(!cfg.quickOptions.includes(value))
+  const [customVal, setCustomVal]       = useState(!cfg.quickOptions.includes(value) ? String(value) : "")
 
-  // Reset custom input when freq changes and value is out of range
+  // When frequency changes and current value is out of range, reset to first option
   useEffect(() => {
     if (value > cfg.max) {
       onChange(cfg.quickOptions[0])
       setCustomVal("")
+      setIsCustomMode(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freq])
 
   const handleQuick = (_: React.MouseEvent<HTMLElement>, newVal: string | null) => {
-    if (newVal === "custom") return
-    if (newVal) { onChange(Number(newVal)); setCustomVal("") }
+    if (newVal === "custom") {
+      // Activate the custom input without changing the value yet
+      setIsCustomMode(true)
+      return
+    }
+    if (newVal) {
+      setIsCustomMode(false)
+      setCustomVal("")
+      onChange(Number(newVal))
+    }
   }
 
   const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +88,8 @@ export function HorizonSelector({
     if (!isNaN(parsed) && parsed >= 1 && parsed <= cfg.max) onChange(parsed)
   }
 
-  const toggleValue = isCustom ? "custom" : String(value)
+  // ToggleButtonGroup value: "custom" when in custom mode, otherwise the numeric value
+  const toggleValue = isCustomMode ? "custom" : String(value)
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
@@ -101,7 +113,7 @@ export function HorizonSelector({
           <ToggleButton value="custom">Otro</ToggleButton>
         </ToggleButtonGroup>
 
-        {(isCustom || toggleValue === "custom") && (
+        {isCustomMode && (
           <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <TextField
               size="small"

@@ -190,20 +190,22 @@ async def delete_user_event(event_id: str) -> None:
 
 class EventFeatureColumn(BaseModel):
     """Metadata de una columna de feature de evento."""
-    column: str           # nombre de la columna, ej: is_black_friday
-    event_name: str       # nombre original del evento
-    event_type: str       # holiday | promotion | seasonal | other
-    n_active: int         # cuántas fechas del dataset tienen este evento activo
-    source: str           # manual | auto
+
+    column: str  # nombre de la columna, ej: is_black_friday
+    event_name: str  # nombre original del evento
+    event_type: str  # holiday | promotion | seasonal | other
+    n_active: int  # cuántas fechas del dataset tienen este evento activo
+    source: str  # manual | auto
 
 
 class EventFeaturesResponse(BaseModel):
     """Respuesta del endpoint as-features."""
+
     dataset_id: str
     freq: str
-    n_dates: int                          # total de fechas en el rango
-    n_events: int                         # eventos únicos incluidos
-    columns: list[EventFeatureColumn]     # metadata de cada columna
+    n_dates: int  # total de fechas en el rango
+    n_events: int  # eventos únicos incluidos
+    columns: list[EventFeatureColumn]  # metadata de cada columna
     # Datos como lista de registros: [{"date": "2024-11-29", "is_black_friday": 1, ...}]
     records: list[dict[str, object]]
 
@@ -211,11 +213,17 @@ class EventFeaturesResponse(BaseModel):
 @router.get("/as-features", response_model=EventFeaturesResponse)
 async def get_events_as_features(
     dataset_id: str = Query(..., description="ID del dataset para alinear las fechas"),
-    freq: str = Query("MS", description="Frecuencia pandas: MS (mensual), W-MON (semanal), D (diario)"),
+    freq: str = Query(
+        "MS", description="Frecuencia pandas: MS (mensual), W-MON (semanal), D (diario)"
+    ),
     start: str | None = Query(None, description="Fecha inicio ISO, ej: 2022-01-01"),
     end: str | None = Query(None, description="Fecha fin ISO, ej: 2025-12-01"),
-    include_holidays: bool = Query(True, description="Incluir feriados AR y eventos comerciales automáticos"),
-    years_ahead: int = Query(2, ge=1, le=5, description="Años futuros a incluir (para el forecast)"),
+    include_holidays: bool = Query(
+        True, description="Incluir feriados AR y eventos comerciales automáticos"
+    ),
+    years_ahead: int = Query(
+        2, ge=1, le=5, description="Años futuros a incluir (para el forecast)"
+    ),
 ) -> EventFeaturesResponse:
     """
     Convierte los eventos del usuario en un DataFrame de features binarias.
@@ -244,11 +252,11 @@ async def get_events_as_features(
         # Infiere rango desde el dataset
         try:
             df = load_dataset(dataset_id)
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
             raise HTTPException(
                 status_code=404,
                 detail=f"Dataset '{dataset_id}' no encontrado.",
-            )
+            ) from exc
 
         # Detecta la columna de fecha (primera columna datetime o que tenga 'date' en el nombre)
         date_col: str | None = None
@@ -268,11 +276,11 @@ async def get_events_as_features(
             ds_end_future = pd.Timestamp.now() + pd.DateOffset(years=years_ahead)
             ds_end = max(ds_end_data, ds_end_future)
             date_index = pd.date_range(start=ds_start, end=ds_end, freq=freq)
-        except Exception:
+        except Exception as exc:
             raise HTTPException(
                 status_code=422,
                 detail="No se pudo inferir el rango de fechas del dataset. Usá los parámetros start= y end=.",
-            )
+            ) from exc
 
     if len(date_index) == 0:
         raise HTTPException(status_code=422, detail="El rango de fechas resultó vacío.")

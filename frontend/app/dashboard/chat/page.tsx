@@ -70,6 +70,11 @@ export default function ChatPage() {
   const { messages, suggestions, isStreaming, activeToolCall, error, tokensUsed, sendMessage, clearMessages, setMessages } =
     useChat({ datasetId, jobId, initialMessages: pendingMessages.length > 0 ? pendingMessages : undefined })
 
+  // Keep last non-empty suggestions so chips don’t disappear while the user types
+  const lastSuggestionsRef = useRef<string[]>([])
+  if (suggestions.length > 0) lastSuggestionsRef.current = suggestions
+  const displayedSuggestions = lastSuggestionsRef.current
+
   const { conversations, isLoading: convLoading, saveConversation, loadConversation, deleteConversation, refresh } =
     useConversations()
 
@@ -105,7 +110,7 @@ export default function ChatPage() {
     clearMessages(); setMessages(detail.messages); setActiveConversationId(conv.id)
   }
 
-  const handleNewChat = () => { clearMessages(); setActiveConversationId(null); void refresh() }
+  const handleNewChat = () => { clearMessages(); setActiveConversationId(null); void refresh(); lastSuggestionsRef.current = [] }
 
   const handleDeleteConversation = async (id: string) => {
     await deleteConversation(id)
@@ -118,7 +123,7 @@ export default function ChatPage() {
   return (
     <Box sx={{
       display: "flex", flexDirection: "column",
-      height: "calc(100vh - 7.5rem)",
+      height: "100%",
       bgcolor: "background.default",
       borderRadius: "0.75rem", overflow: "hidden",
       border: "1px solid", borderColor: "divider",
@@ -164,7 +169,8 @@ export default function ChatPage() {
               <ModelSelector value={model} onChange={setModel} disabled={isStreaming} />
               <Tooltip title="Limpiar conversacion">
                 <span>
-                  <IconButton size="small" onClick={clearMessages}
+                  <IconButton size="small"
+                    onClick={() => { clearMessages(); lastSuggestionsRef.current = [] }}
                     disabled={isStreaming || messages.length === 0} sx={{ color: "text.secondary" }}>
                     <DeleteOutlineIcon sx={{ fontSize: "1.125rem" }} />
                   </IconButton>
@@ -189,10 +195,10 @@ export default function ChatPage() {
 
           <Divider />
 
-          {/* Follow-up chips */}
-          {suggestions.length > 0 && (
+          {/* Follow-up chips — persisten hasta nueva conversación */}
+          {displayedSuggestions.length > 0 && (
             <Box sx={{ px: "1rem", pt: "0.625rem", pb: "0.25rem", flexShrink: 0 }}>
-              <QuickQuestions suggestions={suggestions} onSelect={(q) => void handleSend(q)} disabled={isStreaming} />
+              <QuickQuestions suggestions={displayedSuggestions} onSelect={(q) => void handleSend(q)} disabled={isStreaming} />
             </Box>
           )}
 
@@ -236,13 +242,19 @@ export default function ChatPage() {
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: "1.25rem", fontSize: "0.9375rem", bgcolor: "background.default" } }}
             />
 
-            {/* Mic (placeholder) */}
-            <Tooltip title="Dictar mensaje (proximamente)">
-              <span>
-                <IconButton size="small" disabled sx={{ color: "text.disabled", mb: "0.125rem" }}>
-                  <MicNoneIcon sx={{ fontSize: "1.375rem" }} />
-                </IconButton>
-              </span>
+            {/* Mic — coming soon tooltip, no dead button in the DOM */}
+            <Tooltip title="Dictado de voz: próximamente" placement="top">
+              <Box
+                component="span"
+                sx={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: "2rem", height: "2rem", mb: "0.125rem",
+                  borderRadius: "50%", cursor: "default",
+                  color: "text.disabled", opacity: 0.4,
+                }}
+              >
+                <MicNoneIcon sx={{ fontSize: "1.375rem" }} />
+              </Box>
             </Tooltip>
 
             {/* Enviar */}

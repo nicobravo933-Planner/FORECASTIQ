@@ -1,224 +1,278 @@
 "use client"
 
 /**
- * EventCalendar — monthly grid showing events per day.
- * Pure MUI, no external calendar library.
+ * EventCalendar — MUI X DateCalendar with custom day slots showing events.
+ * Each day cell renders event chips below the date number.
+ * Uses date-fns adapter (LocalizationProvider wraps the whole component).
  */
 
-import { useMemo } from "react"
+import { useMemo, forwardRef, type ComponentType } from "react"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
-import Paper from "@mui/material/Paper"
-import IconButton from "@mui/material/IconButton"
 import Tooltip from "@mui/material/Tooltip"
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"
-import ChevronRightIcon from "@mui/icons-material/ChevronRight"
-import { EventChip, ImpactBadge } from "./EventChip"
+import { DateCalendar } from "@mui/x-date-pickers/DateCalendar"
+import { PickersDay } from "@mui/x-date-pickers/PickersDay"
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider"
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns"
+import type { PickersDayProps } from "@mui/x-date-pickers/PickersDay"
+import { es } from "date-fns/locale"
+import { format, parseISO } from "date-fns"
+import { TYPE_CONFIG } from "./EventChip"
 import type { CalendarEvent } from "@/lib/types"
 
-const WEEKDAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
-const MONTHS = [
-  "Enero","Febrero","Marzo","Abril","Mayo","Junio",
-  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
-]
+// ── Types ──────────────────────────────────────────────────────────────────
 
 interface EventCalendarProps {
-  events:      CalendarEvent[]
-  year:        number
-  month:       number           // 0-indexed
+  events:        CalendarEvent[]
+  year:          number
+  month:         number           // 0-indexed
   onMonthChange: (year: number, month: number) => void
-  onDelete:    (id: string) => void
+  onDelete:      (id: string) => void
 }
 
-interface DayCell {
-  date:       Date
-  isCurrentMonth: boolean
-  events:     CalendarEvent[]
+// Props injected by DateCalendar into our custom day slot
+interface EventDayProps extends PickersDayProps<Date> {
+  eventsMap: Map<string, CalendarEvent[]>
 }
 
-function buildCalendarGrid(year: number, month: number, events: CalendarEvent[]): DayCell[][] {
-  const firstDay = new Date(year, month, 1)
-  const lastDay  = new Date(year, month + 1, 0)
+// ── Helper: build iso → events map for the visible month ──────────────────
 
-  // Fill leading days from previous month
-  const startDow = firstDay.getDay()
-  const grid: DayCell[] = []
-
-  for (let i = startDow - 1; i >= 0; i--) {
-    const d = new Date(year, month, -i)
-    grid.push({ date: d, isCurrentMonth: false, events: [] })
+function buildEventsMap(events: CalendarEvent[]): Map<string, CalendarEvent[]> {
+  const map = new Map<string, CalendarEvent[]>()
+  for (const ev of events) {
+    const start = parseISO(ev.start_date)
+    const end   = parseISO(ev.end_date)
+    // Walk each day of the event range
+    const cursor = new Date(start)
+    while (cursor <= end) {
+      const key = format(cursor, "yyyy-MM-dd")
+      const existing = map.get(key) ?? []
+      map.set(key, [...existing, ev])
+      cursor.setDate(cursor.getDate() + 1)
+    }
   }
-  // Days of month
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    const date = new Date(year, month, d)
-    const isoDate = date.toISOString().slice(0, 10)
-    const dayEvents = events.filter((e) => e.start_date <= isoDate && isoDate <= e.end_date)
-    grid.push({ date, isCurrentMonth: true, events: dayEvents })
-  }
-  // Fill trailing days to complete last week
-  const trailing = (7 - (grid.length % 7)) % 7
-  for (let i = 1; i <= trailing; i++) {
-    const d = new Date(year, month + 1, i)
-    grid.push({ date: d, isCurrentMonth: false, events: [] })
-  }
-
-  // Split into weeks
-  const weeks: DayCell[][] = []
-  for (let i = 0; i < grid.length; i += 7) weeks.push(grid.slice(i, i + 7))
-  return weeks
+  return map
 }
 
-export function EventCalendar({ events, year, month, onMonthChange, onDelete }: EventCalendarProps) {
-  const weeks = useMemo(() => buildCalendarGrid(year, month, events), [year, month, events])
+// ── Custom Day Slot ────────────────────────────────────────────────────────
 
-  const prevMonth = () => {
-    if (month === 0) onMonthChange(year - 1, 11)
-    else onMonthChange(year, month - 1)
-  }
-  const nextMonth = () => {
-    if (month === 11) onMonthChange(year + 1, 0)
-    else onMonthChange(year, month + 1)
-  }
+// forwardRef is required by MUI X slot API
+const EventDay = forwardRef<HTMLButtonElement, EventDayProps>(
+  function EventDay({ eventsMap, day, outsideCurrentMonth, ...other }, ref) {
+    const iso     = format(day, "yyyy-MM-dd")
+    const dayEvts = eventsMap.get(iso) ?? []
+    // Show max 2 chips + overflow badge
+    const visible  = dayEvts.slice(0, 2)
+    const overflow = dayEvts.length - visible.length
 
-  const today = new Date().toISOString().slice(0, 10)
+    return (
+      <Box
+        sx={{
+          display:        "flex",
+          flexDirection:  "column",
+          alignItems:     "center",
+          width:          "100%",
+          // Cells with events get slightly more height
+          pb:             dayEvts.length > 0 ? "0.25rem" : 0,
+        }}
+      >
+        {/* Native PickersDay handles today highlight, selected state, disabled */}
+        <PickersDay
+          ref={ref}
+          day={day}
+          outsideCurrentMonth={outsideCurrentMonth}
+          {...other}
+          sx={{
+            // Keep the default circle button size
+            width:  "2.25rem",
+            height: "2.25rem",
+            fontSize: "0.8125rem",
+          }}
+        />
 
-  return (
-    <Box>
-      {/* Month navigation */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem", mb: "1rem" }}>
-        <IconButton size="small" onClick={prevMonth}><ChevronLeftIcon /></IconButton>
-        <Typography variant="h6" fontWeight={700} sx={{ minWidth: "12rem", textAlign: "center" }}>
-          {MONTHS[month]} {year}
-        </Typography>
-        <IconButton size="small" onClick={nextMonth}><ChevronRightIcon /></IconButton>
-      </Box>
-
-      {/* Weekday headers */}
-      <Box sx={{
-        display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
-        mb: "0.375rem",
-        bgcolor: "rgba(239,246,255,0.80)",
-        backdropFilter: "blur(0.5rem)",
-        border: "1px solid rgba(147,197,253,0.45)",
-        borderRadius: "0.5rem",
-        overflow: "hidden",
-      }}>
-        {WEEKDAYS.map((d) => (
-          <Typography
-            key={d}
-            variant="caption"
+        {/* Event chips below the number */}
+        {!outsideCurrentMonth && dayEvts.length > 0 && (
+          <Box
             sx={{
-              display: "block", textAlign: "center",
-              py: "0.375rem",
-              fontWeight: 700,
-              fontSize: "0.6875rem",
-              color: "primary.main",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
+              display:        "flex",
+              flexDirection:  "column",
+              alignItems:     "stretch",
+              width:          "calc(100% - 0.25rem)",
+              gap:            "0.15rem",
+              mt:             "0.15rem",
             }}
           >
-            {d}
-          </Typography>
-        ))}
-      </Box>
-
-      {/* Weeks */}
-      <Box sx={{
-        display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
-        gap: "0.1875rem",
-        border: "1px solid rgba(147,197,253,0.45)",
-        borderRadius: "0.5rem",
-        overflow: "hidden",
-        bgcolor: "rgba(147,197,253,0.20)",
-      }}>
-        {weeks.flat().map((cell, idx) => {
-          const iso = cell.date.toISOString().slice(0, 10)
-          const isToday = iso === today
-          return (
-            <Box key={idx}>
-              <Paper
-                elevation={0}
-                sx={{
-                  minHeight: "5.5rem",
-                  p: "0.35rem",
-                  borderRadius: 0,
-                  opacity: cell.isCurrentMonth ? 1 : 0.45,
-                  bgcolor: isToday
-                    ? "rgba(219,234,254,0.95)"
-                    : "rgba(255,255,255,0.90)",
-                  border: isToday ? "1.5px solid" : "none",
-                  borderColor: "primary.main",
-                  overflow: "hidden",
-                }}>
-                  <Typography
-                    variant="caption"
-                    fontWeight={isToday ? 700 : 400}
-                    color={isToday ? "primary.main" : "text.secondary"}
-                    sx={{ display: "block", textAlign: "right", mb: "0.25rem" }}
+            {visible.map((ev) => {
+              const cfg = TYPE_CONFIG[ev.type] ?? TYPE_CONFIG.other
+              // Map MUI color names to palette tokens
+              const colorMap: Record<string, string> = {
+                info:    "info.main",
+                success: "success.main",
+                warning: "warning.main",
+                default: "text.secondary",
+                error:   "error.main",
+              }
+              const bg = colorMap[cfg.color] ?? "text.secondary"
+              return (
+                <Tooltip
+                  key={ev.id}
+                  title={
+                    <Box>
+                      <Typography variant="caption" fontWeight={700}>{ev.name}</Typography>
+                      {ev.impact_pct != null && (
+                        <Typography variant="caption" display="block">
+                          Impacto: {ev.impact_pct > 0 ? "+" : ""}{ev.impact_pct}%
+                        </Typography>
+                      )}
+                      {ev.source === "auto" && (
+                        <Typography variant="caption" display="block" color="primary.light">
+                          Auto-generado
+                        </Typography>
+                      )}
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <Box
+                    sx={{
+                      bgcolor:      bg,
+                      borderRadius: "0.2rem",
+                      px:           "0.2rem",
+                      py:           "0.05rem",
+                      overflow:     "hidden",
+                      opacity:      0.9,
+                    }}
                   >
-                    {cell.date.getDate()}
-                  </Typography>
-
-                  {/* Events for this day */}
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                    {cell.events.map((ev) => (
-                      <Tooltip
-                        key={ev.id}
-                        title={
-                          <Box>
-                            <Typography variant="caption" fontWeight={700}>{ev.name}</Typography>
-                            {ev.impact_pct != null && (
-                              <Typography variant="caption" display="block">
-                                Impacto: {ev.impact_pct > 0 ? "+" : ""}{ev.impact_pct}%
-                              </Typography>
-                            )}
-                            {!ev.is_global && (
-                              <Typography variant="caption" display="block" sx={{ color: "error.light" }}>
-                                Click ✕ para eliminar
-                              </Typography>
-                            )}
-                          </Box>
-                        }
-                        arrow
-                      >
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            bgcolor: "action.hover",
-                            borderRadius: "0.25rem",
-                            px: "0.25rem",
-                            py: "0.1rem",
-                            cursor: "default",
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            noWrap
-                            sx={{ fontSize: "0.65rem", flex: 1, color: "text.primary" }}
-                          >
-                            {ev.name}
-                          </Typography>
-                          {!ev.is_global && (
-                            <IconButton
-                              size="small"
-                              sx={{ p: "0.1rem", ml: "0.15rem" }}
-                              onClick={() => onDelete(ev.id)}
-                            >
-                              <DeleteOutlineIcon sx={{ fontSize: "0.75rem", color: "error.light" }} />
-                            </IconButton>
-                          )}
-                        </Box>
-                      </Tooltip>
-                    ))}
+                    <Typography
+                      variant="caption"
+                      noWrap
+                      sx={{
+                        display:  "block",
+                        fontSize: "0.575rem",
+                        color:    "common.white",
+                        fontWeight: 600,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {ev.name}
+                    </Typography>
                   </Box>
-                </Paper>
-            </Box>
-          )
-        })}
+                </Tooltip>
+              )
+            })}
+
+            {/* Overflow badge: "+2 más" */}
+            {overflow > 0 && (
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize:  "0.55rem",
+                  color:     "text.secondary",
+                  textAlign: "center",
+                  lineHeight: 1.2,
+                }}
+              >
+                +{overflow} más
+              </Typography>
+            )}
+          </Box>
+        )}
       </Box>
-    </Box>
+    )
+  },
+)
+
+// ── Main Component ─────────────────────────────────────────────────────────
+
+export function EventCalendar({
+  events,
+  year,
+  month,
+  onMonthChange,
+}: EventCalendarProps) {
+  // Build a fast lookup map: "yyyy-MM-dd" → CalendarEvent[]
+  const eventsMap = useMemo(() => buildEventsMap(events), [events])
+
+  // Controlled value for DateCalendar — first day of visible month
+  const value = useMemo(() => new Date(year, month, 1), [year, month])
+
+  const handleMonthChange = (date: Date | null) => {
+    if (!date) return
+    onMonthChange(date.getFullYear(), date.getMonth())
+  }
+
+  return (
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
+      <Box
+        sx={{
+          // Glass card matching the rest of the app
+          bgcolor:        "background.paper",
+          border:         "1px solid",
+          borderColor:    "divider",
+          borderRadius:   "1rem",
+          p:              "0.5rem",
+          boxShadow:      "0 0.125rem 0.75rem rgba(0,0,0,0.06)",
+          // Let DateCalendar fill the container width
+          "& .MuiDateCalendar-root": {
+            width:    "100%",
+            maxWidth: "100%",
+            height:   "auto",
+          },
+          // Expand day cells vertically to fit event chips
+          "& .MuiDayCalendar-weekContainer": {
+            alignItems: "flex-start",
+            mb:         "0.25rem",
+          },
+          // Each day column stretches to fill the 7-column grid
+          "& .MuiPickersDay-root": {
+            flexShrink: 0,
+          },
+          // Header (month label + nav arrows)
+          "& .MuiPickersCalendarHeader-root": {
+            pl:  "0.75rem",
+            pr:  "0.5rem",
+            mt:  "0.25rem",
+            mb:  "0.5rem",
+          },
+          "& .MuiPickersCalendarHeader-label": {
+            fontWeight: 700,
+            fontSize:   "1rem",
+            textTransform: "capitalize",
+          },
+          // Weekday labels row
+          "& .MuiDayCalendar-header": {
+            mb: "0.25rem",
+          },
+          "& .MuiDayCalendar-weekDayLabel": {
+            fontWeight:    700,
+            fontSize:      "0.6875rem",
+            color:         "primary.main",
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+          },
+        }}
+      >
+        <DateCalendar
+          value={value}
+          onMonthChange={handleMonthChange}
+          onYearChange={handleMonthChange}
+          // Prevent selecting a specific date — we only use it as a navigator
+          onChange={() => {}}
+          showDaysOutsideCurrentMonth
+          fixedWeekNumber={6}
+          slots={{
+            // Cast needed: MUI X slot generics don't accept extra props directly
+            day: EventDay as ComponentType<PickersDayProps<Date>>,
+          }}
+          slotProps={{
+            day: {
+              // Pass the events map down to each day cell
+              eventsMap,
+            } as object,
+          }}
+        />
+      </Box>
+    </LocalizationProvider>
   )
 }

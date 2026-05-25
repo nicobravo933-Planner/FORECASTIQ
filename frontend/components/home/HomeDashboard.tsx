@@ -1,58 +1,34 @@
 "use client"
 
 /**
- * HomeDashboard — Portada de bienvenida del dashboard.
- * Layout vertical sin scroll: hero strip → status 4col → cards 3×2 + actividad.
- * Logo flotante sobresale del hero strip (overflow:visible + position:absolute).
+ * HomeDashboard — HomeV2 data-forward.
+ * Hero strip (logo flotante 11.75rem) intacto.
+ * Debajo: KPI cards · MiniChart real · Pipeline stepper · Próximos eventos · Acciones rápidas.
  */
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
+import CircularProgress from "@mui/material/CircularProgress"
 import { useRouter } from "next/navigation"
 import { useSession } from "@/lib/auth-client"
-import StorageIcon from "@mui/icons-material/Storage"
-import ShowChartIcon from "@mui/icons-material/ShowChart"
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
-import SmartToyIcon from "@mui/icons-material/SmartToy"
-import ScienceIcon from "@mui/icons-material/Science"
-import BarChartIcon from "@mui/icons-material/BarChart"
 import CloudDoneIcon from "@mui/icons-material/CloudDone"
-import CheckCircleIcon from "@mui/icons-material/CheckCircle"
-import TrendingUpIcon from "@mui/icons-material/TrendingUp"
-import UploadFileIcon from "@mui/icons-material/UploadFile"
-import WarningAmberIcon from "@mui/icons-material/WarningAmber"
+import CloudOffIcon from "@mui/icons-material/CloudOff"
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward"
+import UploadFileIcon from "@mui/icons-material/UploadFile"
+import ShowChartIcon from "@mui/icons-material/ShowChart"
+import SmartToyIcon from "@mui/icons-material/SmartToy"
+import BarChartIcon from "@mui/icons-material/BarChart"
+import EventIcon from "@mui/icons-material/Event"
+import { api } from "@/lib/api"
+import { useCapabilities } from "@/hooks/useCapabilities"
+import { appStore } from "@/lib/appStore"
+import type { ForecastResult, CalendarEvent } from "@/lib/types"
 import type { SxProps } from "@mui/material"
-
-// ── Data ──────────────────────────────────────────────────────────────────────
-const FEATURE_CARDS = [
-  { id: "datasets",  icon: <StorageIcon />,       label: "Mis Datasets",    desc: "Subi tu CSV o explora el demo de 25k SKUs · 3 anos de ventas",         color: "#3b82f6", href: "/dashboard/dataset"  },
-  { id: "forecast",  icon: <ShowChartIcon />,      label: "Forecast",        desc: "4 modelos ML con seleccion automatica · intervalos de confianza",       color: "#8b5cf6", href: "/dashboard/forecast" },
-  { id: "calendar",  icon: <CalendarMonthIcon />,  label: "Calendario",      desc: "Eventos, promociones y feriados que impactan tus ventas",               color: "#06b6d4", href: "/dashboard/calendar" },
-  { id: "chat",      icon: <SmartToyIcon />,       label: "Chat IA",         desc: "Preguntale a tus datos en lenguaje natural · streaming SSE",            color: "#f59e0b", href: "/dashboard/chat"     },
-  { id: "mlops",     icon: <ScienceIcon />,        label: "MLOps",           desc: "MLflow tracking + Evidently AI drift detection por dataset",            color: "#10b981", href: "/dashboard/mlops"    },
-  { id: "batch",     icon: <BarChartIcon />,       label: "Batch Analytics", desc: "Analisis ABC-XYZ vectorizado sobre 25k SKUs con Nixtla StatsForecast",  color: "#ec4899", href: "/dashboard/batch"    },
-]
-
-const STATUS_ITEMS = [
-  { icon: <CloudDoneIcon />,   label: "Backend",      value: "AWS EC2",   sub: "Online · FastAPI 0.115",    color: "#22c55e" },
-  { icon: <ScienceIcon />,     label: "Modelos ML",   value: "4 activos", sub: "MA · HW · SARIMA · LGB",    color: "#3b82f6" },
-  { icon: <CheckCircleIcon />, label: "Fases",        value: "11 / 14",   sub: "PySpark completa",          color: "#8b5cf6" },
-  { icon: <StorageIcon />,     label: "Dataset demo", value: "25k SKUs",  sub: "256 MB · Cloudflare R2", color: "#06b6d4" },
-]
-
-const ACTIVITY_ITEMS = [
-  { icon: <TrendingUpIcon />,   label: "Forecast ejecutado", sub: "ventas_electronica · LightGBM", time: "hace 2h", color: "#8b5cf6" },
-  { icon: <UploadFileIcon />,   label: "Dataset subido",     sub: "ventas_q1_2026.csv · 4.2 MB",   time: "hace 5h", color: "#3b82f6" },
-  { icon: <WarningAmberIcon />, label: "Drift detectado",    sub: "Holt-Winters · WAPE +6.2%",     time: "ayer",    color: "#f59e0b" },
-  { icon: <SmartToyIcon />,     label: "Chat IA · 12 msgs",  sub: "Que categoria crecio mas?",      time: "ayer",    color: "#10b981" },
-]
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 const DAYS_ES   = ["Domingo","Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"]
 const MONTHS_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
-
 function formatDateES(d: Date) {
   return `${DAYS_ES[d.getDay()]}, ${d.getDate()} de ${MONTHS_ES[d.getMonth()]} ${d.getFullYear()}`
 }
@@ -60,85 +36,412 @@ function formatTimeES(d: Date) {
   return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
 }
 
-// ── Sizes ─────────────────────────────────────────────────────────────────────
-// Logo: base 9rem × 1.3 = 11.7rem → redondeado a 11.75rem
-const LOGO_SIZE = "11.75rem"
-// How much the logo overflows below the hero strip
-const LOGO_OVERFLOW = "3.5rem"
+// ── Sizes (hero — no tocar) ───────────────────────────────────────────────────
+const LOGO_SIZE     = "11.75rem"
+const LOGO_OVERFLOW = "2rem"
+
+// ── Glass card sx helper ──────────────────────────────────────────────────────
+const glassCard: SxProps = {
+  bgcolor: "rgba(255,255,255,0.85)",
+  backdropFilter: "blur(0.625rem)",
+  borderRadius: "0.875rem",
+  border: "1px solid rgba(219,234,254,0.7)",
+  boxShadow: "0 0.0625rem 0.25rem rgba(0,0,0,0.05)",
+}
+
+// ── Sparkline SVG ─────────────────────────────────────────────────────────────
+function Sparkline({ data, color, w = 72, h = 30 }: { data: number[]; color: string; w?: number; h?: number }) {
+  if (data.length < 2) return null
+  const min = Math.min(...data), max = Math.max(...data), range = max - min || 1
+  const pts = data.map((v, i) => [
+    (i / (data.length - 1)) * w,
+    h - 4 - ((v - min) / range) * (h - 8) + 4,
+  ])
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ")
+  const area = `${line} L${w},${h} L0,${h} Z`
+  const last = pts[pts.length - 1]
+  return (
+    <svg width={w} height={h} style={{ overflow: "visible", display: "block", flexShrink: 0 }}>
+      <path d={area} fill={color} opacity={0.13} />
+      <path d={line} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r={3} fill={color} />
+    </svg>
+  )
+}
+
+// ── Quality Ring SVG ──────────────────────────────────────────────────────────
+function QualityRing({ score, color, size = 52 }: { score: number; color: string; size?: number }) {
+  const r = size * 0.36
+  const circ = 2 * Math.PI * r
+  const dash = Math.max(0, Math.min(1, score / 100)) * circ
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={`${color}22`} strokeWidth={4.5} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={4.5}
+        strokeDasharray={`${dash.toFixed(2)} ${(circ - dash).toFixed(2)}`}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      <text x={size / 2} y={size / 2 + 4.5} textAnchor="middle"
+        fontSize={size * 0.22} fontWeight="700" fill={color} fontFamily="Inter,sans-serif">
+        {score}
+      </text>
+    </svg>
+  )
+}
+
+// ── Mini Forecast Chart SVG ───────────────────────────────────────────────────
+function MiniChart({ result }: { result: ForecastResult | null }) {
+  if (!result) {
+    return (
+      <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+        flexDirection: "column", gap: "0.5rem", color: "text.disabled" }}>
+        <ShowChartIcon sx={{ fontSize: "2.5rem", opacity: 0.3 }} />
+        <Typography variant="caption" color="text.disabled">
+          Ejecutá un forecast para ver el gráfico aquí
+        </Typography>
+      </Box>
+    )
+  }
+
+  const W = 520, H = 120
+  const PAD = { t: 12, b: 24, l: 34, r: 10 }
+  const cW = W - PAD.l - PAD.r
+  const cH = H - PAD.t - PAD.b
+
+  // Combine historical + predictions para escalar el eje Y
+  const allVals = [
+    ...result.historical.map(p => p.value),
+    ...result.predictions.map(p => p.upper),
+  ].filter(Boolean)
+  if (allVals.length === 0) return null
+
+  const minV = Math.min(...allVals) * 0.92
+  const maxV = Math.max(...allVals) * 1.05
+
+  // Tomar últimos 6 históricos + todas las predicciones para no saturar
+  const hist = result.historical.slice(-6)
+  const preds = result.predictions
+
+  const totalPts = hist.length + preds.length
+  const xS = (i: number) => PAD.l + (i / (totalPts - 1)) * cW
+  const yS = (v: number) => PAD.t + cH - ((v - minV) / (maxV - minV)) * cH
+
+  const histPath = hist
+    .map((p, i) => `${i === 0 ? "M" : "L"}${xS(i).toFixed(1)},${yS(p.value).toFixed(1)}`)
+    .join(" ")
+
+  const fxStart = hist.length - 1
+  const fxPath = [
+    `M${xS(fxStart).toFixed(1)},${yS(hist[hist.length - 1].value).toFixed(1)}`,
+    ...preds.map((p, i) => `L${xS(fxStart + 1 + i).toFixed(1)},${yS(p.predicted).toFixed(1)}`),
+  ].join(" ")
+
+  const ciPath = [
+    ...preds.map((p, i) => `${i === 0 ? "M" : "L"}${xS(fxStart + 1 + i).toFixed(1)},${yS(p.upper).toFixed(1)}`),
+    ...preds.slice().reverse().map((p, i) =>
+      `L${xS(fxStart + preds.length - i).toFixed(1)},${yS(p.lower).toFixed(1)}`),
+    "Z",
+  ].join(" ")
+
+  const divX = xS(fxStart)
+  const gridVals = [minV + (maxV - minV) * 0.75, minV + (maxV - minV) * 0.4]
+
+  // Etiquetas de eje X: solo algunas fechas
+  const labels = [
+    ...hist.map((p, i) => ({ i, label: p.date.slice(0, 7) })).filter((_, i) => i === 0 || i === hist.length - 1),
+    ...preds.map((p, i) => ({ i: fxStart + 1 + i, label: p.date.slice(0, 7) }))
+      .filter((_, i) => i === preds.length - 1),
+  ]
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible", display: "block" }}>
+      {gridVals.map((v, i) => (
+        <g key={i}>
+          <line x1={PAD.l} y1={yS(v)} x2={W - PAD.r} y2={yS(v)}
+            stroke="rgba(219,234,254,0.9)" strokeWidth={1} strokeDasharray="2,3" />
+          <text x={PAD.l - 4} y={yS(v) + 3.5} textAnchor="end" fontSize={8}
+            fill="#94a3b8" fontFamily="Inter,sans-serif">
+            {Math.round(v)}
+          </text>
+        </g>
+      ))}
+
+      {/* Forecast zone shading */}
+      <rect x={divX} y={PAD.t} width={W - PAD.r - divX} height={cH}
+        fill="rgba(139,92,246,0.04)" rx={2} />
+
+      {/* CI band */}
+      <path d={ciPath} fill="rgba(139,92,246,0.12)" />
+
+      {/* Historical line */}
+      <path d={histPath} fill="none" stroke="#3b82f6" strokeWidth={2.2}
+        strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Forecast line dashed */}
+      <path d={fxPath} fill="none" stroke="#8b5cf6" strokeWidth={2}
+        strokeDasharray="5,3" strokeLinecap="round" />
+
+      {/* Divider */}
+      <line x1={divX} y1={PAD.t} x2={divX} y2={PAD.t + cH}
+        stroke="#94a3b8" strokeWidth={1} strokeDasharray="3,3" opacity={0.6} />
+
+      {/* Dots historical */}
+      {hist.map((p, i) => (
+        <circle key={i} cx={xS(i)} cy={yS(p.value)} r={2.5} fill="#3b82f6" />
+      ))}
+      {/* Dots forecast */}
+      {preds.map((p, i) => (
+        <circle key={i} cx={xS(fxStart + 1 + i)} cy={yS(p.predicted)} r={2.5}
+          fill="#8b5cf6" opacity={0.75} />
+      ))}
+
+      {/* X axis labels */}
+      {labels.map(({ i, label }) => (
+        <text key={i} x={xS(i)} y={H - 3} textAnchor="middle" fontSize={8}
+          fill={i > fxStart ? "#8b5cf6" : "#64748b"}
+          fontWeight={i > fxStart ? "600" : "400"}
+          fontFamily="Inter,sans-serif">
+          {label}
+        </text>
+      ))}
+
+      <text x={divX + 6} y={PAD.t + 9} fontSize={7.5} fill="#8b5cf6"
+        fontWeight="600" letterSpacing="0.06em" fontFamily="Inter,sans-serif">
+        FORECAST →
+      </text>
+    </svg>
+  )
+}
+
+// ── Countdown helper ──────────────────────────────────────────────────────────
+function daysUntil(dateStr: string): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const target = new Date(dateStr); target.setHours(0, 0, 0, 0)
+  return Math.ceil((target.getTime() - today.getTime()) / 86_400_000)
+}
+
+// ── Quick actions ─────────────────────────────────────────────────────────────
+const QUICK_ACTIONS = [
+  { icon: <UploadFileIcon />, label: "Subir dataset",    sub: "CSV · Parquet · DB",          color: "#3b82f6", href: "/dashboard/dataset"     },
+  { icon: <ShowChartIcon />,  label: "Nuevo forecast",   sub: "4 modelos · auto-detección",  color: "#8b5cf6", href: "/dashboard/forecast"    },
+  { icon: <SmartToyIcon />,   label: "Chat IA",          sub: "Preguntá en lenguaje natural",color: "#f59e0b", href: "/dashboard/chat"        },
+  { icon: <BarChartIcon />,   label: "Batch 25k SKUs",   sub: "Nixtla StatsForecast",        color: "#ec4899", href: "/dashboard/batch"       },
+]
+
+// ── Model chip colors ─────────────────────────────────────────────────────────
+const MODEL_COLORS: Record<string, string> = {
+  moving_average: "#3b82f6",
+  holt_winters:   "#0ea5e9",
+  sarima:         "#8b5cf6",
+  lightgbm:       "#10b981",
+}
+const MODEL_LABELS: Record<string, string> = {
+  moving_average: "MA",
+  holt_winters:   "HW",
+  sarima:         "SARIMA",
+  lightgbm:       "LGB",
+}
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export function HomeDashboard() {
   const { data: session } = useSession()
   const router = useRouter()
-  const [now, setNow] = useState<Date | null>(null)
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null)
+  const { caps } = useCapabilities()
 
+  // ── Clock (SSR-safe) ────────────────────────────────────────────────────────
+  const [now, setNow] = useState<Date | null>(null)
   useEffect(() => {
-    // Initialize on client only — avoids SSR/client hydration mismatch
     setNow(new Date())
     const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
 
+  // ── Backend health ──────────────────────────────────────────────────────────
+  const [health, setHealth] = useState<{ status: string; version: string } | null>(null)
+  const [healthLoading, setHealthLoading] = useState(true)
+  useEffect(() => {
+    api.get<{ status: string; version: string; environment: string }>("/health")
+      .then(res => setHealth(res))
+      .catch(() => setHealth(null))
+      .finally(() => setHealthLoading(false))
+  }, [])
+  const isOnline = health?.status === "ok"
+
+  // ── appStore state ──────────────────────────────────────────────────────────
+  const [activeDatasetId, setActiveDatasetId] = useState<string | null>(null)
+  const [activeJobId, setActiveJobId]         = useState<string | null>(null)
+  const [qualityData, setQualityData]         = useState<{ score: number; label: string } | null>(null)
+  const [activeStep, setActiveStep]           = useState(0)
+
+  useEffect(() => {
+    const dsId   = appStore.getActiveDatasetId()
+    const jobId  = appStore.getActiveJobId()
+    const qs     = appStore.getQualityScore()
+    setActiveDatasetId(dsId)
+    setActiveJobId(jobId)
+    setQualityData(qs ? { score: qs.score, label: qs.label } : null)
+    setActiveStep(jobId ? 3 : qs ? 2 : dsId ? 1 : 0)
+
+    // Re-sync when localStorage changes (e.g. user runs forecast then navigates back)
+    const onStorage = () => {
+      const newJobId = appStore.getActiveJobId()
+      const newDsId  = appStore.getActiveDatasetId()
+      const newQs    = appStore.getQualityScore()
+      setActiveJobId(newJobId)
+      setActiveDatasetId(newDsId)
+      setQualityData(newQs ? { score: newQs.score, label: newQs.label } : null)
+      setActiveStep(newJobId ? 3 : newQs ? 2 : newDsId ? 1 : 0)
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
+  }, [])
+
+  // ── Forecast result (real data for chart + WAPE) ───────────────────────────
+  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null)
+  const [forecastLoading, setForecastLoading] = useState(false)
+
+  useEffect(() => {
+    if (!activeJobId) return
+    setForecastLoading(true)
+    api.get<ForecastResult>(`/api/forecast/result/${activeJobId}`)
+      .then(res => setForecastResult(res))
+      .catch(() => setForecastResult(null))
+      .finally(() => setForecastLoading(false))
+  }, [activeJobId])
+
+  // ── Events (próximos) ──────────────────────────────────────────────────────
+  const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([])
+  const fetchEvents = useCallback(async () => {
+    const year = new Date().getFullYear()
+    try {
+      const res = await api.get<{ events: CalendarEvent[] }>(
+        `/api/events?year=${year}&include_holidays=true`
+      )
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const future = res.events
+        .filter(e => new Date(e.start_date) >= today)
+        .sort((a, b) => a.start_date.localeCompare(b.start_date))
+        .slice(0, 4)
+      setUpcomingEvents(future)
+    } catch { /* silencioso — no rompe la home */ }
+  }, [])
+  useEffect(() => { void fetchEvents() }, [fetchEvents])
+
+  // ── Derived values ─────────────────────────────────────────────────────────
   const firstName = session?.user?.name ? session.user.name.split(" ")[0] : null
+  const BackendIcon = isOnline ? CloudDoneIcon : CloudOffIcon
+  const backendColor = healthLoading ? "#9ca3af" : isOnline ? "#22c55e" : "#ef4444"
+  const modelsAvailable = (caps.models_available as string[] | undefined) ?? []
+
+  const wape        = forecastResult?.metrics.wape ?? null
+  const fva         = forecastResult?.metrics.fva  ?? null
+  const modelUsed   = forecastResult?.model_used   ?? null
+  const wapeHistory = wape !== null ? [wape * 1.15, wape * 1.1, wape * 1.06, wape * 1.02, wape] : []
+
+  const qScore = qualityData?.score ?? null
+  const qColor = qScore === null ? "#9ca3af"
+    : qScore >= 80 ? "#10b981"
+    : qScore >= 60 ? "#3b82f6"
+    : qScore >= 30 ? "#f59e0b"
+    : "#ef4444"
+  const qLabel = qualityData?.label ?? null
+
+  const nextEvent = upcomingEvents[0] ?? null
+  const nextEventDays = nextEvent ? daysUntil(nextEvent.start_date) : null
+
+  // ── Pipeline steps ─────────────────────────────────────────────────────────
+  const pipelineSteps = [
+    {
+      label: "Datos / EDA",
+      sub: activeDatasetId ? `ID ${activeDatasetId.slice(0, 8)}…` : "Subí tu dataset",
+      done: activeStep >= 1,
+      active: activeStep === 1,
+      href: "/dashboard/dataset",
+    },
+    {
+      label: "ETL · Calidad",
+      sub: qualityData ? `Score ${qualityData.score} · ${qualityData.label}` : "Limpiar datos",
+      done: activeStep >= 2,
+      active: activeStep === 2,
+      href: "/dashboard/etl",
+    },
+    {
+      label: "Forecast",
+      sub: forecastResult
+        ? `${MODEL_LABELS[forecastResult.model_used] ?? forecastResult.model_used} · WAPE ${wape?.toFixed(1)}%`
+        : "Correr modelo",
+      done: activeStep >= 3,
+      active: activeStep === 3,
+      href: "/dashboard/forecast",
+    },
+    {
+      label: "MLOps",
+      sub: "Drift · Experimentos",
+      done: false,
+      active: false,
+      href: "/dashboard/mlops",
+    },
+  ]
+
+  // ── Event type color map ────────────────────────────────────────────────────
+  const evColor = (type: string) =>
+    type === "holiday" ? "#3b82f6"
+    : type === "promotion" ? "#f59e0b"
+    : type === "seasonal" ? "#10b981"
+    : "#8b5cf6"
+
+  const formatEvDate = (d: string) => {
+    const dt = new Date(d + "T00:00:00")
+    return `${dt.getDate()} ${MONTHS_ES[dt.getMonth()].slice(0, 3)}`
+  }
 
   return (
-    // Vertical flex - no scroll, padding propio (main da padding cero en /home)
     <Box sx={{
       height: "100%", display: "flex", flexDirection: "column",
       gap: "0.875rem", overflow: "hidden",
-      px: "1.5rem", pt: "3rem", pb: "1.125rem",
+      px: "1.5rem", pt: "2rem", pb: "1.125rem",
     }}>
+      <style>{`
+        @keyframes logoFloat {
+          0%, 100% { transform: translateY(0px); }
+          50%       { transform: translateY(-8px); }
+        }
+      `}</style>
 
-      {/* ── Hero strip ──────────────────────────────────────────────────────── */}
-      {/*
-        overflow:visible permite que el logo absoluto sobresalga hacia abajo.
-        Los blobs decorativos tienen su propio contenedor con overflow:hidden
-        para no salirse del strip visualmente.
-        Un spacer invisible (width = LOGO_SIZE) mantiene el espacio del logo en el flujo.
-      */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          HERO STRIP — no modificar (logo 11.75rem flotante)
+      ══════════════════════════════════════════════════════════════════════ */}
       <Box sx={{
         background: "linear-gradient(135deg, #0f2044 0%, #1a3868 100%)",
         borderRadius: "1rem",
-        p: "1.125rem 1.5rem",
+        p: "1.75rem 1.5rem",
         display: "flex", alignItems: "center", gap: "1.25rem",
-        position: "relative",
-        overflow: "visible",  // logo escapa sin recortarse
-        flexShrink: 0,
+        position: "relative", overflow: "visible", flexShrink: 0,
       }}>
-
-        {/* Decorative blobs — clipped inside the strip */}
+        {/* Decorative blobs */}
         <Box sx={{ position: "absolute", inset: 0, borderRadius: "1rem", overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
           <Box sx={{ position: "absolute", right: "-1.875rem", top: "-1.875rem", width: "12.5rem", height: "12.5rem", borderRadius: "50%", bgcolor: "rgba(255,255,255,0.04)" }} />
           <Box sx={{ position: "absolute", right: "5rem", bottom: "-3.125rem", width: "10rem", height: "10rem", borderRadius: "50%", bgcolor: "rgba(255,255,255,0.03)" }} />
         </Box>
 
-        {/*
-          Logo: position absolute centrado verticalmente, zIndex alto para flotar
-          por delante del strip. El spacer mantiene el hueco en el flujo flex.
-        */}
+        {/* Logo flotante */}
         <Box sx={{ position: "absolute", left: "1.5rem", top: "50%", transform: "translateY(-50%)", zIndex: 5, flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="ForecastIQ"
-            style={{
-              width: LOGO_SIZE, height: LOGO_SIZE,
-              borderRadius: "50%",
-              objectFit: "cover",
-              display: "block",
-              filter: "drop-shadow(0 0.5rem 2.5rem rgba(0,0,0,0.45)) drop-shadow(0 0.125rem 0.5rem rgba(59,130,246,0.35))",
-            }}
-          />
+          <img src="/logo.png" alt="ForecastIQ" style={{
+            width: LOGO_SIZE, height: LOGO_SIZE, borderRadius: "50%",
+            objectFit: "cover", display: "block",
+            filter: "drop-shadow(0 0.5rem 2.5rem rgba(0,0,0,0.45)) drop-shadow(0 0.125rem 0.5rem rgba(59,130,246,0.35))",
+            animation: "logoFloat 4s ease-in-out infinite",
+          }} />
         </Box>
 
-        {/* Spacer — same width as the logo, keeps text from sliding under it */}
+        {/* Spacer */}
         <Box sx={{ width: LOGO_SIZE, flexShrink: 0 }} />
 
-        {/* Text block */}
+        {/* Text */}
         <Box sx={{ flex: 1, position: "relative", zIndex: 1 }}>
           <Typography sx={{ fontSize: "0.6875rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase", mb: "0.3rem" }}>
-            {now ? `${formatDateES(now)} \u00b7 ${formatTimeES(now)}` : "\u00a0"}
+            {now ? `${formatDateES(now)} · ${formatTimeES(now)}` : "\u00a0"}
           </Typography>
           <Typography sx={{ fontSize: "1.5rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.03rem", mb: "0.3rem", lineHeight: 1.15 }}>
             {firstName
@@ -147,179 +450,411 @@ export function HomeDashboard() {
             }
           </Typography>
           <Typography sx={{ fontSize: "0.8125rem", color: "rgba(255,255,255,0.65)", lineHeight: 1.4 }}>
-            Conecta tus ventas &middot; Obtene forecasts con IA al instante &middot; Charla con tus numeros
+            {forecastResult
+              ? `Último forecast: ${MODEL_LABELS[forecastResult.model_used] ?? forecastResult.model_used} · WAPE ${wape?.toFixed(1)}% · ${upcomingEvents.length > 0 ? `${upcomingEvents.length} eventos próximos` : "sin eventos próximos"}`
+              : "Conecta tus ventas · Obtene forecasts con IA al instante · Charla con tus numeros"
+            }
           </Typography>
         </Box>
 
-        {/* Right badges */}
+        {/* Right badges — dynamic */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-end", flexShrink: 0, position: "relative", zIndex: 1 }}>
-          <Box component="span" sx={{
-            fontSize: "0.75rem", fontWeight: 600, px: "0.875rem", py: "0.3125rem",
-            borderRadius: "1.25rem", bgcolor: "rgba(255,255,255,0.14)", color: "#fff", letterSpacing: "0.04em",
-          }}>
-            Phase 11 — PySpark
+          <Box component="span" sx={{ fontSize: "0.75rem", fontWeight: 600, px: "0.875rem", py: "0.3125rem", borderRadius: "1.25rem", bgcolor: "rgba(255,255,255,0.14)", color: "#fff", letterSpacing: "0.04em" }}>
+            {caps.tier_label}
           </Box>
           <Box component="span" sx={{
             fontSize: "0.75rem", fontWeight: 600, px: "0.875rem", py: "0.3125rem",
-            borderRadius: "1.25rem", bgcolor: "rgba(34,197,94,0.18)", color: "#4ade80",
+            borderRadius: "1.25rem",
+            bgcolor: isOnline ? "rgba(34,197,94,0.18)" : healthLoading ? "rgba(156,163,175,0.18)" : "rgba(239,68,68,0.18)",
+            color:   isOnline ? "#4ade80"              : healthLoading ? "#d1d5db"              : "#f87171",
             display: "flex", alignItems: "center", gap: "0.4375rem",
           }}>
-            <Box component="span" sx={{
-              width: "0.4375rem", height: "0.4375rem", borderRadius: "50%", bgcolor: "#22c55e", flexShrink: 0,
-              animation: "pulseDot 2s ease-in-out infinite",
-              "@keyframes pulseDot": {
-                "0%, 100%": { boxShadow: "0 0 0 0.1875rem rgba(34,197,94,0.25)" },
-                "50%":      { boxShadow: "0 0 0 0.4375rem rgba(34,197,94,0.06)" },
-              },
-            } as SxProps} />
-            Live en produccion
+            {healthLoading
+              ? <CircularProgress size="0.625rem" color="inherit" />
+              : <Box component="span" sx={{
+                  width: "0.4375rem", height: "0.4375rem", borderRadius: "50%", flexShrink: 0,
+                  bgcolor: isOnline ? "#22c55e" : "#ef4444",
+                  animation: isOnline ? "pulseDot 2s ease-in-out infinite" : "none",
+                  "@keyframes pulseDot": {
+                    "0%, 100%": { boxShadow: "0 0 0 0.1875rem rgba(34,197,94,0.25)" },
+                    "50%":      { boxShadow: "0 0 0 0.4375rem rgba(34,197,94,0.06)" },
+                  },
+                } as SxProps}
+              />
+            }
+            {healthLoading ? "Conectando…" : isOnline ? "Backend online" : "Backend offline"}
           </Box>
-          <Box component="span" sx={{
-            fontSize: "0.6875rem", fontWeight: 500, px: "0.75rem", py: "0.25rem",
-            borderRadius: "1.25rem", bgcolor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)",
-          }}>
+          <Box component="span" sx={{ fontSize: "0.6875rem", fontWeight: 500, px: "0.75rem", py: "0.25rem", borderRadius: "1.25rem", bgcolor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}>
             forecastiq.vercel.app
           </Box>
         </Box>
       </Box>
 
-      {/* ── Status strip — 4 columns ─────────────────────────────────────────── */}
-      {/*
-        mt compensates for the logo overflow so the strip doesn't
-        visually collide with the floating logo.
-      */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          KPI CARDS — 4 columnas
+      ══════════════════════════════════════════════════════════════════════ */}
       <Box sx={{
         display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem",
         flexShrink: 0,
         mt: `calc(${LOGO_OVERFLOW} * 0.6)`,
       }}>
-        {STATUS_ITEMS.map((s, i) => (
-          <Box key={i} sx={{
-            bgcolor: "rgba(255,255,255,0.85)", backdropFilter: "blur(0.625rem)",
-            borderRadius: "0.75rem", p: "0.6875rem 0.875rem",
-            border: "1px solid rgba(219,234,254,0.7)",
-            boxShadow: "0 0.0625rem 0.25rem rgba(0,0,0,0.04)",
-            display: "flex", alignItems: "center", gap: "0.6875rem",
-          }}>
-            <Box sx={{
-              width: "2.25rem", height: "2.25rem", borderRadius: "0.5625rem", flexShrink: 0,
-              bgcolor: `${s.color}15`, display: "flex", alignItems: "center", justifyContent: "center",
-              color: s.color, "& svg": { fontSize: "1.1875rem" },
-            }}>
-              {s.icon}
-            </Box>
-            <Box>
-              <Typography sx={{ fontSize: "0.625rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", mb: "0.0625rem" }}>
-                {s.label}
-              </Typography>
-              <Typography sx={{ fontSize: "0.9375rem", fontWeight: 700, color: "text.primary", lineHeight: 1.1 }}>
-                {s.value}
-              </Typography>
-              <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", mt: "0.0625rem" }}>
-                {s.sub}
-              </Typography>
-            </Box>
-          </Box>
-        ))}
-      </Box>
 
-      {/* ── Cards 3x2 + Activity panel ──────────────────────────────────────── */}
-      <Box sx={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 16rem", gap: "0.875rem", minHeight: 0 }}>
-
-        {/* Feature cards — 3 cols x 2 rows, content centered */}
-        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "1fr 1fr", gap: "0.75rem", minHeight: 0 }}>
-          {FEATURE_CARDS.map((card) => {
-            const hovered = hoveredCard === card.id
-            return (
-              <Box
-                key={card.id}
-                onClick={() => router.push(card.href)}
-                onMouseEnter={() => setHoveredCard(card.id)}
-                onMouseLeave={() => setHoveredCard(null)}
-                sx={{
-                  bgcolor: hovered ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.85)",
-                  backdropFilter: "blur(0.625rem)",
-                  borderRadius: "0.875rem",
-                  p: "1.25rem 1rem",
-                  border: `1px solid ${hovered ? card.color + "55" : "rgba(219,234,254,0.7)"}`,
-                  boxShadow: hovered ? `0 0.375rem 1.5rem ${card.color}1a` : "0 0.0625rem 0.25rem rgba(0,0,0,0.05)",
-                  cursor: "pointer",
-                  transition: "all 0.18s cubic-bezier(0.4,0,0.2,1)",
-                  transform: hovered ? "translateY(-0.125rem)" : "none",
-                  display: "flex", flexDirection: "column",
-                  alignItems: "center", justifyContent: "center",
-                  textAlign: "center", overflow: "hidden",
-                }}
-              >
-                <Box sx={{
-                  width: "3rem", height: "3rem", borderRadius: "0.75rem",
-                  bgcolor: hovered ? `${card.color}22` : `${card.color}14`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: card.color, mb: "0.75rem", flexShrink: 0,
-                  transition: "background 0.18s ease",
-                  "& svg": { fontSize: "1.375rem" },
-                }}>
-                  {card.icon}
-                </Box>
-                <Typography sx={{ fontSize: "0.875rem", fontWeight: 600, color: "text.primary", mb: "0.3rem" }}>
-                  {card.label}
-                </Typography>
-                <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", lineHeight: 1.5 }}>
-                  {card.desc}
-                </Typography>
-                {hovered && (
-                  <Box sx={{ display: "flex", alignItems: "center", gap: "0.25rem", mt: "0.625rem", flexShrink: 0 }}>
-                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: card.color }}>Abrir</Typography>
-                    <ArrowForwardIcon sx={{ fontSize: "0.8125rem", color: card.color }} />
+        {/* KPI 1 — WAPE último forecast */}
+        <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            WAPE último forecast
+          </Typography>
+          {forecastLoading ? (
+            <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", py: "0.5rem" }}>
+              <CircularProgress size="1rem" />
+              <Typography variant="caption" color="text.disabled">Cargando…</Typography>
+            </Box>
+          ) : wape !== null ? (
+            <>
+              <Box sx={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "baseline", gap: "0.125rem" }}>
+                    <Typography sx={{ fontSize: "1.625rem", fontWeight: 800, color: "#10b981", lineHeight: 1 }}>
+                      {wape.toFixed(1)}
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.8125rem", fontWeight: 600, color: "#10b981" }}>%</Typography>
                   </Box>
-                )}
+                  {fva !== null && (
+                    <Typography sx={{ fontSize: "0.65625rem", color: fva >= 0 ? "#10b981" : "#f59e0b", mt: "0.1875rem" }}>
+                      {fva >= 0 ? "↗" : "↘"} FVA {fva >= 0 ? "+" : ""}{fva.toFixed(1)}pp
+                    </Typography>
+                  )}
+                </Box>
+                <Sparkline data={wapeHistory} color="#10b981" w={72} h={30} />
               </Box>
-            )
-          })}
+              <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary" }}>
+                {modelUsed ? (MODEL_LABELS[modelUsed] ?? modelUsed) : "—"} · {forecastResult?.dataset_id?.slice(0, 8) ?? "—"}
+              </Typography>
+            </>
+          ) : (
+            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>
+              Sin forecasts aún
+            </Typography>
+          )}
         </Box>
 
-        {/* Activity panel */}
-        <Box sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <Typography sx={{
-            fontSize: "0.6875rem", fontWeight: 600, color: "text.disabled",
-            letterSpacing: "0.08em", textTransform: "uppercase", mb: "0.75rem", flexShrink: 0,
-          }}>
-            Actividad reciente
+        {/* KPI 2 — Calidad del dataset */}
+        <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Calidad del dataset
           </Typography>
-          <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.5rem", overflowY: "auto", minHeight: 0 }}>
-            {ACTIVITY_ITEMS.map((a, i) => (
-              <Box key={i} sx={{
-                bgcolor: "rgba(255,255,255,0.85)", backdropFilter: "blur(0.625rem)",
-                borderRadius: "0.75rem", p: "0.6875rem 0.8125rem",
-                border: "1px solid rgba(219,234,254,0.7)",
-                boxShadow: "0 0.0625rem 0.1875rem rgba(0,0,0,0.04)",
-                display: "flex", gap: "0.6875rem", alignItems: "flex-start", flexShrink: 0,
+          {qScore !== null ? (
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flex: 1 }}>
+              <Box>
+                <Typography sx={{ fontSize: "1.375rem", fontWeight: 800, color: qColor, lineHeight: 1.1 }}>
+                  {qScore}<Box component="span" sx={{ fontSize: "0.8125rem", fontWeight: 500 }}>/100</Box>
+                </Typography>
+                <Box sx={{ mt: "0.25rem" }}>
+                  <Box component="span" sx={{
+                    fontSize: "0.625rem", fontWeight: 600, px: "0.4375rem", py: "0.125rem",
+                    borderRadius: "0.75rem", bgcolor: `${qColor}18`, color: qColor,
+                  }}>
+                    {qLabel}
+                  </Box>
+                </Box>
+                <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary", mt: "0.25rem" }}>
+                  {caps.features.lightgbm && qScore >= 80 ? "LightGBM disponible" : `${modelsAvailable.length} modelos`}
+                </Typography>
+              </Box>
+              <QualityRing score={qScore} color={qColor} size={52} />
+            </Box>
+          ) : (
+            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>
+              Ejecutá EDA para ver el score
+            </Typography>
+          )}
+        </Box>
+
+        {/* KPI 3 — Modelos disponibles */}
+        <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Modelos disponibles
+          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", mt: "0.125rem" }}>
+            <Typography sx={{ fontSize: "1.625rem", fontWeight: 800, color: "primary.main", lineHeight: 1 }}>
+              {modelsAvailable.length || 3}
+            </Typography>
+            <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary" }}>activos</Typography>
+          </Box>
+          <Box sx={{ display: "flex", gap: "0.3125rem", flexWrap: "wrap" }}>
+            {(modelsAvailable.length > 0 ? modelsAvailable : ["moving_average", "holt_winters", "sarima"]).map(m => (
+              <Box key={m} component="span" sx={{
+                fontSize: "0.625rem", fontWeight: 600, px: "0.4375rem", py: "0.125rem",
+                borderRadius: "0.75rem",
+                bgcolor: `${MODEL_COLORS[m] ?? "#6366f1"}18`,
+                color: MODEL_COLORS[m] ?? "#6366f1",
+                border: `1px solid ${MODEL_COLORS[m] ?? "#6366f1"}30`,
               }}>
-                <Box sx={{
-                  width: "2rem", height: "2rem", borderRadius: "0.5rem", flexShrink: 0,
-                  bgcolor: `${a.color}14`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: a.color, mt: "0.0625rem",
-                  "& svg": { fontSize: "1rem" },
-                }}>
-                  {a.icon}
-                </Box>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: "0.8125rem", fontWeight: 600, color: "text.primary" }}>{a.label}</Typography>
-                  <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", mt: "0.125rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.sub}</Typography>
-                  <Typography sx={{ fontSize: "0.6875rem", color: "text.disabled", mt: "0.125rem" }}>{a.time}</Typography>
-                </Box>
+                {MODEL_LABELS[m] ?? m}
               </Box>
             ))}
-            <Box sx={{ p: "0.375rem 0.125rem", display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: "0.25rem", cursor: "pointer" }}>
-                <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "primary.main" }}>Ver todo</Typography>
-                <ArrowForwardIcon sx={{ fontSize: "0.8125rem", color: "primary.main" }} />
+          </Box>
+          <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary" }}>
+            {caps.tier_label} · {caps.features.lightgbm ? "LightGBM ✓" : "sin LightGBM"}
+          </Typography>
+        </Box>
+
+        {/* KPI 4 — Próximo evento */}
+        <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Próximo evento
+          </Typography>
+          {nextEvent ? (
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: "0.625rem", mt: "0.125rem" }}>
+              <Box sx={{
+                width: "2.375rem", height: "2.375rem", borderRadius: "0.625rem", flexShrink: 0,
+                bgcolor: `${evColor(nextEvent.type)}18`,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              }}>
+                <Typography sx={{ fontSize: "0.5625rem", fontWeight: 700, color: evColor(nextEvent.type), lineHeight: 1 }}>
+                  {formatEvDate(nextEvent.start_date).split(" ")[1]?.toUpperCase()}
+                </Typography>
+                <Typography sx={{ fontSize: "0.9375rem", fontWeight: 800, color: evColor(nextEvent.type), lineHeight: 1.1 }}>
+                  {formatEvDate(nextEvent.start_date).split(" ")[0]}
+                </Typography>
               </Box>
+              <Box>
+                <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: "text.primary", lineHeight: 1.2 }}>
+                  {nextEvent.name}
+                </Typography>
+                <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary", mt: "0.125rem" }}>
+                  {nextEventDays === 0 ? "hoy" : nextEventDays === 1 ? "mañana" : `en ${nextEventDays} días`}
+                </Typography>
+                <Box component="span" sx={{
+                  fontSize: "0.625rem", fontWeight: 600, px: "0.4375rem", py: "0.125rem",
+                  borderRadius: "0.75rem", bgcolor: `${evColor(nextEvent.type)}14`,
+                  color: evColor(nextEvent.type), mt: "0.25rem", display: "inline-block",
+                }}>
+                  {nextEvent.type}
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            <Typography variant="caption" color="text.disabled" sx={{ py: "0.25rem" }}>
+              Sin eventos próximos
+            </Typography>
+          )}
+        </Box>
+      </Box>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          MAIN AREA — chart + pipeline  |  eventos + acciones
+      ══════════════════════════════════════════════════════════════════════ */}
+      <Box sx={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 17rem", gap: "0.875rem", minHeight: 0 }}>
+
+        {/* ── Left col: forecast chart + pipeline stepper ─────────────────── */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.75rem", minHeight: 0 }}>
+
+          {/* Forecast chart */}
+          <Box sx={{ ...glassCard, p: "0.875rem 1.125rem", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            {/* Header */}
+            <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: "0.625rem", flexShrink: 0 }}>
+              <Box>
+                <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <Typography sx={{ fontSize: "0.8125rem", fontWeight: 700, color: "text.primary" }}>
+                    Último forecast
+                  </Typography>
+                  {modelUsed && (
+                    <Box component="span" sx={{ fontSize: "0.625rem", fontWeight: 600, px: "0.5rem", py: "0.125rem", borderRadius: "0.75rem", bgcolor: "rgba(139,92,246,0.12)", color: "#8b5cf6" }}>
+                      {MODEL_LABELS[modelUsed] ?? modelUsed}
+                    </Box>
+                  )}
+                </Box>
+                {forecastResult && (
+                  <Typography sx={{ fontSize: "0.6875rem", color: "text.secondary", mt: "0.125rem" }}>
+                    {forecastResult.freq} · horizonte {forecastResult.horizon}
+                    {wape !== null && <> · WAPE <Box component="span" sx={{ color: "#10b981", fontWeight: 600 }}>{wape.toFixed(1)}%</Box></>}
+                    {fva !== null && <> · FVA <Box component="span" sx={{ color: "#10b981", fontWeight: 600 }}>+{fva.toFixed(1)}pp</Box></>}
+                  </Typography>
+                )}
+              </Box>
+              {/* Legend */}
+              <Box sx={{ display: "flex", gap: "0.875rem", alignItems: "center", flexShrink: 0 }}>
+                {[
+                  { color: "#3b82f6", label: "Real", dashed: false },
+                  { color: "#8b5cf6", label: "Forecast", dashed: true },
+                  { color: "rgba(139,92,246,0.15)", label: "IC 90%", dashed: false, isRect: true },
+                ].map(l => (
+                  <Box key={l.label} sx={{ display: "flex", alignItems: "center", gap: "0.3125rem", fontSize: "0.65625rem", color: "text.secondary" }}>
+                    {l.isRect
+                      ? <Box sx={{ width: "0.75rem", height: "0.5rem", bgcolor: l.color, borderRadius: "0.125rem" }} />
+                      : <Box sx={{ width: "1.125rem", height: "0.125rem", bgcolor: l.color, borderRadius: "0.125rem",
+                          borderTop: l.dashed ? `2px dashed ${l.color}` : "none", mt: l.dashed ? "-0.125rem" : 0 }} />
+                    }
+                    <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary" }}>{l.label}</Typography>
+                  </Box>
+                ))}
+                <Box
+                  onClick={() => router.push("/dashboard/forecast")}
+                  sx={{ fontSize: "0.6875rem", fontWeight: 600, color: "primary.main",
+                    display: "flex", alignItems: "center", gap: "0.25rem", cursor: "pointer",
+                    px: "0.6875rem", py: "0.3125rem", borderRadius: "0.5rem",
+                    border: "1px solid", borderColor: "divider",
+                    "&:hover": { bgcolor: "primary.50" },
+                  }}
+                >
+                  Ver forecast <ArrowForwardIcon sx={{ fontSize: "0.75rem" }} />
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Chart area */}
+            <Box sx={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center" }}>
+              {forecastLoading
+                ? <Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}><CircularProgress size="1.5rem" /></Box>
+                : <MiniChart result={forecastResult} />
+              }
+            </Box>
+          </Box>
+
+          {/* Pipeline stepper horizontal */}
+          <Box sx={{ ...glassCard, p: "0.8125rem 1.25rem", flexShrink: 0 }}>
+            <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", mb: "0.625rem" }}>
+              Tu pipeline actual
+            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0 }}>
+              {pipelineSteps.map((s, i) => (
+                <Box key={s.label} sx={{ display: "flex", alignItems: "center", flex: 1 }}>
+                  <Box
+                    onClick={() => router.push(s.href)}
+                    sx={{
+                      flex: 1, display: "flex", alignItems: "center", gap: "0.5625rem",
+                      cursor: "pointer", p: "0.25rem 0.375rem", borderRadius: "0.5rem",
+                      bgcolor: s.active ? "rgba(59,130,246,0.08)" : "transparent",
+                      border: "1px solid", borderColor: s.active ? "rgba(59,130,246,0.3)" : "transparent",
+                      transition: "background 0.15s",
+                      "&:hover": { bgcolor: s.active ? "rgba(59,130,246,0.12)" : "rgba(0,0,0,0.03)" },
+                    }}
+                  >
+                    {/* Step circle */}
+                    <Box sx={{
+                      width: "1.625rem", height: "1.625rem", borderRadius: "50%", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      bgcolor: s.done
+                        ? (s.active ? "primary.main" : "rgba(59,130,246,0.15)")
+                        : "rgba(219,234,254,0.7)",
+                    }}>
+                      {s.done
+                        ? <Typography sx={{ fontSize: "0.75rem", fontWeight: 700,
+                            color: s.active ? "#fff" : "primary.main" }}>✓</Typography>
+                        : <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "text.disabled" }}>{i + 1}</Typography>
+                      }
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontSize: "0.71875rem", fontWeight: s.active ? 700 : 600,
+                        color: s.active ? "primary.main" : s.done ? "text.primary" : "text.secondary",
+                        whiteSpace: "nowrap" }}>
+                        {s.label}
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.625rem",
+                        color: s.active ? "primary.main" : "text.disabled",
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        opacity: s.active ? 0.85 : 1 }}>
+                        {s.sub}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  {/* Connector */}
+                  {i < pipelineSteps.length - 1 && (
+                    <Box sx={{ width: "1.25rem", height: "0.0625rem", flexShrink: 0,
+                      bgcolor: s.done ? "rgba(59,130,246,0.4)" : "rgba(219,234,254,0.9)" }} />
+                  )}
+                </Box>
+              ))}
             </Box>
           </Box>
         </Box>
 
+        {/* ── Right col: próximos eventos + acciones rápidas ───────────────── */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.75rem", minHeight: 0 }}>
+
+          {/* Próximos eventos */}
+          <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: "0.625rem", flexShrink: 0 }}>
+              <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+                Próximos eventos
+              </Typography>
+              <Box onClick={() => router.push("/dashboard/calendar")}
+                sx={{ fontSize: "0.65625rem", fontWeight: 600, color: "primary.main", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: "0.1875rem",
+                  "&:hover": { opacity: 0.8 } }}>
+                Ver todos <ArrowForwardIcon sx={{ fontSize: "0.6875rem" }} />
+              </Box>
+            </Box>
+            <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.4375rem", overflowY: "auto", minHeight: 0 }}>
+              {upcomingEvents.length > 0 ? upcomingEvents.map((ev, i) => {
+                const ec = evColor(ev.type)
+                const days = daysUntil(ev.start_date)
+                return (
+                  <Box key={i} sx={{
+                    display: "flex", alignItems: "center", gap: "0.625rem",
+                    p: "0.5rem 0.625rem", borderRadius: "0.5625rem",
+                    bgcolor: `${ec}08`, border: "1px solid", borderColor: `${ec}20`,
+                  }}>
+                    <Box sx={{ width: "2.125rem", height: "2.125rem", borderRadius: "0.5rem", flexShrink: 0,
+                      bgcolor: `${ec}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <EventIcon sx={{ fontSize: "1rem", color: ec }} />
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "text.primary",
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {ev.name}
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.65625rem", color: "text.secondary", mt: "0.0625rem" }}>
+                        {formatEvDate(ev.start_date)}
+                      </Typography>
+                    </Box>
+                    <Box component="span" sx={{ fontSize: "0.625rem", fontWeight: 700, color: ec,
+                      bgcolor: `${ec}18`, px: "0.4375rem", py: "0.125rem", borderRadius: "0.75rem", flexShrink: 0 }}>
+                      {days === 0 ? "hoy" : days === 1 ? "mañana" : `${days}d`}
+                    </Box>
+                  </Box>
+                )
+              }) : (
+                <Typography variant="caption" color="text.disabled" sx={{ py: "0.5rem", textAlign: "center" }}>
+                  Sin eventos próximos
+                </Typography>
+              )}
+            </Box>
+          </Box>
+
+          {/* Acciones rápidas */}
+          <Box sx={{ ...glassCard, p: "0.8125rem 0.9375rem", flexShrink: 0 }}>
+            <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", mb: "0.625rem" }}>
+              Acciones rápidas
+            </Typography>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+              {QUICK_ACTIONS.map(a => (
+                <Box key={a.href}
+                  onClick={() => router.push(a.href)}
+                  sx={{
+                    display: "flex", alignItems: "center", gap: "0.5625rem",
+                    p: "0.4375rem 0.5rem", borderRadius: "0.5625rem", cursor: "pointer",
+                    transition: "background 0.14s",
+                    "&:hover": { bgcolor: `${a.color}0d` },
+                  }}
+                >
+                  <Box sx={{ width: "1.875rem", height: "1.875rem", borderRadius: "0.5rem", flexShrink: 0,
+                    bgcolor: `${a.color}14`, display: "flex", alignItems: "center", justifyContent: "center",
+                    color: a.color, "& svg": { fontSize: "0.9375rem" } }}>
+                    {a.icon}
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "text.primary" }}>{a.label}</Typography>
+                    <Typography sx={{ fontSize: "0.625rem", color: "text.secondary" }}>{a.sub}</Typography>
+                  </Box>
+                  <ArrowForwardIcon sx={{ fontSize: "0.875rem", color: "text.disabled" }} />
+                </Box>
+              ))}
+            </Box>
+          </Box>
+
+        </Box>
       </Box>
     </Box>
   )
