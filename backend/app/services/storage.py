@@ -149,10 +149,12 @@ def _save_supabase(data: bytes, dataset_id: str) -> None:
 
     client = get_supabase()
     storage_path = f"{dataset_id}.parquet"
+    # upsert=true permite sobreescribir — necesario para archivos _etl que se
+    # regeneran cada vez que el usuario cambia los parámetros del ETL.
     client.storage.from_(_BUCKET).upload(
         path=storage_path,
         file=data,
-        file_options={"content-type": "application/octet-stream", "upsert": "false"},
+        file_options={"content-type": "application/octet-stream", "upsert": "true"},
     )
 
 

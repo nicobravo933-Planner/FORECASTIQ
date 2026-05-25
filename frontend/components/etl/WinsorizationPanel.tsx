@@ -60,10 +60,17 @@ export function WinsorizationPanel({
 
   // Debounce ref for local mode
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Skip the first effect run on mount — only fire on actual user changes
+  const isMountedRef = useRef(false)
 
   // Local mode: fire on change with 300ms debounce
   useEffect(() => {
     if (!isLocal) return
+    // Skip mount — don't auto-fetch before the user moves a slider
+    if (!isMountedRef.current) {
+      isMountedRef.current = true
+      return
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       onApply(pLower, pUpper)

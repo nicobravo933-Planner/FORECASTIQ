@@ -17,6 +17,7 @@ import Typography from "@mui/material/Typography"
 import {
   ComposedChart,
   Line,
+  ReferenceLine,
   Scatter,
   XAxis,
   YAxis,
@@ -32,6 +33,9 @@ interface BeforeAfterChartProps {
   mode: "winsorize" | "fill-gaps"
   nChanged: number   // n_winsorized or n_imputed
   title?: string
+  // Winsorization bounds — shown as reference lines when mode=="winsorize"
+  winsorLower?: number
+  winsorUpper?: number
 }
 
 interface ChartRow {
@@ -43,7 +47,7 @@ interface ChartRow {
   imputedDot?: number
 }
 
-export function BeforeAfterChart({ series, mode, nChanged, title }: BeforeAfterChartProps) {
+export function BeforeAfterChart({ series, mode, nChanged, title, winsorLower, winsorUpper }: BeforeAfterChartProps) {
   const data: ChartRow[] = series.map((pt) => ({
     date: pt.date,
     original: pt.original ?? null,
@@ -163,6 +167,26 @@ export function BeforeAfterChart({ series, mode, nChanged, title }: BeforeAfterC
                 activeDot={{ r: 4 }}
                 connectNulls
               />
+
+              {/* Winsorization bounds — orange dashed reference lines */}
+              {mode === "winsorize" && winsorLower !== undefined && (
+                <ReferenceLine
+                  y={winsorLower}
+                  stroke="#f97316"
+                  strokeWidth={1.5}
+                  strokeDasharray="6 3"
+                  label={{ value: `p_low: ${winsorLower.toLocaleString()}`, position: "insideTopLeft", fontSize: 11, fill: "#f97316" }}
+                />
+              )}
+              {mode === "winsorize" && winsorUpper !== undefined && (
+                <ReferenceLine
+                  y={winsorUpper}
+                  stroke="#f97316"
+                  strokeWidth={1.5}
+                  strokeDasharray="6 3"
+                  label={{ value: `p_high: ${winsorUpper.toLocaleString()}`, position: "insideTopRight", fontSize: 11, fill: "#f97316" }}
+                />
+              )}
 
               {/* Highlight dots for changed points */}
               <Scatter dataKey={dotKey} fill={dotColor} r={5} name={dotKey} />

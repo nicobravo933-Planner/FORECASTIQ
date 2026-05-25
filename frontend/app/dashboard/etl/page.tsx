@@ -234,7 +234,10 @@ export default function EtlPage() {
 
             {activeResult ? (
               <BeforeAfterChart series={activeResult.series}
-                mode={activeMode as "winsorize" | "fill-gaps"} nChanged={nChanged} />
+                mode={activeMode as "winsorize" | "fill-gaps"} nChanged={nChanged}
+                winsorLower={tab === 0 && winsorize ? winsorize.winsor_lower : undefined}
+                winsorUpper={tab === 0 && winsorize ? winsorize.winsor_upper : undefined}
+              />
             ) : (
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
                 minHeight: "20rem", bgcolor: "rgba(0,0,0,0.02)", borderRadius: "0.75rem",
