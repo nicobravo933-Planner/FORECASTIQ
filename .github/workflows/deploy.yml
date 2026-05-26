@@ -107,15 +107,19 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Login to ghcr.io
-            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Login to ghcr.io desde el EC2
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-            # Pull latest image
+            # Pull latest image explícitamente
             docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
 
-            # Restart services — prod override: solo backend + redis (sin worker pesado)
-            cd /opt/forecastiq
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            # Ir al directorio correcto del repo en el EC2
+            cd /home/ec2-user/forecastiq
+
+            # Setear IMAGE para que docker-compose use la imagen de ghcr.io
+            export IMAGE=ghcr.io/${{ env.IMAGE_NAME }}:latest
+
+            # Restart con prod override (sin worker pesado)
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 
             # Clean up old images
