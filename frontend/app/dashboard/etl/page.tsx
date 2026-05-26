@@ -34,6 +34,7 @@ import { WinsorizationPanel } from "@/components/etl/WinsorizationPanel"
 import { FillGapsPanel } from "@/components/etl/FillGapsPanel"
 import { ExportButton } from "@/components/dataset/ExportButton"
 import { DatasetSelector } from "@/components/common/DatasetSelector"
+import { PipelineBar } from "@/components/common/PipelineBar"
 
 interface Capabilities { tier: string }
 
@@ -184,6 +185,9 @@ export default function EtlPage() {
           </Button>
         </Box>
       </Box>
+
+      {/* ── Pipeline progress bar ── */}
+      <PipelineBar activeStep="/dashboard/etl" />
 
       {/* ── Empty state when no dataset ── */}
       {!datasetId && (

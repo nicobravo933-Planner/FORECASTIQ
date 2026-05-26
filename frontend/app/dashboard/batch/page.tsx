@@ -87,10 +87,6 @@ interface ColumnInfo {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function seriesCount(predictions: BatchForecastResponse["predictions"]): number {
-  return new Set(predictions.map((p) => p.unique_id)).size;
-}
-
 function downloadCsv(predictions: BatchForecastResponse["predictions"], filename: string) {
   const header = "unique_id,ds,predicted";
   const rows = predictions.map((p) => `${p.unique_id},${p.ds},${p.predicted}`);
@@ -142,12 +138,15 @@ export default function BatchPage() {
     const dateC   = appStore.getActiveDateCol();
     const targetC = appStore.getActiveTargetCol();
     const freqS   = appStore.getActiveFreq() ?? "M";
+    // MSE-1a: pre-fill entity column if user picked one in dataset/page.tsx
+    const entityC = appStore.getEntityCol();
 
     if (!id) return;
     setDatasetId(id);
     setFreq(freqS);
     if (dateC) setDateCol(dateC);
     if (targetC) setTargetCol(targetC);
+    if (entityC) setIdCol(entityC);  // pre-fill entity/grouping column
 
     // Cargar preview de columnas
     setLoadingCols(true);
@@ -589,6 +588,60 @@ export default function BatchPage() {
                   ))}
                 </Box>
               </Box>
+
+              {/* MSE-1b: Entity ranking — suma total por serie, solo cuando hay id_col */}
+              {idCol && allSeries.length > 1 && (
+                <Paper variant="outlined" sx={{ borderRadius: "0.75rem", overflow: "hidden" }}>
+                  <Box sx={{ px: "1.25rem", py: "0.875rem", borderBottom: "1px solid", borderColor: "divider" }}>
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      Ranking de entidades
+                      <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: "0.5rem" }}>
+                        ({allSeries.length} series · ordenadas por proyección total)
+                      </Typography>
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", flexDirection: "column", maxHeight: "16rem", overflow: "auto" }}>
+                    {allSeries
+                      .map((uid) => ({
+                        uid,
+                        total: result.predictions
+                          .filter((p) => p.unique_id === uid)
+                          .reduce((acc, p) => acc + p.predicted, 0),
+                      }))
+                      .sort((a, b) => b.total - a.total)
+                      .map(({ uid, total }, idx) => (
+                        <Box
+                          key={uid}
+                          sx={{
+                            display: "flex", alignItems: "center", gap: "0.75rem",
+                            px: "1.25rem", py: "0.5rem",
+                            borderBottom: "1px solid", borderColor: "divider",
+                            bgcolor: idx % 2 === 0 ? "action.hover" : "transparent",
+                            "&:last-child": { borderBottom: "none" },
+                          }}
+                        >
+                          <Typography variant="caption" color="text.disabled"
+                            sx={{ minWidth: "1.5rem", fontWeight: 700 }}>#{idx + 1}</Typography>
+                          <Typography variant="body2"
+                            sx={{ flex: 1, fontFamily: "monospace", fontSize: "0.75rem" }}>
+                            {uid}
+                          </Typography>
+                          <Typography variant="body2" fontWeight={600} sx={{ fontSize: "0.75rem" }}>
+                            {total.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
+                          </Typography>
+                          {mode === "dataset" && (
+                            <Button size="small" variant="text"
+                              onClick={() => handleDrillDown(uid)}
+                              sx={{ textTransform: "none", fontSize: "0.6875rem", py: "0.125rem", minWidth: 0 }}>
+                              Ver →
+                            </Button>
+                          )}
+                        </Box>
+                      ))
+                    }
+                  </Box>
+                </Paper>
+              )}
 
               {/* DataGrid de predicciones */}
               <Paper variant="outlined" sx={{ borderRadius: "0.75rem", overflow: "hidden" }}>

@@ -91,7 +91,7 @@ export const CHAPTERS: ChapterMeta[] = [
     ],
   },
   {
-    id: 6, title: "Suavizamiento exponencial", subtitle: "SES, Holt y Holt-Winters triple", emoji: "〰️", readTime: 13,
+    id: 6, title: "Suavizamiento exponencial", subtitle: "SES, Holt y Holt-Winters triple", emoji: "〰️", readTime: 16,
     sections: [
       { id: "6-1", title: "La idea central: pesos decrecientes" },
       { id: "6-2", title: "SES — Nivel solamente" },
@@ -99,6 +99,7 @@ export const CHAPTERS: ChapterMeta[] = [
       { id: "6-4", title: "Holt-Winters Triple" },
       { id: "6-5", title: "Aditivo vs Multiplicativo" },
       { id: "6-6", title: "Damped Trend" },
+      { id: "6-7", title: "SES y Holt Simple en ForecastIQ" },
     ],
   },
   {
@@ -114,23 +115,25 @@ export const CHAPTERS: ChapterMeta[] = [
     ],
   },
   {
-    id: 8, title: "Feature Engineering", subtitle: "Lags, ventanas, variables de calendario", emoji: "⚙️", readTime: 11,
+    id: 8, title: "Feature Engineering", subtitle: "Lags, ventanas, variables de calendario", emoji: "⚙️", readTime: 14,
     sections: [
       { id: "8-1", title: "Lags y autocorrelación" },
       { id: "8-2", title: "Rolling statistics" },
       { id: "8-3", title: "Variables de calendario" },
       { id: "8-4", title: "Eventos y promociones" },
       { id: "8-5", title: "Target encoding" },
+      { id: "8-6", title: "Regresión Lineal + Splines" },
     ],
   },
   {
-    id: 9, title: "LightGBM y Machine Learning", subtitle: "Gradient boosting y Optuna HPO", emoji: "🤖", readTime: 13,
+    id: 9, title: "LightGBM y Machine Learning", subtitle: "Gradient boosting y Optuna HPO", emoji: "🤖", readTime: 16,
     sections: [
       { id: "9-1", title: "¿Por qué Gradient Boosting?" },
       { id: "9-2", title: "El flujo de entrenamiento" },
       { id: "9-3", title: "Optuna — búsqueda bayesiana" },
       { id: "9-4", title: "Feature importance" },
       { id: "9-5", title: "Predicción recursiva" },
+      { id: "9-6", title: "Cache de hiperparámetros" },
     ],
   },
   {

@@ -55,6 +55,8 @@ export default function ChatPage() {
 
   const [datasetId, setDatasetId] = useState<string | null>(null)
   const [jobId, setJobId]         = useState<string | null>(null)
+  const [detectionReport, setDetectionReport] = useState<Record<string, unknown> | null>(null)  // P6
+  const [multiSerieSummary, setMultiSerieSummary] = useState<string | null>(null)               // P6
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)   // oculto por defecto
@@ -63,12 +65,24 @@ export default function ChatPage() {
     const ctx = appStore.getChatContext()
     setDatasetId(ctx.datasetId)
     setJobId(ctx.jobId)
+    // P6: detection report del detector automático
+    setDetectionReport(appStore.getDetectionReport())
+    // P6: resumen del benchmark multi-serie (si existe)
+    const msResult = appStore.getLastMultiSerieResult<Record<string, unknown>>()
+    if (msResult) {
+      const entities = (msResult.results as unknown[])?.length ?? 0
+      const winner = (msResult.ranking as Array<{model: string}>)?.[0]?.model ?? "unknown"
+      setMultiSerieSummary(
+        `Multi-series benchmark: ${entities} entities analyzed. Best overall model: ${winner}. ` +
+        `Run at ${msResult.run_at as string ?? "unknown date"}.`
+      )
+    }
   }, [])
 
   const pendingMessages = appStore.popPendingMessages() as ChatMessage[]
 
   const { messages, suggestions, isStreaming, activeToolCall, error, tokensUsed, sendMessage, clearMessages, setMessages } =
-    useChat({ datasetId, jobId, initialMessages: pendingMessages.length > 0 ? pendingMessages : undefined })
+    useChat({ datasetId, jobId, detectionReport, multiSerieSummary, initialMessages: pendingMessages.length > 0 ? pendingMessages : undefined })
 
   // Keep last non-empty suggestions so chips don’t disappear while the user types
   const lastSuggestionsRef = useRef<string[]>([])

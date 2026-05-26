@@ -45,7 +45,7 @@ export interface DatasetPreview {
 }
 
 export interface DetectionResult {
-  model: "moving_average" | "holt_winters" | "sarima" | "lightgbm"
+  model: "moving_average" | "holt_winters" | "sarima" | "lightgbm" | "linear_splines"
   reason: string
   n_observations: number
   has_trend: boolean
@@ -100,17 +100,37 @@ export interface LightGBMParams {
   n_trials: number
 }
 
+export interface LinearSplinesParams {
+  n_knots:     number
+  degree:      number
+  alpha:       number
+  add_dummies: boolean
+  season_len:  number
+}
+
+export interface SESParams {
+  alpha: number  // smoothing level (0-1)
+}
+
+export interface HoltSimpleParams {
+  alpha: number  // smoothing level (0-1)
+  beta:  number  // smoothing trend (0-1)
+}
+
 export type ModelParams =
   | HoltWintersParams
   | SarimaParams
   | MovingAverageParams
   | LightGBMParams
+  | LinearSplinesParams
+  | SESParams
+  | HoltSimpleParams
   | Record<string, unknown>  // fallback para tipos futuros
 
 // ── Forecast ────────────────────────────────────────────────────
 export type ForecastStatus = "pending" | "started" | "done" | "failed"
 
-export type ModelName = "moving_average" | "holt_winters" | "sarima" | "lightgbm"
+export type ModelName = "moving_average" | "holt_winters" | "sarima" | "lightgbm" | "linear_splines" | "ses" | "holt_simple"
 
 export interface ForecastRunRequest {
   dataset_id: string
@@ -365,17 +385,19 @@ export interface BenchmarkModelResult {
 }
 
 export interface BenchmarkResult {
-  dataset_id:   string
-  freq:         string
-  horizon:      number
-  n_obs:        number
-  test_periods: number
-  models:       BenchmarkModelResult[]
-  winner:       string | null
-  winner_label: string | null
-  naive_wape:   number | null
-  conclusion:   string
-  run_at:       string
+  dataset_id:        string
+  freq:              string
+  horizon:           number
+  n_obs:             number
+  test_periods:      number
+  models:            BenchmarkModelResult[]
+  winner:            string | null
+  winner_label:      string | null
+  naive_wape:        number | null
+  conclusion:        string
+  run_at:            string
+  // VIZ-1a: predictions per model for overlay in ForecastChart
+  model_predictions: Record<string, PredictionPoint[]>
 }
 
 export interface BenchmarkRunRequest {

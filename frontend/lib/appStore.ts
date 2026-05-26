@@ -22,6 +22,8 @@ const KEYS = {
   pendingModel:    "fiq_pending_model",
   cleanedDatasetId: "fiq_cleaned_dataset_id",
   lastResult:    "fiq_last_forecast_result",  // ForecastResult completo — persiste entre navegaciones
+  entityCol:     "fiq_entity_col",             // MSE-1a: columna de agrupación para batch multi-entidad
+  datasetFilename: "fiq_active_dataset_filename", // nombre del archivo subido (para mostrar en UI)
 } as const
 
 function safeGet(key: string): string | null {
@@ -179,5 +181,50 @@ export const appStore = {
   },
   clearLastResult(): void {
     if (typeof window !== "undefined") localStorage.removeItem(KEYS.lastResult)
+  },
+
+  // ── MSE-1a: entity column for batch multi-entity forecasting ──────────────
+  // Set from dataset/page.tsx when user picks a grouping column.
+  // batch/page.tsx reads it to pre-populate the ID serie selector.
+  setEntityCol(col: string): void {
+    safeSet(KEYS.entityCol, col)
+  },
+  getEntityCol(): string | null {
+    return safeGet(KEYS.entityCol)
+  },
+  clearEntityCol(): void {
+    if (typeof window !== "undefined") localStorage.removeItem(KEYS.entityCol)
+  },
+
+  // ── Dataset filename (para mostrar en UI) ──────────────────────────────
+  // Persists the original filename so multi-serie and batch can show
+  // "departamentos_test.csv" instead of a UUID.
+  setDatasetFilename(filename: string): void {
+    safeSet(KEYS.datasetFilename, filename)
+  },
+  getDatasetFilename(): string | null {
+    return safeGet(KEYS.datasetFilename)
+  },
+  clearDatasetFilename(): void {
+    if (typeof window !== "undefined") localStorage.removeItem(KEYS.datasetFilename)
+  },
+
+  // ── Multi-serie last result (MS-UX2) ────────────────────────────────
+  // Persists the last benchmark/quick result so the user can navigate away
+  // and come back without losing the analysis. Same 500 KB limit as forecast.
+  setLastMultiSerieResult(result: unknown): void {
+    try {
+      const json = JSON.stringify(result)
+      if (json.length > 500_000) return
+      safeSet("fiq_last_multi_serie_result", json)
+    } catch { /* silenciar */ }
+  },
+  getLastMultiSerieResult<T>(): T | null {
+    const raw = safeGet("fiq_last_multi_serie_result")
+    if (!raw) return null
+    try { return JSON.parse(raw) as T } catch { return null }
+  },
+  clearLastMultiSerieResult(): void {
+    if (typeof window !== "undefined") localStorage.removeItem("fiq_last_multi_serie_result")
   },
 }

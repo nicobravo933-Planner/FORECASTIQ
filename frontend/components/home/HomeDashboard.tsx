@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, useCallback } from "react"
+import { useTheme } from "@mui/material/styles"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
 import CircularProgress from "@mui/material/CircularProgress"
@@ -22,6 +23,7 @@ import SmartToyIcon from "@mui/icons-material/SmartToy"
 import BarChartIcon from "@mui/icons-material/BarChart"
 import EventIcon from "@mui/icons-material/Event"
 import { api } from "@/lib/api"
+import { PipelineBar } from "@/components/common/PipelineBar"
 import { useCapabilities } from "@/hooks/useCapabilities"
 import { appStore } from "@/lib/appStore"
 import type { ForecastResult, CalendarEvent } from "@/lib/types"
@@ -41,14 +43,7 @@ function formatTimeES(d: Date) {
 const LOGO_SIZE     = "11.75rem"
 const LOGO_OVERFLOW = "2rem"
 
-// ── Glass card sx helper ──────────────────────────────────────────────────────
-const glassCard: SxProps = {
-  bgcolor: "rgba(255,255,255,0.85)",
-  backdropFilter: "blur(0.625rem)",
-  borderRadius: "0.875rem",
-  border: "1px solid rgba(219,234,254,0.7)",
-  boxShadow: "0 0.0625rem 0.25rem rgba(0,0,0,0.05)",
-}
+// ── Glass card sx helper — moved inside component to read theme ─────────────
 
 // ── Sparkline SVG ─────────────────────────────────────────────────────────────
 function Sparkline({ data, color, w = 72, h = 30 }: { data: number[]; color: string; w?: number; h?: number }) {
@@ -230,6 +225,17 @@ export function HomeDashboard() {
   const { data: session } = useSession()
   const router = useRouter()
   const { caps } = useCapabilities()
+  const theme = useTheme()
+
+  // Glass card sx — adapts to dark/light mode
+  const glassCard: SxProps = {
+    bgcolor: theme.palette.mode === "dark" ? theme.palette.background.paper : "rgba(255,255,255,0.85)",
+    backdropFilter: "blur(0.625rem)",
+    borderRadius: "0.875rem",
+    border: "1px solid",
+    borderColor: theme.palette.mode === "dark" ? "divider" : "rgba(219,234,254,0.7)",
+    boxShadow: "0 0.0625rem 0.25rem rgba(0,0,0,0.05)",
+  }
 
   // ── Clock (SSR-safe) ────────────────────────────────────────────────────────
   const [now, setNow] = useState<Date | null>(null)
@@ -254,7 +260,6 @@ export function HomeDashboard() {
   const [activeDatasetId, setActiveDatasetId] = useState<string | null>(null)
   const [activeJobId, setActiveJobId]         = useState<string | null>(null)
   const [qualityData, setQualityData]         = useState<{ score: number; label: string } | null>(null)
-  const [activeStep, setActiveStep]           = useState(0)
 
   useEffect(() => {
     const dsId   = appStore.getActiveDatasetId()
@@ -263,7 +268,6 @@ export function HomeDashboard() {
     setActiveDatasetId(dsId)
     setActiveJobId(jobId)
     setQualityData(qs ? { score: qs.score, label: qs.label } : null)
-    setActiveStep(jobId ? 3 : qs ? 2 : dsId ? 1 : 0)
 
     const onStorage = () => {
       const newJobId = appStore.getActiveJobId()
@@ -272,7 +276,6 @@ export function HomeDashboard() {
       setActiveJobId(newJobId)
       setActiveDatasetId(newDsId)
       setQualityData(newQs ? { score: newQs.score, label: newQs.label } : null)
-      setActiveStep(newJobId ? 3 : newQs ? 2 : newDsId ? 1 : 0)
     }
     window.addEventListener("storage", onStorage)
     window.addEventListener("fiq:store-update", onStorage)
@@ -341,38 +344,7 @@ export function HomeDashboard() {
   const nextEventDays = nextEvent ? daysUntil(nextEvent.start_date) : null
 
   // ── Pipeline steps ─────────────────────────────────────────────────────────
-  const pipelineSteps = [
-    {
-      label: "Datos / EDA",
-      sub: activeDatasetId ? `ID ${activeDatasetId.slice(0, 8)}…` : "Subí tu dataset",
-      done: activeStep >= 1,
-      active: activeStep === 1,
-      href: activeDatasetId ? "/dashboard/eda" : "/dashboard/data",
-    },
-    {
-      label: "ETL · Calidad",
-      sub: qualityData ? `Score ${qualityData.score} · ${qualityData.label}` : "Limpiar datos",
-      done: activeStep >= 2,
-      active: activeStep === 2,
-      href: "/dashboard/etl",
-    },
-    {
-      label: "Forecast",
-      sub: forecastResult
-        ? `${MODEL_LABELS[forecastResult.model_used] ?? forecastResult.model_used} · WAPE ${wape?.toFixed(1)}%`
-        : "Correr modelo",
-      done: activeStep >= 3,
-      active: activeStep === 3,
-      href: "/dashboard/forecast",
-    },
-    {
-      label: "MLOps",
-      sub: "Drift · Experimentos",
-      done: false,
-      active: false,
-      href: "/dashboard/mlops",
-    },
-  ]
+  // (Removed: HomeDashboard now uses <PipelineBar> directly)
 
   // ── Event type color map ────────────────────────────────────────────────────
   const evColor = (type: string) =>
@@ -396,7 +368,7 @@ export function HomeDashboard() {
           HERO STRIP — no modificar (logo 11.75rem flotante)
       ══════════════════════════════════════════════════════════════════════ */}
       <Box sx={{
-        background: "linear-gradient(135deg, #0f2044 0%, #1a3868 100%)",
+        background: "var(--fiq-appbar-bg, linear-gradient(135deg, #0f2044 0%, #1a3868 100%))",
         borderRadius: "1rem",
         p: "1.75rem 1.5rem",
         height: "8rem",         // altura fija — el logo siempre centrado
@@ -660,46 +632,12 @@ export function HomeDashboard() {
             </Box>
           </Box>
 
-          {/* Pipeline stepper */}
-          <Box sx={{ ...glassCard, p: "0.8125rem 1.25rem", flexShrink: 0 }}>
-            <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", mb: "0.625rem" }}>
+          {/* Pipeline stepper — usa el mismo PipelineBar que las demás vistas */}
+          <Box sx={{ ...glassCard, p: "0.875rem 1rem 0.25rem", flexShrink: 0 }}>
+            <Typography sx={{ fontSize: "0.59375rem", color: "text.disabled", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", mb: "0.375rem" }}>
               Tu pipeline actual
             </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0 }}>
-              {pipelineSteps.map((s, i) => (
-                <Box key={s.label} sx={{ display: "flex", alignItems: "center", flex: 1 }}>
-                  <Box
-                    onClick={() => router.push(s.href)}
-                    sx={{
-                      flex: 1, display: "flex", alignItems: "center", gap: "0.5625rem",
-                      cursor: "pointer", p: "0.25rem 0.375rem", borderRadius: "0.5rem",
-                      bgcolor: s.active ? "rgba(59,130,246,0.08)" : "transparent",
-                      border: "1px solid", borderColor: s.active ? "rgba(59,130,246,0.3)" : "transparent",
-                      transition: "background 0.15s",
-                      "&:hover": { bgcolor: s.active ? "rgba(59,130,246,0.12)" : "rgba(0,0,0,0.03)" },
-                    }}
-                  >
-                    <Box sx={{ width: "1.625rem", height: "1.625rem", borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: s.done ? (s.active ? "primary.main" : "rgba(59,130,246,0.15)") : "rgba(219,234,254,0.7)" }}>
-                      {s.done
-                        ? <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: s.active ? "#fff" : "primary.main" }}>✓</Typography>
-                        : <Typography sx={{ fontSize: "0.625rem", fontWeight: 700, color: "text.disabled" }}>{i + 1}</Typography>
-                      }
-                    </Box>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: "0.71875rem", fontWeight: s.active ? 700 : 600, color: s.active ? "primary.main" : s.done ? "text.primary" : "text.secondary", whiteSpace: "nowrap" }}>
-                        {s.label}
-                      </Typography>
-                      <Typography sx={{ fontSize: "0.625rem", color: s.active ? "primary.main" : "text.disabled", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: s.active ? 0.85 : 1 }}>
-                        {s.sub}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  {i < pipelineSteps.length - 1 && (
-                    <Box sx={{ width: "1.25rem", height: "0.0625rem", flexShrink: 0, bgcolor: s.done ? "rgba(59,130,246,0.4)" : "rgba(219,234,254,0.9)" }} />
-                  )}
-                </Box>
-              ))}
-            </Box>
+            <PipelineBar activeStep="/dashboard/home" noMargin />
           </Box>
         </Box>
 

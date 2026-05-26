@@ -16,6 +16,36 @@ from app.services.llm.tools import DEFAULT_MODEL_ID, FREE_MODELS
 logger = logging.getLogger(__name__)
 
 
+def _format_detection_report(report: dict[str, Any] | None) -> str:
+    """
+    Formatea el DetectionResult del detector automático para incluirlo
+    en el system prompt. Muestra el razonamiento de selección del modelo.
+    """
+    if not report:
+        return "No model detection run yet."
+    model = report.get("model", "unknown")
+    reason = report.get("reason", "")
+    confidence = report.get("confidence", 0)
+    n_obs = report.get("n_observations", "?")
+    has_trend = report.get("has_trend", False)
+    trend_dir = report.get("trend_direction", "no trend")
+    has_seasonality = report.get("has_seasonality", False)
+    season_period = report.get("seasonality_period")
+    cv = report.get("cv", 0)
+    outlier_pct = report.get("outlier_pct", 0)
+
+    seasonality_str = f"detected (period={season_period})" if has_seasonality else "not detected"
+    trend_str = f"{trend_dir}" if has_trend else "not detected"
+
+    return (
+        f"Recommended model: {model} (confidence={confidence:.0%})\n"
+        f"Reason: {reason}\n"
+        f"Observations: {n_obs} | CV (volatility): {cv:.2f}\n"
+        f"Trend: {trend_str} | Seasonality: {seasonality_str}\n"
+        f"Outliers: {outlier_pct:.1f}% of series"
+    )
+
+
 def build_system_prompt(session_context: dict[str, Any], user_message: str = "") -> str:
     """
     Construye el system prompt inyectando contexto del dataset y forecast.
@@ -26,6 +56,10 @@ def build_system_prompt(session_context: dict[str, Any], user_message: str = "")
     forecast_summary = session_context.get("forecast_summary", "No forecast run yet.")
     events_summary = session_context.get("events_summary", "No events configured.")
     freq_label = session_context.get("freq_label", "unknown frequency")
+    detection_section = _format_detection_report(session_context.get("detection_report"))
+    multi_serie_section = (
+        session_context.get("multi_serie_summary") or "No multi-series benchmark run yet."
+    )
 
     # Detecta idioma del mensaje del usuario para responder en el mismo idioma.
     # Si el mensaje contiene caracteres latinos/españoles → español, sino inglés.
@@ -74,6 +108,12 @@ Use the available tools to query their data and give precise, data-driven answer
 
 ## Active forecast
 {forecast_summary}
+
+## Model selection reason
+{detection_section}
+
+## Multi-series benchmark
+{multi_serie_section}
 
 ## Calendar events
 {events_summary}

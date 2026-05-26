@@ -18,7 +18,7 @@ import { appStore } from "@/lib/appStore"
 
 interface TryInForecastButtonProps {
   /** Model id to pre-select — must match the ids in ForecastConfigPanel */
-  modelId: "moving_average" | "holt_winters" | "sarima" | "lightgbm"
+  modelId: "moving_average" | "ses" | "holt_simple" | "holt_winters" | "sarima" | "linear_splines" | "lightgbm"
   /** Human-readable label shown in the button */
   label?: string
 }

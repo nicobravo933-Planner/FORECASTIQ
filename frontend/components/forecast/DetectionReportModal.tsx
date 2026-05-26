@@ -37,16 +37,22 @@ import type { DecisionStep, DetectionResult } from "@/lib/types"
 
 const MODEL_LABELS: Record<string, string> = {
   moving_average: "Promedio Móvil",
+  ses:            "SES (Suavizamiento Simple)",
+  holt_simple:    "Holt Simple",
   holt_winters:   "Holt-Winters",
   sarima:         "SARIMA",
   lightgbm:       "LightGBM",
+  linear_splines: "Regresión Lineal + Splines",
 }
 
 const MODEL_COLORS: Record<string, "default" | "primary" | "secondary" | "warning" | "success"> = {
   moving_average: "default",
+  ses:            "default",
+  holt_simple:    "primary",
   holt_winters:   "primary",
   sarima:         "secondary",
   lightgbm:       "success",
+  linear_splines: "warning",
 }
 
 // ── Sub-component: single decision step card ──────────────────────────────────

@@ -18,6 +18,9 @@ const MODEL_LABELS: Record<ModelName, string> = {
   holt_winters:   "Holt-Winters",
   sarima:         "SARIMA",
   lightgbm:       "LightGBM",
+  linear_splines: "Lin. + Splines",
+  ses:            "SES",
+  holt_simple:    "Holt Simple",
 }
 
 const METRIC_INFO: { key: keyof ForecastMetrics; label: string; tooltip: string; primary?: boolean }[] = [

@@ -30,6 +30,14 @@ export interface ServerCapabilities {
     demo_dataset: boolean
     db_connect: boolean
   }
+  // Restricciones operacionales por tier — controla qué operaciones mostrar habilitadas.
+  // El frontend usa esto para deshabilitar opciones con tooltip en lugar de error genérico.
+  constraints: {
+    benchmark_parallel: boolean   // false en EC2: benchmark corre secuencial
+    sarima_cv_allowed: boolean    // false en EC2: CV con SARIMA riesgo OOM
+    lightgbm_allowed: boolean     // false en EC2
+    max_benchmark_workers: number // 1 en EC2, 4 en local
+  }
   message: string
 }
 
@@ -42,21 +50,28 @@ const TIER_LABELS: Record<string, string> = {
 
 // Build capabilities from a tier string (used for env-var fallback)
 function capsFromTier(tier: string): ServerCapabilities {
-  const isLocal = tier === "local" || tier === "ec2"
+  const isLocal = tier === "local"
+  const isEc2   = tier === "ec2"
   return {
     tier: (tier as ServerCapabilities["tier"]) ?? "cloud",
     tier_label: TIER_LABELS[tier] ?? "Cloud",
     hardware_label: "",
     backend_online: false,  // fallback = backend no respondió
-    models_available: isLocal
-      ? ["moving_average", "holt_winters", "sarima", "lightgbm"]
+    models_available: (isLocal || isEc2)
+      ? ["moving_average", "holt_winters", "sarima", ...(isLocal ? ["lightgbm"] : [])]
       : ["moving_average", "holt_winters", "sarima"],
     features: {
       lightgbm:    isLocal,
       optuna_hpo:  isLocal,
-      nixtla_batch: isLocal,
+      nixtla_batch: isLocal || isEc2,
       demo_dataset: true,
       db_connect:   true,
+    },
+    constraints: {
+      benchmark_parallel: !isEc2,
+      sarima_cv_allowed:  !isEc2,
+      lightgbm_allowed:   isLocal,
+      max_benchmark_workers: isEc2 ? 1 : 4,
     },
     message: TIER_LABELS[tier] ?? "Cloud",
   }
@@ -68,7 +83,7 @@ const CLOUD_FALLBACK = capsFromTier("cloud")
 const SESSION_KEY = "fiq_capabilities"
 // Versión del schema — incrementar cuando cambia la estructura de ServerCapabilities
 // Esto invalida el cache viejo en sessionStorage automáticamente
-const SCHEMA_VERSION = "v3" // v3: agrega hardware_label + backend_online
+const SCHEMA_VERSION = "v4" // v4: agrega constraints (tier-based operation restrictions)
 
 export function useCapabilities() {
   const [caps, setCaps]       = useState<ServerCapabilities | null>(null)
@@ -97,9 +112,10 @@ export function useCapabilities() {
         const normalized: ServerCapabilities = {
           ...data,
           tier_label: data.tier_label ?? TIER_LABELS[data.tier] ?? `Backend (${data.tier})`,
-          // Si el backend no manda hardware_label, usar la env var del frontend
           hardware_label: data.hardware_label || process.env.NEXT_PUBLIC_SERVER_HARDWARE_LABEL || "",
           backend_online: true,
+          // Si el backend es viejo y no manda constraints, construir fallback desde tier
+          constraints: data.constraints ?? capsFromTier(data.tier).constraints,
         }
         setCaps(normalized)
         try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ ...normalized, __schema: SCHEMA_VERSION })) } catch { /* ok */ }

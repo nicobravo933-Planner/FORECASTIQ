@@ -8,13 +8,12 @@
  */
 
 import AssessmentIcon from "@mui/icons-material/Assessment";
-import BarChartIcon from "@mui/icons-material/BarChart";
+import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
 import EmailIcon from "@mui/icons-material/Email";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import HomeIcon from "@mui/icons-material/Home";
-import InsightsIcon from "@mui/icons-material/Insights";
 import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import MenuIcon from "@mui/icons-material/Menu";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
@@ -40,6 +39,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useTheme } from "@mui/material/styles";
 import { FloatingChat } from "@/components/chat/FloatingChat";
 import { signOut, useSession } from "@/lib/auth-client";
 
@@ -80,19 +80,14 @@ const NAV_ITEMS = [
 		icon: <CalendarMonthIcon fontSize="small" />,
 	},
 	{
-		label: "Analytics",
-		href: "/dashboard/analytics",
-		icon: <InsightsIcon fontSize="small" />,
+		label: "Multi-serie",
+		href: "/dashboard/multi-serie",
+		icon: <GroupWorkIcon fontSize="small" />,
 	},
 	{
 		label: "MLOps",
 		href: "/dashboard/mlops",
 		icon: <ScienceIcon fontSize="small" />,
-	},
-	{
-		label: "Batch",
-		href: "/dashboard/batch",
-		icon: <BarChartIcon fontSize="small" />,
 	},
 	{
 		label: "Datos",
@@ -137,6 +132,7 @@ function NavItem({
 	active: boolean;
 	collapsed: boolean;
 }) {
+	const theme = useTheme();
 	return (
 		<Tooltip title={collapsed ? item.label : ""} placement="right" arrow>
 			<ListItemButton
@@ -153,21 +149,21 @@ function NavItem({
 					borderRadius: collapsed ? "0.5rem" : "0 0.5rem 0.5rem 0",
 					transition: "all 0.15s ease",
 					"&.Mui-selected": {
-						background: "rgba(59,130,246,0.08)",
-						borderLeftColor: "#3b82f6",
-						"& .MuiListItemIcon-root": { color: "#2563eb" },
+					background: `${theme.palette.primary.main}14`,
+					borderLeftColor: theme.palette.primary.main,
+					"& .MuiListItemIcon-root": { color: theme.palette.primary.main },
 					},
 					"&.Mui-selected .MuiListItemText-primary": {
-						color: "#2563eb",
-						fontWeight: 600,
+					color: theme.palette.primary.main,
+					fontWeight: 600,
 					},
-					"&:hover:not(.Mui-selected)": { background: "rgba(59,130,246,0.04)" },
+					"&:hover:not(.Mui-selected)": { background: `${theme.palette.primary.main}08` },
 				}}
 			>
 				<ListItemIcon
 					sx={{
 						minWidth: collapsed ? 0 : "2.25rem",
-						color: active ? "#2563eb" : "#9ca3af",
+						color: active ? theme.palette.primary.main : "text.disabled",
 						transition: "color 0.15s ease",
 					}}
 				>
@@ -179,7 +175,7 @@ function NavItem({
 						primaryTypographyProps={{
 							fontSize: "0.875rem",
 							fontWeight: active ? 600 : 400,
-							color: active ? "#2563eb" : "#6b7280",
+							color: active ? theme.palette.primary.main : "text.secondary",
 							noWrap: true,
 						}}
 					/>
@@ -202,6 +198,7 @@ export default function DashboardLayout({
 	// Sidebar: pinned=true → fijo abierto (toggle manual)
 	// pinned=false → hover-only: expande al entrar, colapsa al salir
 	// Por defecto inicia colapsado (no pinned, no hovered)
+	const theme = useTheme();
 	const [pinned,  setPinned]  = useState(false);
 	const [hovered, setHovered] = useState(false);
 	const collapsed = !pinned && !hovered;
@@ -231,8 +228,9 @@ export default function DashboardLayout({
 				display: "flex",
 				height: "100vh",
 				overflow: "hidden",
-				background:
-					"linear-gradient(155deg, #c7dcff 0%, #dbeafe 18%, #e8f2ff 42%, #f0f4fb 68%, #eef2ff 100%)",
+				background: theme.palette.mode === "dark"
+					? theme.palette.background.default
+					: `linear-gradient(155deg, ${theme.palette.primary.light}22 0%, ${theme.palette.primary.light}18 18%, ${theme.palette.primary.light}10 42%, ${theme.palette.background.default} 68%, ${theme.palette.background.default} 100%)`,
 				backgroundAttachment: "fixed",
 			}}
 		>
@@ -252,7 +250,8 @@ export default function DashboardLayout({
 					display: "flex",
 					flexDirection: "column",
 					bgcolor: "background.paper",
-					borderRight: "1px solid #e5e7eb",
+					borderRight: "1px solid",
+					borderColor: "divider",
 					boxShadow: collapsed ? "none" : "0.125rem 0 0.5rem rgba(0,0,0,0.06)",
 					transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
 					overflow: "hidden",
@@ -416,7 +415,7 @@ export default function DashboardLayout({
 						zIndex: 120,
 						display: "flex",
 						alignItems: "center",
-						background: "linear-gradient(135deg, #0f2044 0%, #1a3868 100%)",
+						background: "var(--fiq-appbar-bg, linear-gradient(135deg, #0f2044 0%, #1a3868 100%))",
 						boxShadow: "0 0.125rem 0.75rem rgba(0,0,0,0.25)",
 						flexShrink: 0,
 					}}
@@ -442,6 +441,7 @@ export default function DashboardLayout({
 						sx={{
 						color: pinned ? "#fff" : "rgba(255,255,255,0.75)",
 						bgcolor: pinned ? "rgba(255,255,255,0.15)" : "transparent",
+
 						"&:hover": {
 						 color: "#fff",
 						 bgcolor: "rgba(255,255,255,0.1)",

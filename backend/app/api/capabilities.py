@@ -28,6 +28,16 @@ class FeaturesResponse(BaseModel):
     db_connect: bool
 
 
+class TierConstraintsResponse(BaseModel):
+    """Restricciones operacionales por tier — el frontend las usa para deshabilitar
+    opciones específicas con tooltip explicativo en lugar de error generico."""
+
+    benchmark_parallel: bool  # True = paralelismo, False = secuencial (EC2)
+    sarima_cv_allowed: bool  # False en EC2 por riesgo de OOM
+    lightgbm_allowed: bool  # False en EC2, True en local
+    max_benchmark_workers: int  # 1 en EC2, 4 en local
+
+
 class CapabilitiesResponse(BaseModel):
     tier: str  # "local" | "ec2" | "cloud"
     tier_label: str  # etiqueta legible para el header del frontend
@@ -35,6 +45,7 @@ class CapabilitiesResponse(BaseModel):
     backend_online: bool  # siempre True cuando el endpoint responde
     models_available: list[str]
     features: FeaturesResponse
+    constraints: TierConstraintsResponse  # restricciones operacionales por tier
     message: str
 
 
@@ -99,11 +110,17 @@ async def get_capabilities() -> CapabilitiesResponse:
         backend_online=True,
         models_available=models,
         features=FeaturesResponse(
-            lightgbm=has_lgbm,
-            optuna_hpo=has_lgbm,  # HPO requiere LightGBM
+            lightgbm=has_lgbm and tier != "ec2",
+            optuna_hpo=has_lgbm and tier != "ec2",
             nixtla_batch=has_nixtla,
-            demo_dataset=True,  # siempre disponible (DuckDB + httpfs)
-            db_connect=True,  # siempre disponible (SQLAlchemy)
+            demo_dataset=True,
+            db_connect=True,
+        ),
+        constraints=TierConstraintsResponse(
+            benchmark_parallel=(tier != "ec2"),
+            sarima_cv_allowed=(tier != "ec2"),
+            lightgbm_allowed=(tier != "ec2"),
+            max_benchmark_workers=1 if tier == "ec2" else 4,
         ),
         message=message,
     )

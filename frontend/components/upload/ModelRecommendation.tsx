@@ -27,6 +27,7 @@ const MODEL_LABELS: Record<DetectionResult["model"], string> = {
   holt_winters: "Holt-Winters",
   sarima: "SARIMA",
   lightgbm: "LightGBM",
+  linear_splines: "Lin. + Splines",
 }
 
 const MODEL_COLOR: Record<DetectionResult["model"], "default" | "primary" | "secondary" | "warning"> = {
@@ -34,6 +35,7 @@ const MODEL_COLOR: Record<DetectionResult["model"], "default" | "primary" | "sec
   holt_winters: "primary",
   sarima: "secondary",
   lightgbm: "warning",
+  linear_splines: "secondary",
 }
 
 function ConfidenceDots({ value }: { value: number }) {

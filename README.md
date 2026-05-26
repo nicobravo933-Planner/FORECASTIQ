@@ -46,7 +46,7 @@ La idea es simple: en lugar de aprender ML en notebooks aislados, aprendés dent
 
 ## ¿Qué aprendés usando esta app?
 
-```
+```Plaintext
 EDA → ¿Qué tan buenos son mis datos?
 ETL → Limpiar, detectar outliers, winsorizar
 Modelos estadísticos → Moving Average, Holt-Winters, SARIMA
@@ -123,7 +123,7 @@ Eventos → ¿Cómo impactan las promociones y feriados al forecast?
 
 ## Stack técnico
 
-```
+```Plaintext
 Frontend    Next.js 14 + TypeScript + MUI v6      → Vercel
 Backend     FastAPI + Python 3.12 + UV             → AWS EC2 t3.micro
 Queue       Celery + Redis (Upstash)               → jobs ML asíncronos
@@ -138,7 +138,7 @@ CI/CD       GitHub Actions → Docker → EC2          → deploy automatizado
 
 ## Estructura del proyecto
 
-```
+```Plaintext
 forecastiq/
 ├── backend/                    # FastAPI + ML
 │   └── app/

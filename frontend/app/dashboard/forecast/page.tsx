@@ -50,16 +50,26 @@ import { ModelGatingPanel } from "@/components/forecast/ModelGatingPanel"
 import { DetectionReportModal } from "@/components/forecast/DetectionReportModal"
 import { ForecastContextBar } from "@/components/forecast/ForecastContextBar"
 import { BenchmarkTable } from "@/components/forecast/BenchmarkTable"
+import { ErrorMonthlyChart } from "@/components/forecast/ErrorMonthlyChart"
+import { CumulativeBiasChart } from "@/components/forecast/CumulativeBiasChart"
+import { SeasonalityHeatmap } from "@/components/forecast/SeasonalityHeatmap"
+import { YearlyTrendChart } from "@/components/forecast/YearlyTrendChart"
+import { ForecastExportButton } from "@/components/forecast/ForecastExportButton"
+import { BenchmarkExportButton } from "@/components/forecast/BenchmarkExportButton"
 import { ExportButton } from "@/components/dataset/ExportButton"
 import { EmptyStateGuard } from "@/components/common/EmptyStateGuard"
+import { PipelineBar } from "@/components/common/PipelineBar"
 import type { DataFreq, ModelName, PredictionPoint, DetectionResult, BenchmarkResult } from "@/lib/types"
 import { api } from "@/lib/api"
 
 const MODEL_LABELS: Record<ModelName, string> = {
-  moving_average: "Promedio Móvil",
-  holt_winters:   "Holt-Winters",
-  sarima:         "SARIMA",
-  lightgbm:       "LightGBM",
+  moving_average:  "Promedio Móvil",
+  ses:             "SES (Suavizamiento Simple)",
+  holt_simple:     "Holt Simple",
+  holt_winters:    "Holt-Winters",
+  sarima:          "SARIMA",
+  lightgbm:        "LightGBM",
+  linear_splines:  "Regresión Lineal + Splines",
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
@@ -162,6 +172,22 @@ export default function ForecastPage() {
       patchConfig({ modelOverride: pending as typeof config.modelOverride })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Drill-down desde Multi-serie: leer entidad seleccionada del sessionStorage
+  const [drilldownEntity, setDrilldownEntity] = useState<string | null>(null)
+  // P5-2: detect multi-entity dataset
+  const [entityCol, setEntityCol] = useState<string | null>(null)
+  useEffect(() => {
+    setEntityCol(appStore.getEntityCol())
+  }, [])
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const entity = sessionStorage.getItem("fiq_batch_drilldown_id")
+    if (entity) {
+      setDrilldownEntity(entity)
+      sessionStorage.removeItem("fiq_batch_drilldown_id")  // consumir una sola vez
+    }
   }, [])
 
   // E5: re-leer quality score cuando cambia el dataset
@@ -333,6 +359,42 @@ export default function ForecastPage() {
 
       {/* Resto del contenido — solo cuando hay dataset */}
       {config.datasetId && (<>
+
+      {/* ── Pipeline progress bar ── */}
+      <PipelineBar activeStep="/dashboard/forecast" />
+
+      {/* P5-2: aviso suave cuando el dataset tiene columna de agrupación */}
+      {entityCol && !drilldownEntity && (
+        <Alert
+          severity="info"
+          sx={{ fontSize: "0.8125rem" }}
+          action={
+            <Button size="small" color="inherit" onClick={() => router.push("/dashboard/multi-serie")}>
+              Ir a Multi-serie →
+            </Button>
+          }
+        >
+          Este dataset tiene columna de agrupación <strong>{entityCol}</strong>.
+          Para analizar todas las series a la vez usá Multi-serie.
+        </Alert>
+      )}
+
+      {/* Banner de drill-down desde Multi-serie */}
+      {drilldownEntity && (
+        <Alert
+          severity="info"
+          sx={{ fontSize: "0.8125rem" }}
+          onClose={() => setDrilldownEntity(null)}
+          action={
+            <Button size="small" color="inherit" onClick={() => router.push("/dashboard/multi-serie")}>
+              ← Volver a Multi-serie
+            </Button>
+          }
+        >
+          Estás viendo el forecast individual de <strong>{drilldownEntity}</strong>.
+          Configurá los selectores para filtrar solo esta entidad del dataset.
+        </Alert>
+      )}
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
@@ -674,10 +736,12 @@ export default function ForecastPage() {
                 scrollButtons="auto"
                 sx={{ mb: "1rem", borderBottom: "1px solid", borderColor: "divider" }}
               >
-                <Tab label="Forecast"     sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
-                <Tab label="Benchmark"    sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
-                <Tab label="Diagnóstico"  sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
-                <Tab label="Parámetros"   sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
+                <Tab label="Forecast"      sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
+                <Tab label="Benchmark"     sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
+                <Tab label="Error mensual"   sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} disabled={!forecast.result || forecast.result.test_periods === 0} />
+                <Tab label="BIAS acumulado"  sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} disabled={!forecast.result || forecast.result.test_periods === 0} />
+                <Tab label="Diagnóstico"     sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
+                <Tab label="Parámetros"      sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
               </Tabs>
 
               {/* ── Tab 0: Forecast ────────────────────────────────────────── */}
@@ -691,6 +755,8 @@ export default function ForecastPage() {
                     testPredicted={forecast.result!.test_predicted}
                     trainEndDate={forecast.result!.train_end_date}
                     testStartDate={forecast.result!.test_start_date}
+                    // VIZ-1a: pass benchmark predictions for multi-model overlay
+                    allModelPredictions={benchmarkResult?.model_predictions ?? {}}
                   />
                   <MetricsCard
                     metrics={forecast.result!.metrics}
@@ -698,23 +764,27 @@ export default function ForecastPage() {
                     testPeriods={forecast.result!.test_periods}
                     orientation="horizontal"
                   />
-                  {config.datasetId && (
-                    <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                  {/* EXP-1b: export analítico del resultado + export del dataset */}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    {forecast.result?.job_id && (
+                      <ForecastExportButton jobId={forecast.result.job_id} />
+                    )}
+                    {config.datasetId && (
                       <ExportButton
                         datasetId={config.datasetId}
                         showBoth
                         variant="outlined"
                         size="small"
                       />
-                    </Box>
-                  )}
+                    )}
+                  </Box>
                 </Box>
               )}
 
               {/* ── Tab 1: Benchmark ───────────────────────────────────────── */}
               {activeTab === 1 && (
                 <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                     <Tooltip title="Corre MA + HW + SARIMA + Seasonal Naive en paralelo y compara sus métricas">
                       <span>
                         <Chip
@@ -732,6 +802,10 @@ export default function ForecastPage() {
                         />
                       </span>
                     </Tooltip>
+                    {/* EXP-1c: export benchmark Excel — only shown when benchmark ran */}
+                    {benchmarkResult && (
+                      <BenchmarkExportButton benchmarkResult={benchmarkResult} />
+                    )}
                   </Box>
                   {benchmarkError && (
                     <Alert severity="error" sx={{ fontSize: "0.8125rem" }}>{benchmarkError}</Alert>
@@ -748,8 +822,56 @@ export default function ForecastPage() {
                 </Box>
               )}
 
-              {/* ── Tab 2: Diagnóstico ─────────────────────────────────────── */}
+              {/* ── Tab 2: Error mensual ─────────────────────────────────── */}
               {activeTab === 2 && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  {forecast.result!.test_periods > 0 &&
+                  forecast.result!.test_actual.length > 0 &&
+                  forecast.result!.test_predicted.length > 0 ? (
+                    <ErrorMonthlyChart
+                      testActual={forecast.result!.test_actual}
+                      testPredicted={forecast.result!.test_predicted}
+                      freq={forecast.result!.freq}
+                    />
+                  ) : (
+                    <Paper variant="outlined" sx={{ p: "2rem", textAlign: "center", borderStyle: "dashed", borderRadius: "0.75rem" }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        El gráfico de error mensual requiere un período de test (hold-out).
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        Configurá <strong>Períodos de test &gt; 0</strong> en el panel de configuración y volvé a correr el forecast.
+                      </Typography>
+                    </Paper>
+                  )}
+                </Box>
+              )}
+
+              {/* ── Tab 3: BIAS acumulado ───────────────────────────────── */}
+              {activeTab === 3 && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  {forecast.result!.test_periods > 0 &&
+                  forecast.result!.test_actual.length > 0 &&
+                  forecast.result!.test_predicted.length > 0 ? (
+                    <CumulativeBiasChart
+                      testActual={forecast.result!.test_actual}
+                      testPredicted={forecast.result!.test_predicted}
+                      freq={forecast.result!.freq}
+                    />
+                  ) : (
+                    <Paper variant="outlined" sx={{ p: "2rem", textAlign: "center", borderStyle: "dashed", borderRadius: "0.75rem" }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        El gráfico de BIAS acumulado requiere un período de test (hold-out).
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        Configurá <strong>Períodos de test &gt; 0</strong> en el panel de configuración y volvé a correr el forecast.
+                      </Typography>
+                    </Paper>
+                  )}
+                </Box>
+              )}
+
+              {/* ── Tab 4: Diagnóstico ─────────────────────────────────────── */}
+              {activeTab === 4 && (
                 <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                   {detectionReport ? (
                     <>
@@ -809,6 +931,20 @@ export default function ForecastPage() {
                         size="small"
                         sx={{ alignSelf: "flex-start", cursor: "pointer", fontSize: "0.75rem" }}
                       />
+                      {/* VIZ-1d: Seasonality heatmap below detection report */}
+                      {forecast.result && forecast.result.historical.length > 0 && (
+                        <SeasonalityHeatmap
+                          historical={forecast.result.historical}
+                          freq={forecast.result.freq}
+                        />
+                      )}
+                      {/* VIZ-1e: Year-over-year trend chart */}
+                      {forecast.result && forecast.result.historical.length > 0 && (
+                        <YearlyTrendChart
+                          historical={forecast.result.historical}
+                          freq={forecast.result.freq}
+                        />
+                      )}
                     </>
                   ) : (
                     <Paper variant="outlined" sx={{ p: "2rem", textAlign: "center", borderStyle: "dashed", borderRadius: "0.75rem" }}>
@@ -827,8 +963,8 @@ export default function ForecastPage() {
                 </Box>
               )}
 
-              {/* ── Tab 3: Parámetros ──────────────────────────────────────── */}
-              {activeTab === 3 && (
+              {/* ── Tab 5: Parámetros ──────────────────────────────────────── */}
+              {activeTab === 5 && (
                 <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                   {forecast.result!.model_params && Object.keys(forecast.result!.model_params).length > 0 ? (
                     <ParameterExplorer

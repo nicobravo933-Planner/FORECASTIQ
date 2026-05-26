@@ -27,6 +27,7 @@ import { OutlierChart } from "@/components/eda/OutlierChart"
 import { ModelsAvailablePanel } from "@/components/eda/ModelsAvailablePanel"
 import { DataCompletenessBar } from "@/components/eda/DataCompletenessBar"
 import { DatasetSelector } from "@/components/common/DatasetSelector"
+import { PipelineBar } from "@/components/common/PipelineBar"
 
 interface PreviewRow { [key: string]: string }
 interface PreviewResponse { rows: PreviewRow[]; total_rows: number }
@@ -120,6 +121,9 @@ export default function EdaPage() {
           showEtlBadge
         />
       </Box>
+
+      {/* ── Pipeline progress bar ── */}
+      <PipelineBar activeStep="/dashboard/eda" />
 
       {/* ── Empty state: no dataset ── */}
       {!datasetId && (

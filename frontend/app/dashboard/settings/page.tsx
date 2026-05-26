@@ -41,6 +41,9 @@ import { useSession, signOut } from "@/lib/auth-client"
 import { useCapabilities } from "@/hooks/useCapabilities"
 import { appStore } from "@/lib/appStore"
 import { FREE_MODELS, type LlmModelId } from "@/lib/types"
+import { THEME_META, LS_THEME_KEY, type ThemeId } from "@/lib/themePresets"
+import PaletteIcon from "@mui/icons-material/Palette"
+import CheckIcon from "@mui/icons-material/Check"
 
 const LS_MODEL_KEY  = "forecastiq:preferred_model"
 const LS_APIKEY_KEY = "forecastiq:openrouter_api_key"
@@ -87,6 +90,20 @@ export default function SettingsPage() {
   const router = useRouter()
   const { caps } = useCapabilities()
   const user = session?.user
+
+  // ── Appearance ─────────────────────────────────────────────────────────────
+  const [activeTheme, setActiveTheme] = useState<ThemeId>("navyPro")
+
+  useEffect(() => {
+    const stored = localStorage.getItem(LS_THEME_KEY) as ThemeId | null
+    if (stored) setActiveTheme(stored)
+  }, [])
+
+  const handleThemeChange = (id: ThemeId) => {
+    setActiveTheme(id)
+    localStorage.setItem(LS_THEME_KEY, id)
+    window.dispatchEvent(new CustomEvent("fiq:theme-change", { detail: id }))
+  }
 
   // ── LLM prefs ───────────────────────────────────────────────────────────────
   const [preferredModel, setPreferredModel] = useState<LlmModelId>("deepseek/deepseek-v4-flash:free")
@@ -236,6 +253,56 @@ export default function SettingsPage() {
               </Button>
             </Tooltip>
           )}
+        </Box>
+      </SectionCard>
+
+      {/* ── 1b. APARIENCIA ─────────────────────────────────────────────────── */}
+      <SectionCard title="Apariencia" icon={<PaletteIcon sx={{ fontSize: "1.25rem" }} />}>
+        <Typography variant="body2" fontWeight={500}>Tema de color</Typography>
+        <Typography variant="caption" color="text.disabled">
+          Cambia el color principal y el estilo visual de toda la aplicación.
+        </Typography>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", mt: "0.25rem" }}>
+          {(Object.entries(THEME_META) as [ThemeId, typeof THEME_META[ThemeId]][]).map(([id, meta]) => {
+            const isActive = activeTheme === id
+            return (
+              <Box
+                key={id}
+                onClick={() => handleThemeChange(id)}
+                sx={{
+                  cursor: "pointer",
+                  borderRadius: "0.75rem",
+                  border: "2px solid",
+                  borderColor: isActive ? "primary.main" : "divider",
+                  overflow: "hidden",
+                  transition: "border-color 0.15s, box-shadow 0.15s",
+                  boxShadow: isActive ? "0 0 0 0.2rem rgba(99,102,241,0.18)" : "none",
+                  "&:hover": { borderColor: "primary.light" },
+                  position: "relative",
+                }}
+              >
+                {/* Color preview strip */}
+                <Box sx={{ display: "flex", height: "2.5rem" }}>
+                  {meta.preview.map((c, i) => (
+                    <Box key={i} sx={{ flex: 1, bgcolor: c }} />
+                  ))}
+                </Box>
+                {/* Label row */}
+                <Box sx={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  px: "0.625rem", py: "0.4rem",
+                  bgcolor: "background.paper",
+                }}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "text.primary" }}>
+                    {meta.label}
+                  </Typography>
+                  {isActive && (
+                    <CheckIcon sx={{ fontSize: "0.875rem", color: "primary.main" }} />
+                  )}
+                </Box>
+              </Box>
+            )
+          })}
         </Box>
       </SectionCard>
 

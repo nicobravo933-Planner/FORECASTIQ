@@ -12,7 +12,7 @@
  *   3. Botón "Analizar en EDA →" lleva al usuario al análisis
  */
 
-import { Suspense, useEffect, useRef } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import CircularProgress from "@mui/material/CircularProgress"
 import Box from "@mui/material/Box"
@@ -23,6 +23,13 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
 import AssessmentIcon from "@mui/icons-material/Assessment"
+import LayersIcon from "@mui/icons-material/Layers"
+import Tooltip from "@mui/material/Tooltip"
+import FormControl from "@mui/material/FormControl"
+import InputLabel from "@mui/material/InputLabel"
+import Select from "@mui/material/Select"
+import MenuItem from "@mui/material/MenuItem"
+import Chip from "@mui/material/Chip"
 
 import { useDataset } from "@/hooks/useDataset"
 import { appStore } from "@/lib/appStore"
@@ -37,6 +44,9 @@ export default function DatasetPage() {
   const dataset = useDataset()
   const router = useRouter()
 
+  // MSE-1a: optional entity/grouping column for multi-entity batch forecast
+  const [entityCol, setEntityCol] = useState<string>("")
+
   // Persist dataset_id to appStore as soon as upload completes.
   // Columns are intentionally NOT saved here — that's EDA's responsibility.
   const persisted = useRef(false)
@@ -46,10 +56,15 @@ export default function DatasetPage() {
       appStore.setActiveDataset(dataset.datasetId, "", "", "M")
       appStore.clearQualityScore()
       appStore.clearCleanedDataset()
+      appStore.clearEntityCol()
+      // Persist filename so other views can show the file name instead of the UUID
+      if (dataset.uploadResponse?.filename) {
+        appStore.setDatasetFilename(dataset.uploadResponse.filename)
+      }
       persisted.current = true
     }
     if (dataset.stage === "idle") persisted.current = false
-  }, [dataset.stage, dataset.datasetId])
+  }, [dataset.stage, dataset.datasetId, dataset.uploadResponse])
 
   // ── CSV / file upload flow ────────────────────────────────────────────────
   const csvFlow = (
@@ -103,33 +118,89 @@ export default function DatasetPage() {
       {/* CTA — only after successful upload */}
       {dataset.stage === "preview" && dataset.datasetId && (
         <Box sx={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap", gap: "1rem",
+          display: "flex", flexDirection: "column", gap: "1rem",
           bgcolor: "rgba(59,130,246,0.04)", borderRadius: "0.75rem",
           border: "1px solid rgba(59,130,246,0.18)",
           px: "1.25rem", py: "1rem",
         }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <AssessmentIcon sx={{ color: "primary.main", fontSize: "1.5rem" }} />
-            <Box>
-              <Typography sx={{ fontSize: "0.9375rem", fontWeight: 700, color: "text.primary" }}>
-                Dataset listo
-              </Typography>
-              <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary" }}>
-                Ahora podés analizar la calidad, detectar outliers y elegir el modelo en EDA.
-                La detección de columnas ocurre allí — podés ajustarla manualmente.
-              </Typography>
+          {/* MSE-1a: selector de columna de entidad — solo si hay columnas de texto */}
+          {dataset.preview && dataset.preview.columns.some((c: { dtype: string }) => c.dtype === "text") && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <LayersIcon sx={{ fontSize: "1rem", color: "text.secondary" }} />
+                <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                  Columna de entidad (opcional)
+                </Typography>
+                <Tooltip title="Si tu dataset tiene múltiples productos, departamentos o tiendas, seleccioná aquí la columna de agrupación. ForecastIQ la usará para el Batch Forecast multi-entidad.">
+                  <Chip label="?" size="small" variant="outlined"
+                    sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "help" }} />
+                </Tooltip>
+              </Box>
+              <FormControl size="small" sx={{ maxWidth: "18rem" }}>
+                <InputLabel>Columna de agrupación</InputLabel>
+                <Select
+                  value={entityCol}
+                  label="Columna de agrupación"
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setEntityCol(val)
+                    if (val) appStore.setEntityCol(val)
+                    else appStore.clearEntityCol()
+                  }}
+                >
+                  <MenuItem value=""><em>Sin agrupación (serie única)</em></MenuItem>
+                  {dataset.preview.columns
+                    .filter((c: { dtype: string }) => c.dtype === "text")
+                    .map((c: { name: string }) => (
+                      <MenuItem key={c.name} value={c.name}>{c.name}</MenuItem>
+                    ))
+                  }
+                </Select>
+              </FormControl>
+              {entityCol && (
+                <Alert severity="info" sx={{ fontSize: "0.8125rem", py: "0.25rem" }}>
+                  Columna <strong>{entityCol}</strong> guardada. Irá pre-seleccionada en Batch Forecast.
+                </Alert>
+              )}
+            </Box>
+          )}
+
+          {/* Divider visual */}
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <AssessmentIcon sx={{ color: "primary.main", fontSize: "1.5rem" }} />
+              <Box>
+                <Typography sx={{ fontSize: "0.9375rem", fontWeight: 700, color: "text.primary" }}>
+                  Dataset listo
+                </Typography>
+                <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary" }}>
+                  Analizá la calidad y detectá outliers en EDA.{entityCol ? ` Columna de entidad: ${entityCol}.` : ""}
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+              {entityCol && (
+                <Button
+                  variant="outlined"
+                  size="large"
+                  startIcon={<LayersIcon />}
+                  onClick={() => router.push("/dashboard/multi-serie")}
+                  sx={{ textTransform: "none", fontWeight: 600, flexShrink: 0 }}
+                >
+                  Batch Forecast →
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                size="large"
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => router.push("/dashboard/eda")}
+                sx={{ textTransform: "none", fontWeight: 700, flexShrink: 0 }}
+              >
+                Analizar en EDA →
+              </Button>
             </Box>
           </Box>
-          <Button
-            variant="contained"
-            size="large"
-            endIcon={<ArrowForwardIcon />}
-            onClick={() => router.push("/dashboard/eda")}
-            sx={{ textTransform: "none", fontWeight: 700, flexShrink: 0 }}
-          >
-            Analizar en EDA →
-          </Button>
         </Box>
       )}
     </Box>

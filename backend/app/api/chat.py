@@ -56,6 +56,9 @@ class ChatStreamRequest(BaseModel):
     model: str | None = None
     dataset_id: str | None = None
     job_id: str | None = None
+    # P6: contexto enriquecido enviado desde el frontend
+    detection_report: dict[str, Any] | None = None  # DetectionResult serializado
+    multi_serie_summary: str | None = None  # resumen benchmark multi-serie
 
 
 class ModelInfo(BaseModel):
@@ -182,6 +185,9 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> StreamingRes
         ),
         "events_summary": _build_events_summary(),
         "freq_label": "monthly",  # Phase 5: leer desde el job
+        # P6: contexto enriquecido
+        "detection_report": body.detection_report,
+        "multi_serie_summary": body.multi_serie_summary,
     }
 
     history = [{"role": m.role, "content": m.content} for m in body.history]

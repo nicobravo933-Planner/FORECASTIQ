@@ -8,15 +8,20 @@ Endpoints de forecast — Phase 2.
 
 from __future__ import annotations
 
+import concurrent.futures
+from datetime import datetime
 from typing import Any, cast
 
-from fastapi import APIRouter, HTTPException, Request
+import orjson
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.dependencies import OptionalUser
 from app.services.celery_app import run_forecast_task
 from app.services.events import get_ar_holidays, list_events
+from app.services.forecast_exporter import ForecastExporter
 from app.services.redis_cache import check_forecast_rate_limit
 from app.services.supabase import get_forecast_result
 
@@ -283,6 +288,53 @@ async def get_forecast_result_endpoint(job_id: str) -> ForecastResultResponse:
     )
 
 
+# ── EXP-1a: Export analítico ─────────────────────────────────────────────────
+
+
+@router.get("/{job_id}/export")
+async def export_forecast(
+    job_id: str,
+    format: str = Query(default="xlsx", pattern="^(xlsx|csv|json)$"),  # noqa: A002
+) -> Response:
+    """
+    EXP-1a — Exporta el resultado de un job como:
+      xlsx → Excel analítico con 4 hojas (Resumen, Predicciones, Error mensual, Parámetros)
+      csv  → CSV de predicciones (fecha, predicho, lower, upper)
+      json → Resultado completo serializado
+
+    404 si el job no existe.
+    """
+    data = get_forecast_result(job_id)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' no encontrado.")
+
+    exporter = ForecastExporter(data)
+    dataset_slug = str(data.get("dataset_id", "forecast"))[:12]
+    base_name = f"forecastiq_{dataset_slug}_{job_id[:8]}"
+
+    if format == "xlsx":
+        buf = exporter.generate_xlsx()
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{base_name}.xlsx"'},
+        )
+    if format == "csv":
+        csv_str = exporter.generate_csv()
+        return Response(
+            content=csv_str,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{base_name}.csv"'},
+        )
+    # json
+    json_bytes = orjson.dumps(exporter.generate_json(), option=orjson.OPT_NON_STR_KEYS)
+    return Response(
+        content=json_bytes,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{base_name}.json"'},
+    )
+
+
 # ── Compare endpoint ──────────────────────────────────────────────────────────
 
 
@@ -418,6 +470,8 @@ class BenchmarkModelResult(BaseModel):
     is_winner: bool = False  # True = menor WAPE entre los no-naive
     is_baseline: bool = False  # True = Seasonal Naive
     error: str | None = None  # Si el modelo falló al correr
+    # VIZ-1a: predicciones del horizonte futuro (para overlay en ForecastChart)
+    predictions: list[dict[str, float | str]] = []
 
 
 class BenchmarkResult(BaseModel):
@@ -432,6 +486,8 @@ class BenchmarkResult(BaseModel):
     naive_wape: float | None = None  # WAPE del Seasonal Naive (denominador del FVA)
     conclusion: str = ""  # texto educativo automático
     run_at: str = ""
+    # VIZ-1a: dict model_id → predicciones futuras (para overlay en ForecastChart)
+    model_predictions: dict[str, list[dict[str, float | str]]] = {}
 
 
 @router.post("/benchmark", response_model=BenchmarkResult)
@@ -450,8 +506,6 @@ async def run_benchmark(
 
     Timeout por modelo: 90 segundos (SARIMA puede ser lento en series largas).
     """
-    import concurrent.futures
-    from datetime import datetime
 
     import pandas as pd
 
@@ -462,14 +516,17 @@ async def run_benchmark(
     from app.ml.models.seasonal_naive import SeasonalNaiveModel
     from app.services.storage import load_dataset as _load_dataset
 
-    # LightGBM solo en tier local
+    # LightGBM: solo disponible cuando el paquete está instalado Y el tier es local.
+    # En EC2 (1 GB RAM) LightGBM + Optuna supera la memoria disponible incluso
+    # en análisis individual — se excluye completamente del benchmark.
     _lgbm_cls: type | None = None
-    try:
-        from app.ml.models.lightgbm_model import LightGBMModel as _LgbmCls
+    if settings.server_tier != "ec2":
+        try:
+            from app.ml.models.lightgbm_model import LightGBMModel as _LgbmCls
 
-        _lgbm_cls = _LgbmCls
-    except ImportError:
-        pass
+            _lgbm_cls = _LgbmCls
+        except ImportError:
+            pass
 
     # Normalizar frecuencia (Pandas 2.2+)
     freq_alias = {"M": "ME", "Q": "QE", "A": "YE", "Y": "YE"}
@@ -544,11 +601,36 @@ async def run_benchmark(
         """
         Entrena y evalúa un modelo. Retorna BenchmarkModelResult.
         En caso de fallo: retorna el resultado con campo error completado.
+
+        VIZ-1a: también genera predicciones futuras del horizonte completo
+        re-entrenando sobre la serie completa (igual que el forecast individual).
         """
         try:
             model = _build_model(model_id)
             model.fit(train)
             metrics = model.evaluate(test) if len(test) > 0 else {}
+
+            # VIZ-1a: re-entrenar sobre serie completa y generar predicciones futuras
+            # para overlay en ForecastChart
+            future_preds: list[dict[str, float | str]] = []
+            try:
+                model_full = _build_model(model_id)
+                model_full.fit(series)
+                fc_df = model_full.predict(body.horizon)
+                future_preds = [
+                    {
+                        "date": str(row["date"].date())
+                        if hasattr(row["date"], "date")
+                        else str(row["date"]),
+                        "predicted": round(float(row["predicted"]), 4),
+                        "lower": round(float(row["lower"]), 4),
+                        "upper": round(float(row["upper"]), 4),
+                    }
+                    for _, row in fc_df.iterrows()
+                ]
+            except Exception:
+                pass  # Si falla la predicción futura, no romper el benchmark
+
             return BenchmarkModelResult(
                 model=model_id,
                 label=model_labels.get(model_id, model_id),
@@ -557,6 +639,7 @@ async def run_benchmark(
                 bias=metrics.get("bias"),
                 rmse=metrics.get("rmse"),
                 is_baseline=(model_id == "seasonal_naive"),
+                predictions=future_preds,
             )
         except Exception as exc:  # noqa: BLE001
             return BenchmarkModelResult(
@@ -566,11 +649,16 @@ async def run_benchmark(
                 error=str(exc)[:200],
             )
 
-    # ── Ejecutar modelos en paralelo ─────────────────────────────────────────
+    # ── Ejecutar modelos en paralelo / secuencial según tier ────────────────
+    # EC2 t3.micro (1 GB RAM, 1 vCPU): max_workers=1 para evitar OOM.
+    # Varios modelos corriendo simultáneamente (especialmente SARIMA) pueden
+    # consumir 300-400 MB juntos y activar el OOM killer del kernel.
+    # En local el paralelismo es seguro y reduce el tiempo total.
+    _parallel_workers = 1 if settings.server_tier == "ec2" else 4
     results: list[BenchmarkModelResult] = []
     timeout_secs = 90  # SARIMA puede ser lento en series largas
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_parallel_workers) as executor:
         future_map = {executor.submit(_run_one, mid): mid for mid in model_ids}
         for future in concurrent.futures.as_completed(
             future_map, timeout=timeout_secs * len(model_ids)
@@ -632,6 +720,11 @@ async def run_benchmark(
             f"Solo el Seasonal Naive completó con éxito. WAPE={naive_result.wape * 100:.1f}%."
         )
 
+    # VIZ-1a: construir dict model_id → predictions para fácil acceso en frontend
+    all_model_predictions: dict[str, list[dict[str, float | str]]] = {
+        r.model: r.predictions for r in results if r.predictions
+    }
+
     return BenchmarkResult(
         dataset_id=body.dataset_id,
         freq=body.freq,
@@ -644,4 +737,35 @@ async def run_benchmark(
         naive_wape=naive_wape,
         conclusion=conclusion,
         run_at=datetime.utcnow().isoformat(),
+        model_predictions=all_model_predictions,
+    )
+
+
+# ── EXP-1c: Export de benchmark ────────────────────────────────────────────
+
+
+@router.post("/benchmark/export")
+async def export_benchmark(body: BenchmarkResult) -> StreamingResponse:
+    """
+    EXP-1c — Exporta el resultado del benchmark como Excel analítico.
+
+    Recibe el BenchmarkResult completo desde el frontend (no hay job_id
+    persistido en Supabase para el benchmark — vive en memoria del cliente).
+
+    El Excel incluye:
+      Hoja 1 — Comparación: todos los modelos con métricas + semáforos
+      Hoja 2 — Conclusión: ganador, FVA, guía de interpretación
+      Hoja N — Pred <modelo>: predicciones futuras de cada modelo
+    """
+    from app.services.forecast_exporter import BenchmarkExporter
+
+    exporter = BenchmarkExporter(body.model_dump())
+    buf = exporter.generate_xlsx()
+    dataset_slug = body.dataset_id[:12] if body.dataset_id else "benchmark"
+    filename = f"forecastiq_benchmark_{dataset_slug}.xlsx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

@@ -42,6 +42,9 @@ import type {
   SarimaParams,
   MovingAverageParams,
   LightGBMParams,
+  LinearSplinesParams,
+  SESParams,
+  HoltSimpleParams,
 } from "@/lib/types"
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -343,6 +346,130 @@ function MovingAveragePanel({ params }: { params: MovingAverageParams }) {
   )
 }
 
+// ── Linear Splines panel (read-only) ───────────────────────────────────────
+
+function LinearSplinesPanel({ params }: { params: LinearSplinesParams }) {
+  const chips = [
+    { label: "n_knots",   value: String(params.n_knots),   desc: "Número de nudos" },
+    { label: "degree",    value: String(params.degree),    desc: "Grado polinomial" },
+    { label: "alpha",     value: params.alpha.toFixed(4),  desc: "Regularización Ridge" },
+    { label: "season_len",value: String(params.season_len),desc: "Período estacional" },
+  ]
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+      <Box sx={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        {chips.map(({ label, value, desc }) => (
+          <Tooltip key={label} title={desc} arrow>
+            <Box
+              sx={{
+                display:       "flex",
+                flexDirection: "column",
+                alignItems:    "center",
+                bgcolor:       "action.selected",
+                borderRadius:  "0.5rem",
+                px:            "0.875rem",
+                py:            "0.375rem",
+                minWidth:      "5rem",
+              }}
+            >
+              <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.625rem" }}>
+                {label}
+              </Typography>
+              <Typography variant="body2" fontWeight={700} color="warning.main">
+                {value}
+              </Typography>
+            </Box>
+          </Tooltip>
+        ))}
+      </Box>
+      <Typography variant="caption" color="text.disabled" sx={{ fontStyle: "italic" }}>
+        Regresión Lineal + Splines cúbicos naturales. Modelo interpretable: cada parámetro
+        tiene significado directo. No tiene tuneo manual — los nudos y el grado están
+        optimizados automáticamente.
+      </Typography>
+    </Box>
+  )
+}
+
+// ── SES panel (read-only: solo alpha) ───────────────────────────────────────
+
+function SESPanel({ params }: { params: SESParams }) {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+      <Box sx={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        <Tooltip title="Peso del valor más reciente. α=1 → sólo el último valor importa. α≈0 → todos los períodos pesan igual." arrow>
+          <Box
+            sx={{
+              display:       "flex",
+              flexDirection: "column",
+              alignItems:    "center",
+              bgcolor:       "action.selected",
+              borderRadius:  "0.5rem",
+              px:            "0.875rem",
+              py:            "0.375rem",
+              minWidth:      "5rem",
+            }}
+          >
+            <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.625rem" }}>
+              α (nivel)
+            </Typography>
+            <Typography variant="body2" fontWeight={700} color="primary.main">
+              {params.alpha.toFixed(4)}
+            </Typography>
+          </Box>
+        </Tooltip>
+      </Box>
+      <Typography variant="caption" color="text.disabled" sx={{ fontStyle: "italic" }}>
+        SES solo captura el nivel — sin tendencia ni estacionalidad. Ideal para series
+        cortas o muy ruidosas. El parámetro α es optimizado automáticamente por statsmodels.
+      </Typography>
+    </Box>
+  )
+}
+
+// ── Holt Simple panel (read-only: alpha + beta) ───────────────────────────────
+
+function HoltSimplePanel({ params }: { params: HoltSimpleParams }) {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+      <Box sx={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        {[
+          { key: "α", val: params.alpha, desc: "nivel",     tooltip: "Peso del nivel más reciente. α alto = muy reactivo a cambios de nivel." },
+          { key: "β", val: params.beta,  desc: "tendencia", tooltip: "Peso de la tendencia más reciente. β alto = tendencia muy adaptable." },
+        ].map(({ key, val, desc, tooltip }) => (
+          <Tooltip key={key} title={tooltip} arrow>
+            <Box
+              sx={{
+                display:       "flex",
+                flexDirection: "column",
+                alignItems:    "center",
+                bgcolor:       "action.selected",
+                borderRadius:  "0.5rem",
+                px:            "0.875rem",
+                py:            "0.375rem",
+                minWidth:      "5rem",
+              }}
+            >
+              <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.625rem" }}>
+                {key} ({desc})
+              </Typography>
+              <Typography variant="body2" fontWeight={700} color="primary.main">
+                {val.toFixed(4)}
+              </Typography>
+            </Box>
+          </Tooltip>
+        ))}
+      </Box>
+      <Typography variant="caption" color="text.disabled" sx={{ fontStyle: "italic" }}>
+        Holt Simple captura nivel + tendencia, sin estacionalidad. Usa cuando hay tendencia
+        clara pero sin ciclo estacional (Mann-Kendall significativo, FFT no detecta pico).
+        Ambos parámetros son optimizados automáticamente.
+      </Typography>
+    </Box>
+  )
+}
+
 // ── LightGBM panel ────────────────────────────────────────────────────────────
 
 function LightGBMPanel({ params }: { params: LightGBMParams }) {
@@ -466,6 +593,9 @@ export function ParameterExplorer({
   const sa  = modelParams as SarimaParams
   const lgb = modelParams as LightGBMParams
   const ma  = modelParams as MovingAverageParams
+  const ls  = modelParams as LinearSplinesParams
+  const ses = modelParams as SESParams
+  const hs  = modelParams as HoltSimpleParams
 
   // Local manual state — initialized from auto params on first render
   const [hwManual, setHwManual] = useState({
@@ -498,6 +628,9 @@ export function ParameterExplorer({
     holt_winters:   "Holt-Winters",
     sarima:         "SARIMA",
     lightgbm:       "LightGBM",
+    linear_splines: "Regresión Lineal + Splines",
+    ses:            "SES (Suavizamiento Simple)",
+    holt_simple:    "Holt Simple",
   }
 
   return (
@@ -551,6 +684,9 @@ export function ParameterExplorer({
           )}
           {modelUsed === "moving_average" && <MovingAveragePanel params={ma} />}
           {modelUsed === "lightgbm"       && <LightGBMPanel params={lgb} />}
+          {modelUsed === "linear_splines" && <LinearSplinesPanel params={ls} />}
+          {modelUsed === "ses"            && <SESPanel params={ses} />}
+          {modelUsed === "holt_simple"    && <HoltSimplePanel params={hs} />}
 
           {hasManualControls && (
             <>

@@ -9,16 +9,19 @@
  *  - Brush scrubber for pan/zoom along time axis
  *  - Quick-zoom buttons: All | Last 24 | Last 12 | Forecast only
  *  - Full-width layout (used when forecast result is present)
- *  - Tall chart (460px) for readability on dense series
+ *  - Tall chart (540px) for readability on dense series
+ *  - VIZ-1a: multi-model overlay from benchmark (dashed lines, checkbox toggle)
+ *  - VIZ-1a: entry animations on main lines
  *
  * Props:
- *  historical      — all historical points (train + optional test_actual)
- *  predictions     — future forecast points
- *  modelName       — display label shown in header
- *  testActual?     — actual values in the hold-out test window (optional, Paso 2)
- *  testPredicted?  — model predictions over the hold-out window (optional, Paso 2)
- *  trainEndDate?   — last date of training data (draws zone boundaries, optional)
- *  testStartDate?  — first date of test window (optional, Paso 2)
+ *  historical           — all historical points (train + optional test_actual)
+ *  predictions          — future forecast points
+ *  modelName            — display label shown in header
+ *  testActual?          — actual values in the hold-out test window (optional)
+ *  testPredicted?       — model predictions over the hold-out window (optional)
+ *  trainEndDate?        — last date of training data (draws zone boundaries)
+ *  testStartDate?       — first date of test window (optional)
+ *  allModelPredictions? — VIZ-1a: benchmark predictions per model for overlay
  */
 
 import { useState, useMemo } from "react"
@@ -42,8 +45,13 @@ import Typography from "@mui/material/Typography"
 import ToggleButton from "@mui/material/ToggleButton"
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup"
 import Chip from "@mui/material/Chip"
+import MuiTooltip from "@mui/material/Tooltip"
+import FormControlLabel from "@mui/material/FormControlLabel"
+import Checkbox from "@mui/material/Checkbox"
+import Divider from "@mui/material/Divider"
 import { useTheme, alpha } from "@mui/material/styles"
 import ZoomInIcon from "@mui/icons-material/ZoomIn"
+import LayersIcon from "@mui/icons-material/Layers"
 import type { HistoricalPoint, PredictionPoint } from "@/lib/types"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -55,20 +63,33 @@ interface ChartPoint {
   testPredicted?: number
   predicted?: number
   ci?: [number, number]
+  // VIZ-1a: overlay model predictions (dynamic keys: overlay_<modelId>)
+  [key: string]: unknown
 }
 
 export interface ForecastChartProps {
-  historical:     HistoricalPoint[]
-  predictions:    PredictionPoint[]
-  modelName:      string
+  historical:           HistoricalPoint[]
+  predictions:          PredictionPoint[]
+  modelName:            string
   // Optional: filled in by Paso 2 (hold-out)
-  testActual?:    HistoricalPoint[]
-  testPredicted?: PredictionPoint[]
-  trainEndDate?:  string | null
-  testStartDate?: string | null
+  testActual?:          HistoricalPoint[]
+  testPredicted?:       PredictionPoint[]
+  trainEndDate?:        string | null
+  testStartDate?:       string | null
+  // VIZ-1a: benchmark predictions per model for overlay
+  allModelPredictions?: Record<string, PredictionPoint[]>
 }
 
 type ZoomPreset = "all" | "last24" | "last12" | "forecast"
+
+// VIZ-1a: color palette per model
+const MODEL_OVERLAY_COLORS: Record<string, string> = {
+  moving_average: "#f97316", // naranja
+  holt_winters:   "#22c55e", // verde
+  sarima:         "#a855f7", // púrpura
+  lightgbm:       "#ef4444", // rojo
+  seasonal_naive: "#94a3b8", // gris
+}
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -122,13 +143,27 @@ export function ForecastChart({
   historical,
   predictions,
   modelName,
-  testActual    = [],
-  testPredicted = [],
-  trainEndDate  = null,
-  testStartDate = null,
+  testActual          = [],
+  testPredicted       = [],
+  trainEndDate        = null,
+  testStartDate       = null,
+  allModelPredictions = {},
 }: ForecastChartProps) {
   const theme = useTheme()
   const [zoomPreset, setZoomPreset] = useState<ZoomPreset>("all")
+
+  // VIZ-1a: which overlay models are active (controlled by checkboxes)
+  const overlayModelIds = Object.keys(allModelPredictions)
+  const [activeModels, setActiveModels] = useState<Set<string>>(
+    () => new Set(overlayModelIds)
+  )
+
+  const toggleModel = (id: string) =>
+    setActiveModels((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
 
   const hasTest = testActual.length > 0
 
@@ -140,7 +175,7 @@ export function ForecastChart({
       historical: p.value,
     }))
 
-    // Map test actual + predicted (hold-out window, Paso 2)
+    // Map test actual + predicted (hold-out window)
     const testActualMap = new Map(testActual.map((p) => [p.date, p.value]))
     const testPredMap   = new Map(testPredicted.map((p) => [p.date, p.predicted]))
 
@@ -170,6 +205,16 @@ export function ForecastChart({
       ci:        [p.lower, p.upper],
     }))
 
+    // VIZ-1a: inject overlay model predictions into future points
+    for (const [modelId, preds] of Object.entries(allModelPredictions)) {
+      const key = `overlay_${modelId}`
+      const predMap = new Map(preds.map((p) => [p.date, p.predicted]))
+      futurePoints.forEach((pt) => {
+        const v = predMap.get(pt.date)
+        if (v !== undefined) pt[key] = v
+      })
+    }
+
     // Overlap first future point onto last existing for visual continuity
     const lastExisting = trainPoints[trainPoints.length - 1]
     if (lastExisting && futurePoints.length > 0) {
@@ -180,7 +225,7 @@ export function ForecastChart({
     }
 
     return [...trainPoints, ...futurePoints]
-  }, [historical, predictions, testActual, testPredicted])
+  }, [historical, predictions, testActual, testPredicted, allModelPredictions])
 
   // ── Zoom: compute brush start/end indices ─────────────────────────────────
 
@@ -225,7 +270,7 @@ export function ForecastChart({
       variant="outlined"
       sx={{ p: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}
     >
-      {/* ── Header ───────────────────────────────────────────────────────── */}
+      {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem" }}>
         <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
@@ -273,15 +318,65 @@ export function ForecastChart({
         </Box>
       </Box>
 
-      {/* ── Zone legend ──────────────────────────────────────────────────── */}
+      {/* Zone legend */}
       <ZoneLegend hasTest={hasTest} />
 
-      {/* ── Chart ────────────────────────────────────────────────────────── */}
+      {/* VIZ-1a: model overlay checkboxes — only visible after benchmark ran */}
+      {overlayModelIds.length > 0 && (
+        <Box sx={{
+          display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap",
+          p: "0.375rem 0.75rem", bgcolor: "action.hover",
+          borderRadius: "0.375rem", border: "1px solid", borderColor: "divider",
+        }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+            <LayersIcon sx={{ fontSize: "0.875rem", color: "text.secondary" }} />
+            <Typography variant="caption" color="text.secondary" fontWeight={600}>
+              Overlay modelos
+            </Typography>
+          </Box>
+          <Divider orientation="vertical" flexItem />
+          {overlayModelIds.map((modelId) => {
+            const color = MODEL_OVERLAY_COLORS[modelId] ?? "#64748b"
+            const lbl = modelId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+            return (
+              <MuiTooltip key={modelId} title={`${lbl} — predicción del benchmark`} placement="top">
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={activeModels.has(modelId)}
+                      onChange={() => toggleModel(modelId)}
+                      size="small"
+                      sx={{ color, "&.Mui-checked": { color }, p: "0.125rem" }}
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                      <Box sx={{
+                        width: "1.25rem",
+                        height: 0,
+                        borderTop: `2px dashed ${color}`,
+                        opacity: activeModels.has(modelId) ? 1 : 0.3,
+                      }} />
+                      <Typography
+                        variant="caption"
+                        sx={{ fontSize: "0.6875rem", color: activeModels.has(modelId) ? "text.primary" : "text.disabled" }}
+                      >
+                        {lbl}
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ ml: 0, mr: 0 }}
+                />
+              </MuiTooltip>
+            )
+          })}
+        </Box>
+      )}
+
+      {/* Chart */}
       <ResponsiveContainer width="100%" height={540}>
-        <ComposedChart
-          data={allData}
-          margin={{ top: 8, right: 24, bottom: 8, left: 8 }}
-        >
+        <ComposedChart data={allData} margin={{ top: 8, right: 24, bottom: 8, left: 8 }}>
+
           {/* Background zone — Train */}
           {zoneTrainEnd && allData[0] && (
             <ReferenceArea
@@ -346,6 +441,12 @@ export function ForecastChart({
             labelFormatter={(label) => `📅 ${formatDateFull(String(label))}`}
             formatter={(value: unknown, name: string) => {
               if (name === "ci") return [null, null]
+              // Strip overlay_ prefix for tooltip labels
+              if (name.startsWith("overlay_")) {
+                const mid = name.replace("overlay_", "")
+                const lbl = mid.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                return [formatValue(value), lbl]
+              }
               const labels: Record<string, string> = {
                 historical:    "Histórico",
                 testActual:    "Real (test)",
@@ -359,6 +460,7 @@ export function ForecastChart({
           <Legend
             wrapperStyle={{ fontSize: "0.8125rem", paddingTop: "0.5rem" }}
             formatter={(value) => {
+              if (value.startsWith("overlay_")) return null  // overlay managed by checkboxes
               const labels: Record<string, string> = {
                 historical:    "Histórico",
                 testActual:    "Real (test)",
@@ -414,6 +516,9 @@ export function ForecastChart({
             activeDot={{ r: 5, strokeWidth: 0 }}
             name="historical"
             connectNulls
+            isAnimationActive={true}
+            animationDuration={800}
+            animationEasing="ease-out"
           />
 
           {/* Test actual — solid amber */}
@@ -456,7 +561,35 @@ export function ForecastChart({
             activeDot={{ r: 5, strokeWidth: 0 }}
             name="predicted"
             connectNulls
+            isAnimationActive={true}
+            animationDuration={800}
+            animationEasing="ease-out"
           />
+
+          {/* VIZ-1a: overlay lines from benchmark — one per active model */}
+          {overlayModelIds.map((modelId) => {
+            if (!activeModels.has(modelId)) return null
+            const color = MODEL_OVERLAY_COLORS[modelId] ?? "#64748b"
+            const lbl = modelId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+            return (
+              <Line
+                key={modelId}
+                type="monotone"
+                dataKey={`overlay_${modelId}`}
+                stroke={color}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 0 }}
+                name={`overlay_${modelId}`}
+                connectNulls
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
+                legendType="none"
+              />
+            )
+          })}
 
           {/* Brush scrubber — pan + zoom via drag */}
           <Brush
@@ -473,7 +606,7 @@ export function ForecastChart({
         </ComposedChart>
       </ResponsiveContainer>
 
-      {/* ── Footer hint ──────────────────────────────────────────────────── */}
+      {/* Footer hint */}
       <Typography variant="caption" color="text.disabled" sx={{ textAlign: "right" }}>
         Arrastrá el scrubber inferior para hacer zoom · Usá los botones para vistas rápidas
       </Typography>

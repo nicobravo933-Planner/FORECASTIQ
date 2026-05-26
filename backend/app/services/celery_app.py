@@ -98,6 +98,34 @@ def _extract_model_params(model: Any, model_name: str) -> dict[str, Any]:
                 "seasonal_order": list(seasonal_order),  # [P, D, Q, s]
             }
 
+        if model_name == "linear_splines":
+            return {
+                "n_knots": int(getattr(model, "n_knots", 5)),
+                "degree": int(getattr(model, "degree", 3)),
+                "alpha": float(getattr(model, "alpha", 1e-3)),
+                "add_dummies": bool(getattr(model, "add_dummies", True)),
+                "season_len": int(getattr(model, "_season_len", 12)),
+            }
+
+        if model_name == "ses":
+            fit = getattr(model, "_model_fit", None)
+            if fit is None:
+                return {}
+            params = getattr(fit, "params", {})
+            return {
+                "alpha": round(float(params.get("smoothing_level", 0.3)), 4),
+            }
+
+        if model_name == "holt_simple":
+            fit = getattr(model, "_model_fit", None)
+            if fit is None:
+                return {}
+            params = getattr(fit, "params", {})
+            return {
+                "alpha": round(float(params.get("smoothing_level", 0.3)), 4),
+                "beta": round(float(params.get("smoothing_trend", 0.1)), 4),
+            }
+
         if model_name == "lightgbm":
             best = getattr(model, "_best_params", {})
             # Serializa solo valores primitivos — los Booster objects no son JSON-safe
@@ -163,9 +191,12 @@ def run_forecast_task(
     """
     from app.core.telemetry import forecast_span
     from app.ml.detector import detect_best_model
+    from app.ml.models.holt_model import HoltSimpleModel
     from app.ml.models.holt_winters import HoltWintersModel
+    from app.ml.models.linear_splines_model import LinearSplinesModel
     from app.ml.models.moving_average import MovingAverageModel
     from app.ml.models.sarima import SarimaModel
+    from app.ml.models.ses_model import SESModel
     from app.services.storage import load_dataset as _load_dataset
     from app.services.supabase import save_forecast_result
 
@@ -241,6 +272,9 @@ def run_forecast_task(
                 "moving_average": MovingAverageModel(),
                 "holt_winters": HoltWintersModel(),
                 "sarima": SarimaModel(),
+                "linear_splines": LinearSplinesModel(),
+                "ses": SESModel(),
+                "holt_simple": HoltSimpleModel(),
             }
             # E4: si hay parámetros manuales del usuario, sobreescribe los defaults
             if manual_params:
@@ -389,36 +423,54 @@ def run_forecast_task(
             cv_warning: str | None = None
 
             if cv_folds > 0:
-                from app.ml.evaluator import rolling_cv
-
-                # Mapeo modelo_name → clase + kwargs sin contaminación de estado
-                _cv_cls_map: dict[str, tuple[type, dict[str, Any]]] = {
-                    "moving_average": (MovingAverageModel, {}),
-                    "holt_winters": (HoltWintersModel, {}),
-                    "sarima": (SarimaModel, {}),
-                }
-                if _lgbm_available and _lgbm_cls is not None:
-                    _cv_cls_map["lightgbm"] = (
-                        _lgbm_cls,
-                        {"dataset_id": dataset_id, "user_id": user_id, "force_reoptimize": False},
+                # SARIMA en EC2 (1 GB RAM): 5 folds × SARIMA fit puede superar 800 MB.
+                # Se bloquea preventivamente para evitar el OOM killer del kernel.
+                # El usuario puede correr CV con SARIMA en modo local sin restricción.
+                if settings.server_tier == "ec2" and model_name == "sarima":
+                    cv_warning = (
+                        "Rolling CV con SARIMA no está disponible en EC2 "
+                        "(memoria insuficiente para múltiples fits simultáneos). "
+                        "Usá modo local para esta operación."
                     )
+                    cv_folds = 0  # cancela el CV sin romper el job
+                else:
+                    from app.ml.evaluator import rolling_cv
 
-                cv_cls, cv_kwargs = _cv_cls_map.get(model_name, (HoltWintersModel, {}))
+                    # Mapeo modelo_name → clase + kwargs sin contaminación de estado
+                    _cv_cls_map: dict[str, tuple[type, dict[str, Any]]] = {
+                        "moving_average": (MovingAverageModel, {}),
+                        "holt_winters": (HoltWintersModel, {}),
+                        "sarima": (SarimaModel, {}),
+                        "linear_splines": (LinearSplinesModel, {}),
+                        "ses": (SESModel, {}),
+                        "holt_simple": (HoltSimpleModel, {}),
+                    }
+                    if _lgbm_available and _lgbm_cls is not None:
+                        _cv_cls_map["lightgbm"] = (
+                            _lgbm_cls,
+                            {
+                                "dataset_id": dataset_id,
+                                "user_id": user_id,
+                                "force_reoptimize": False,
+                            },
+                        )
 
-                try:
-                    cv_result = rolling_cv(
-                        series=series,
-                        model_cls=cv_cls,
-                        model_kwargs=cv_kwargs,
-                        horizon=horizon,
-                        k_folds=cv_folds,
-                    )
-                    cv_summary_dict = cv_result.to_dict()
-                except ValueError as cv_err:
-                    # Serie demasiado corta — no falla el job, solo avisa
-                    cv_warning = str(cv_err)
-                except Exception as cv_err:
-                    cv_warning = f"CV falló: {cv_err}"
+                    cv_cls, cv_kwargs = _cv_cls_map.get(model_name, (HoltWintersModel, {}))
+
+                    try:
+                        cv_result = rolling_cv(
+                            series=series,
+                            model_cls=cv_cls,
+                            model_kwargs=cv_kwargs,
+                            horizon=horizon,
+                            k_folds=cv_folds,
+                        )
+                        cv_summary_dict = cv_result.to_dict()
+                    except ValueError as cv_err:
+                        # Serie demasiado corta — no falla el job, solo avisa
+                        cv_warning = str(cv_err)
+                    except Exception as cv_err:
+                        cv_warning = f"CV falló: {cv_err}"
 
             # 7. Predicción
             _update(85, "Generando forecast")

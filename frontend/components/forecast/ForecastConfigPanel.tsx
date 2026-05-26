@@ -77,11 +77,14 @@ interface ForecastConfigPanelProps {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const ALL_MODEL_OPTIONS: { value: ModelName | "auto"; label: string; requiresLocal: boolean }[] = [
-  { value: "auto",           label: "Auto-detectar (recomendado)", requiresLocal: false },
-  { value: "moving_average", label: "Promedio Móvil",               requiresLocal: false },
-  { value: "holt_winters",   label: "Holt-Winters",                 requiresLocal: false },
-  { value: "sarima",         label: "SARIMA",                       requiresLocal: false },
-  { value: "lightgbm",       label: "LightGBM",                     requiresLocal: true  },
+  { value: "auto",            label: "Auto-detectar (recomendado)", requiresLocal: false },
+  { value: "moving_average",  label: "Promedio Móvil",               requiresLocal: false },
+  { value: "ses",             label: "SES (Suavizamiento Simple)",  requiresLocal: false },
+  { value: "holt_simple",     label: "Holt Simple (Sin estacional)", requiresLocal: false },
+  { value: "holt_winters",    label: "Holt-Winters",                 requiresLocal: false },
+  { value: "sarima",          label: "SARIMA",                       requiresLocal: false },
+  { value: "linear_splines",  label: "Regresión Lineal + Splines",   requiresLocal: false },
+  { value: "lightgbm",        label: "LightGBM",                     requiresLocal: true  },
 ]
 
 const FREQ_OPTIONS: { value: DataFreq; label: string }[] = [
@@ -148,6 +151,7 @@ export function ForecastConfigPanel({ config, onChange, disabled = false, availa
   const preview  = useColumnPreview(config.datasetId || null)
   const { caps } = useCapabilities()
   const isLocal  = caps.tier === "local"
+  const isEc2    = caps.tier === "ec2"
   const router   = useRouter()
   const [detectedFreq, setDetectedFreq] = useState<FreqDetectionResult | null>(null)
 
@@ -669,7 +673,7 @@ export function ForecastConfigPanel({ config, onChange, disabled = false, availa
             Cross-validation (folds)
           </Typography>
           <Tooltip
-            title="Rolling window CV con TimeSeriesSplit. Entrena K modelos en ventanas sucesivas y promedia el WAPE ± desvêo. Más robusto que un solo hold-out. Requiere serie más larga."
+            title="Rolling window CV con TimeSeriesSplit. Entrena K modelos en ventanas sucesivas y promedia el WAPE ± desvío. Más robusto que un solo hold-out. Requiere serie más larga."
             placement="top"
           >
             <Chip
@@ -681,30 +685,58 @@ export function ForecastConfigPanel({ config, onChange, disabled = false, availa
             />
           </Tooltip>
         </Box>
+
+        {/* Aviso cuando SARIMA + EC2: CV bloqueado en el servidor */}
+        {isEc2 && config.modelOverride === "sarima" && config.cvFolds > 0 && (
+          <Typography variant="caption" color="warning.main" sx={{ fontSize: "0.6875rem" }}>
+            ⚠️ CV con SARIMA se cancela en EC2 (memoria insuficiente). Usá modo local para esta operación.
+          </Typography>
+        )}
+
         <Box sx={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          {[0, 2, 3, 5].map((v) => (
-            <ToggleButton
-              key={v}
-              value={v}
-              selected={config.cvFolds === v}
-              onChange={() => !disabled && onChange({ cvFolds: v })}
-              size="small"
-              sx={{
-                px: "0.75rem",
-                py: "0.25rem",
-                fontSize: "0.75rem",
-                textTransform: "none",
-                borderRadius: "0.375rem",
-                border: "1px solid",
-                borderColor: config.cvFolds === v ? "secondary.main" : "divider",
-                bgcolor: config.cvFolds === v ? "secondary.main" : "transparent",
-                color: config.cvFolds === v ? "secondary.contrastText" : "text.secondary",
-                "&:hover": { bgcolor: config.cvFolds === v ? "secondary.dark" : "action.hover" },
-              }}
-            >
-              {v === 0 ? "Sin CV" : `K=${v}`}
-            </ToggleButton>
-          ))}
+          {[0, 2, 3, 5].map((v) => {
+            // En EC2, K>0 con SARIMA se bloquea en el servidor — mostramos el botón
+            // como deshabilitado para que el usuario lo entienda antes de correr.
+            const blockedBySarima = v > 0 && isEc2 && config.modelOverride === "sarima"
+            return (
+              <Tooltip
+                key={v}
+                title={
+                  blockedBySarima
+                    ? "Rolling CV con SARIMA requiere modo local (EC2 tiene memoria insuficiente para múltiples fits de SARIMA)"
+                    : ""
+                }
+                placement="top"
+                disableHoverListener={!blockedBySarima}
+              >
+                <span>
+                  <ToggleButton
+                    value={v}
+                    selected={config.cvFolds === v}
+                    onChange={() => !disabled && !blockedBySarima && onChange({ cvFolds: v })}
+                    size="small"
+                    disabled={blockedBySarima}
+                    sx={{
+                      px: "0.75rem",
+                      py: "0.25rem",
+                      fontSize: "0.75rem",
+                      textTransform: "none",
+                      borderRadius: "0.375rem",
+                      border: "1px solid",
+                      borderColor: config.cvFolds === v ? "secondary.main" : "divider",
+                      bgcolor: config.cvFolds === v ? "secondary.main" : "transparent",
+                      color: config.cvFolds === v ? "secondary.contrastText" : "text.secondary",
+                      "&:hover": { bgcolor: config.cvFolds === v ? "secondary.dark" : "action.hover" },
+                      "&.Mui-disabled": { opacity: 0.4 },
+                    }}
+                  >
+                    {v === 0 ? "Sin CV" : `K=${v}`}
+                    {blockedBySarima && <LockIcon sx={{ fontSize: "0.625rem", ml: "0.25rem" }} />}
+                  </ToggleButton>
+                </span>
+              </Tooltip>
+            )
+          })}
         </Box>
         {config.cvFolds > 0 && (
           <Typography variant="caption" color="text.disabled">

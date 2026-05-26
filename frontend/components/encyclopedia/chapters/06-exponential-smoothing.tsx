@@ -249,6 +249,112 @@ export function Chapter06() {
       />
 
       <TryInForecastButton modelId="holt_winters" label="Probar Holt-Winters en Forecast" />
+
+      <Divider sx={{ my: "1.75rem" }} />
+
+      {/* 6-7 */}
+      <SectionAnchor id="6-7" />
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>6.7 SES y Holt Simple en ForecastIQ</Typography>
+      <Typography sx={{ mb: "1rem", lineHeight: 1.8 }}>
+        Holt-Winters es el modelo estrella de la familia, pero hay situaciones donde sus hermanos
+        menores <strong>son la mejor opción</strong>. ForecastIQ los tiene disponibles para que
+        puedas compararlos directamente con el mismo dataset.
+      </Typography>
+
+      {/* Comparison visual */}
+      <Box sx={{ overflowX: "auto", mb: "1.5rem" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+          <thead>
+            <tr style={{ background: "rgba(59,130,246,0.08)" }}>
+              {["Modelo", "Componentes", "Parámetros", "Cuándo usarlo", "Mín obs"].map(h => (
+                <th key={h} style={{ padding: "0.5rem 1rem", textAlign: "left", fontWeight: 600, borderBottom: "2px solid rgba(0,0,0,0.1)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              ["SES",           "Nivel",                         "α",         "Sin tendencia ni estacionalidad. Series cortas o muy ruidosas.",     "8"],
+              ["Holt Simple",   "Nivel + Tendencia",             "α, β",      "Tendencia clara pero sin ciclo estacional detectado.",             "12"],
+              ["Holt-Winters",  "Nivel + Tendencia + Estacional", "α, β, γ",  "Serie con tendencia y ciclo estacional confirmado por FFT.",        "52"],
+            ].map(([mod, comp, params, when, min], i) => (
+              <tr key={mod as string} style={{ background: i % 2 === 0 ? "transparent" : "rgba(0,0,0,0.02)" }}>
+                <td style={{ padding: "0.4rem 1rem", fontWeight: 600, color: "#3b82f6" }}>{mod as string}</td>
+                <td style={{ padding: "0.4rem 1rem", fontFamily: "monospace", fontSize: "0.8125rem" }}>{comp as string}</td>
+                <td style={{ padding: "0.4rem 1rem", fontFamily: "monospace", fontSize: "0.8125rem" }}>{params as string}</td>
+                <td style={{ padding: "0.4rem 1rem", fontSize: "0.8125rem", color: "#374151" }}>{when as string}</td>
+                <td style={{ padding: "0.4rem 1rem", textAlign: "center", fontWeight: 600 }}>{min as string}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Box>
+
+      <Alert severity="info" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
+        <strong>Regla de oro:</strong> el detector automático de ForecastIQ ya elige entre estos modelos.
+        Si no detectó estacionalidad, va a preferir SES o Holt sobre Holt-Winters. Pero podés
+        forzar cualquier modelo manualmente y comparar el WAPE en el tab de resultados.
+      </Alert>
+
+      <Alert severity="warning" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
+        <strong>¿Cuándo SES pierde contra MA?</strong> Cuando α optimizado tiende a 1.0 (pesa casi
+        todo en el último valor), SES se vuelve equivalente a un MA(1). Si eso pasa, considerá
+        que tu serie puede ser demasiado ruidosa para cualquier modelo suave y revisá la calidad
+        de los datos antes de forecasting.
+      </Alert>
+
+      <WhenToUseCard
+        model="SES"
+        minObservations={8}
+        requirements={[
+          { condition: "Observaciones", value: "≥ 8" },
+          { condition: "Tendencia",     value: "No detectada" },
+          { condition: "Estacionalidad",value: "No detectada" },
+          { condition: "CV",            value: "Cualquiera" },
+        ]}
+        proscons={{
+          pros: [
+            "Mínimos datos requeridos (8 obs)",
+            "α se optimiza automáticamente (MLE)",
+            "Robusto a series muy cortas",
+            "Pronóstico plano = conservador",
+          ],
+          cons: [
+            "No proyecta tendencia",
+            "No captura estacionalidad",
+            "Pronóstico plano puede ser subóptimo si hay tendencia",
+          ],
+        }}
+      />
+
+      <TryInForecastButton modelId="ses" label="Probar SES en Forecast" />
+
+      <Box sx={{ mt: "1.5rem" }}>
+        <WhenToUseCard
+          model="Holt Simple"
+          minObservations={12}
+          requirements={[
+            { condition: "Observaciones", value: "≥ 12" },
+            { condition: "Tendencia",     value: "Detectada (Mann-Kendall)" },
+            { condition: "Estacionalidad",value: "No detectada o muy débil" },
+            { condition: "CV",            value: "< 1.0" },
+          ]}
+          proscons={{
+            pros: [
+              "Proyecta tendencia lineal",
+              "α y β se optimizan con MLE",
+              "Más rápido que SARIMA",
+              "Ideal para datos de alta frecuencia sin ciclo anual",
+            ],
+            cons: [
+              "Puede divergir en horizontes largos (usar Damped)",
+              "No captura estacionalidad — usar HW si hay ciclo",
+              "Con pocos datos, β puede ser ruidoso",
+            ],
+          }}
+        />
+      </Box>
+
+      <TryInForecastButton modelId="holt_simple" label="Probar Holt Simple en Forecast" />
     </Box>
   )
 }

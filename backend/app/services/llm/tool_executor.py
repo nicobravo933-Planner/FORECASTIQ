@@ -28,6 +28,7 @@ def execute_tool(
         "get_forecast_summary": _handle_forecast_summary,
         "get_events": _handle_get_events,
         "suggest_model_change": _handle_suggest_model_change,
+        "get_encyclopedia_context": _handle_encyclopedia_context,  # P6
     }
     handler = handlers.get(tool_name)
     if handler is None:
@@ -171,5 +172,37 @@ def _handle_suggest_model_change(
                     f"Reason: {reason}. You can re-run the forecast from the Forecast page."
                 ),
             }
+        }
+    )
+
+
+def _handle_encyclopedia_context(
+    args: dict[str, Any],
+    *,
+    dataset_id: str | None,
+    job_id: str | None,
+) -> str:
+    """Retorna el resumen del capítulo de la Enciclopedia solicitado por el LLM."""
+    from app.services.llm.tools import ENCYCLOPEDIA_CONTEXT
+
+    chapter_id = args.get("chapter_id", "").strip()
+    if not chapter_id:
+        return json.dumps({"error": "chapter_id is required."})
+
+    content = ENCYCLOPEDIA_CONTEXT.get(chapter_id)
+    if not content:
+        available = list(ENCYCLOPEDIA_CONTEXT.keys())
+        return json.dumps(
+            {
+                "error": f"Chapter '{chapter_id}' not found.",
+                "available_chapters": available,
+            }
+        )
+
+    return json.dumps(
+        {
+            "chapter_id": chapter_id,
+            "content": content,
+            "source": "ForecastIQ Encyclopedia — Vandeputt (Demand Forecasting Best Practices)",
         }
     )

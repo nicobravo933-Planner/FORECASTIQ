@@ -21,6 +21,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle"
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline"
 import MenuBookIcon from "@mui/icons-material/MenuBook"
 import { useEffect, useRef, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { ChapterSidebar, CHAPTERS } from "@/components/encyclopedia/ChapterSidebar"
 import {
   Chapter01, Chapter02, Chapter03, Chapter04,
@@ -122,13 +123,30 @@ function TocPanel({
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function EncyclopediaPage() {
+  const router = useRouter()
   const [activeChapter, setActiveChapter] = useState(1)
   const [activeSection,  setActiveSection]  = useState<string | null>(null)
   const [readChapters,   setReadChapters]   = useState<Set<number>>(new Set())
+  // P5-3: detect if user came from Forecast (via sessionStorage flag or referrer)
+  const [cameFromForecast, setCameFromForecast] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
   // Load progress from localStorage on mount
   useEffect(() => { setReadChapters(loadReadChapters()) }, [])
+
+  // P5-3: detect if user navigated here from Forecast
+  useEffect(() => {
+    // Check sessionStorage flag (written by any forecast component before navigating)
+    const flag = sessionStorage.getItem("enc_came_from")
+    if (flag === "/dashboard/forecast") {
+      setCameFromForecast(true)
+      return
+    }
+    // Fallback: check document.referrer
+    if (typeof document !== "undefined" && document.referrer.includes("/forecast")) {
+      setCameFromForecast(true)
+    }
+  }, [])
 
   // Scroll spy only — sin auto-mark
   useEffect(() => {
@@ -227,6 +245,28 @@ export default function EncyclopediaPage() {
           display: "flex", alignItems: "center", gap: "1rem", flexShrink: 0,
         }}>
           <MenuBookIcon sx={{ color: "primary.main", fontSize: "1.25rem" }} />
+
+          {/* P5-3: back to Forecast chip — shown when navigated from Forecast */}
+          {cameFromForecast && (
+            <Chip
+              label="← Volver a Forecast"
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                sessionStorage.removeItem("enc_came_from")
+                router.push("/dashboard/forecast")
+              }}
+              sx={{
+                fontSize: "0.75rem",
+                height: "1.75rem",
+                cursor: "pointer",
+                color: "primary.main",
+                borderColor: "primary.main",
+                flexShrink: 0,
+                "&:hover": { bgcolor: "rgba(59,130,246,0.07)" },
+              }}
+            />
+          )}
           <Box sx={{ flex: 1 }}>
             <Typography sx={{ fontSize: "0.75rem", color: "text.disabled", lineHeight: 1 }}>
               Capítulo {meta.id} de {CHAPTERS.length}&nbsp;·&nbsp;{meta.readTime} min lectura

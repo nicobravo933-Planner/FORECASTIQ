@@ -16,6 +16,8 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 interface UseChatOptions {
   datasetId?: string | null
   jobId?: string | null
+  detectionReport?: Record<string, unknown> | null  // P6: DetectionResult del detector
+  multiSerieSummary?: string | null                 // P6: resumen benchmark multi-serie
   initialMessages?: ChatMessage[]
 }
 
@@ -31,7 +33,7 @@ interface UseChatReturn {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
 }
 
-export function useChat({ datasetId, jobId, initialMessages }: UseChatOptions = {}): UseChatReturn {
+export function useChat({ datasetId, jobId, detectionReport, multiSerieSummary, initialMessages }: UseChatOptions = {}): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? [])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -88,6 +90,8 @@ export function useChat({ datasetId, jobId, initialMessages }: UseChatOptions = 
             model,
             dataset_id: datasetId ?? null,
             job_id: jobId ?? null,
+            detection_report: detectionReport ?? null,
+            multi_serie_summary: multiSerieSummary ?? null,
           }),
           signal: abortRef.current.signal,
         })
@@ -181,7 +185,7 @@ export function useChat({ datasetId, jobId, initialMessages }: UseChatOptions = 
         setActiveToolCall(null)
       }
     },
-    [isStreaming, messages, datasetId, jobId],
+    [isStreaming, messages, datasetId, jobId, detectionReport, multiSerieSummary],
   )
 
   const clearMessages = useCallback(() => {

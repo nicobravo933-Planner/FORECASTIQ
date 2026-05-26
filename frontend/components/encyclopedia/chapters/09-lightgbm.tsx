@@ -198,6 +198,62 @@ export function Chapter09() {
       />
 
       <TryInForecastButton modelId="lightgbm" label="Probar LightGBM en Forecast" />
+
+      <Divider sx={{ my: "1.75rem" }} />
+
+      {/* 9-6 */}
+      <SectionAnchor id="9-6" />
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>9.6 Optuna y el cache de hiperparámetros</Typography>
+      <Typography sx={{ mb: "1rem", lineHeight: 1.8 }}>
+        Cuando correás LightGBM por primera vez, Optuna ejecuta <strong>50 trials</strong> de
+        búsqueda de hiperparámetros. Cada trial entrena un modelo con TimeSeriesSplit de 5 folds.
+        Eso equivale a <strong>50 × 5 = 250 entrenamientos</strong> en total. En un dataset mensual
+        típico de 3-5 años, tarda entre <strong>30 y 90 segundos</strong>.
+      </Typography>
+      <Typography sx={{ mb: "1.5rem", lineHeight: 1.8 }}>
+        ForecastIQ <strong>guarda en cache</strong> los mejores hiperparámetros por dataset y
+        frecuencia. La segunda vez que corraás LightGBM sobre el mismo dataset, los parámetros
+        se recuperan instantáneamente — <strong>cero tiempo de HPO</strong>.
+      </Typography>
+
+      {/* Cache flow visual */}
+      <Box sx={{ my: "1.5rem", p: "1rem 1.25rem", borderRadius: "0.75rem", border: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
+        <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "text.disabled", textTransform: "uppercase", letterSpacing: "0.05em", mb: "0.75rem" }}>Flujo del cache HPO en ForecastIQ</Typography>
+        {[
+          { step: "1", label: "Primera vez",     desc: "Optuna corre 50 trials (~30–90s). Los mejores parámetros se guardan en Supabase con key {dataset_id}_{freq}.", color: "warning.main" },
+          { step: "2", label: "Corridas siguientes", desc: "Cache hit instantáneo. El modelo entrena directamente con los parámetros guardados — sin espera.", color: "success.main" },
+          { step: "3", label: "Re-optimizar manual", desc: "Botón \u201cRe-optimizar\u201d en ForecastIQ invalida el cache y corre Optuna de nuevo con los datos actualizados.", color: "info.main" },
+        ].map(({ step, label, desc, color }) => (
+          <Box key={step} sx={{ display: "flex", gap: "0.875rem", mb: "0.75rem", alignItems: "flex-start" }}>
+            <Box sx={{ width: "1.625rem", height: "1.625rem", borderRadius: "50%", bgcolor: color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Typography sx={{ fontSize: "0.6875rem", fontWeight: 700, color: "#fff" }}>{step}</Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: "0.8125rem", fontWeight: 600, mb: "0.125rem" }}>{label}</Typography>
+              <Typography sx={{ fontSize: "0.8125rem", color: "text.secondary", lineHeight: 1.6 }}>{desc}</Typography>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+
+      <Alert severity="info" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
+        <strong>¿Cuándo tiene sentido re-optimizar?</strong>
+        <Box component="ul" sx={{ mt: "0.5rem", mb: 0, pl: "1.25rem" }}>
+          <li>Agregás 6+ meses nuevos de datos (el rango cambió significativamente)</li>
+          <li>Detectaste un cambio estructural: nueva estacionalidad, corte de tendencia</li>
+          <li>Los parámetros del cache dan WAPE claramente peor en el nuevo período</li>
+        </Box>
+        <Typography sx={{ mt: "0.5rem", fontSize: "0.8125rem" }}>
+          Si solo agregaste 1-2 meses rutinarios, el cache es suficiente. Optuna no va a encontrar
+          parámetros significativamente mejores con cambios pequeños en los datos.
+        </Typography>
+      </Alert>
+
+      <Alert severity="warning" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
+        <strong>Modo local sin Supabase:</strong> en desarrollo sin conexión a Supabase, el cache
+        no persiste entre sesiones. Optuna corre siempre al iniciar (\u201eslow path\u201f). Esto es
+        esperado y no un bug. En producción con Supabase activo, el cache funciona normalmente.
+      </Alert>
     </Box>
   )
 }

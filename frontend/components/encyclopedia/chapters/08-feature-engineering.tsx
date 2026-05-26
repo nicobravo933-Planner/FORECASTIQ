@@ -4,6 +4,11 @@ import Typography from "@mui/material/Typography"
 import Divider from "@mui/material/Divider"
 import Alert from "@mui/material/Alert"
 import { PythonCodeBlock } from "../PythonCodeBlock"
+import { TryInForecastButton } from "../TryInForecastButton"
+
+function SectionAnchor({ id }: { id: string }) {
+  return <Box component="span" data-section-id={id} sx={{ display: "block", mt: "-1rem", pt: "1rem" }} />
+}
 
 const FE_CODE = `import pandas as pd
 import numpy as np
@@ -85,6 +90,52 @@ print(features[features.sum(axis=1) > 0])
 # 10  2024-11-01               1                0            0
 #  0  2025-01-01               0                1            0
 #  4  2025-05-01               0                0            1`
+
+const SPLINES_CODE = `import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import SplineTransformer
+from sklearn.pipeline import make_pipeline
+
+def fit_linear_splines(train: pd.Series, n_knots: int = 5) -> tuple:
+    """
+    Ajusta un modelo de Regresión Lineal con Splines cúbicos naturales.
+
+    train    : pd.Series con DatetimeIndex mensual
+    n_knots  : cantidad de knots (puntos de corte). Más knots = más flexibilidad.
+               Regla práctica: 1 knot por año de datos (mín 3, máx 8).
+
+    Retorna el modelo entrenado y el índice numérico usado para el fit.
+    """
+    # Convertir índice temporal a valores numéricos (0, 1, 2, ...)
+    t = np.arange(len(train)).reshape(-1, 1)
+    y = train.values
+
+    # Pipeline: SplineTransformer + Regresión Lineal
+    model = make_pipeline(
+        SplineTransformer(n_knots=n_knots, degree=3, knots='quantile'),
+        LinearRegression()
+    )
+    model.fit(t, y)
+
+    print(f'R² en train: {model.score(t, y):.3f}')
+    return model, len(train)  # guardamos n para extrapolar
+
+
+def predict_splines(model, n_train: int, horizon: int) -> np.ndarray:
+    """
+    Extrapola el modelo de splines horizon pasos hacia adelante.
+    Nota: los splines extrapolados fuera del rango de entrenamiento
+    son LINEALES (natural boundary condition) — no inventan curvatura.
+    """
+    t_future = np.arange(n_train, n_train + horizon).reshape(-1, 1)
+    return model.predict(t_future)
+
+
+# Ejemplo de uso
+model, n_train = fit_linear_splines(train_series, n_knots=4)
+forecast = predict_splines(model, n_train, horizon=12)
+print(f'Predicción 12 meses: {forecast.round(1)}')`
 
 export function Chapter08() {
   return (
@@ -258,6 +309,73 @@ export function Chapter08() {
         Cuando correás LightGBM, estas columnas ya están en el dataset de training
         sin que tengas que hacer nada. Los eventos manuales que agregues también se incluyen.
       </Alert>
+
+      <Divider sx={{ my: "2rem" }} />
+
+      {/* Sección 8-6 — Regresión Lineal + Splines */}
+      <SectionAnchor id="8-6" />
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: "0.75rem" }}>8.6 Regresión Lineal + Splines cúbicos</Typography>
+      <Typography sx={{ mb: "1rem", lineHeight: 1.8 }}>
+        La Regresión Lineal es el modelo más interpretable de todos: un coeficiente por variable,
+        fácil de explicar al negocio. Pero una tendencia real rara vez es perfectamente lineal
+        — puede acelerar, desacelerarse, o cambiar de dirección. Los <strong>Splines cúbicos
+        naturales</strong> resuelven esto sin perder interpretabilidad.
+      </Typography>
+
+      <Alert severity="info" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
+        <strong>¿Qué es un Spline?</strong> Un spline es una función a tramos: divide el eje
+        temporal en segmentos y ajusta un polinomio cúbico en cada uno, con la restricción de
+        que los segmentos &quot;se unen suavemente&quot; en los puntos de corte (<em>knots</em>).
+        El resultado es una curva continua y derivable que puede capturar tendencias no lineales
+        sin sobreajustar.
+      </Alert>
+
+      {/* Comparison table */}
+      <Box sx={{ overflowX: "auto", mb: "1.5rem" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+          <thead>
+            <tr style={{ background: "rgba(59,130,246,0.08)" }}>
+              {["Modelo", "Tendencia", "Estacional", "Variables externas", "Interpretabilidad"].map(h => (
+                <th key={h} style={{ padding: "0.5rem 1rem", textAlign: "left", fontWeight: 600, borderBottom: "2px solid rgba(0,0,0,0.1)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              ["Regresión Lineal",     "Lineal only",    "Codificada (meses)", "Sí", "★★★★★ Máxima"],
+              ["Lineal + Splines",     "Curvas suaves",  "Codificada (meses)", "Sí", "★★★★☆ Alta"],
+              ["Holt-Winters",         "Sí (beta)",      "Sí (gamma)",        "No", "★★★☆☆ Media"],
+              ["LightGBM",             "Implícita",      "Implícita (lags)",   "Sí", "★★☆☆☆ Baja"],
+            ].map(([mod, trend, seas, ext, interp], i) => (
+              <tr key={mod as string} style={{ background: i % 2 === 0 ? "transparent" : "rgba(0,0,0,0.02)" }}>
+                <td style={{ padding: "0.4rem 1rem", fontWeight: 600 }}>{mod as string}</td>
+                <td style={{ padding: "0.4rem 1rem", fontSize: "0.8125rem" }}>{trend as string}</td>
+                <td style={{ padding: "0.4rem 1rem", fontSize: "0.8125rem" }}>{seas as string}</td>
+                <td style={{ padding: "0.4rem 1rem", fontSize: "0.8125rem" }}>{ext as string}</td>
+                <td style={{ padding: "0.4rem 1rem", fontSize: "0.8125rem" }}>{interp as string}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Box>
+
+      <PythonCodeBlock code={SPLINES_CODE} title="Regresión Lineal + Splines con scikit-learn" />
+
+      <Alert severity="success" sx={{ mt: "1rem", mb: "1.5rem", fontSize: "0.8125rem" }}>
+        <strong>¿Cuándo usar Splines sobre LightGBM?</strong> Cuando necesitás <em>explicar</em>
+        el modelo al management: &quot;las ventas suben 200 unidades por mes en promedio, con
+        aceleración en el trimestre 3&quot;. LightGBM es una caja negra; los Splines son una
+        ecuación que se puede mostrar en una reunión de S&OP.
+      </Alert>
+
+      <Alert severity="warning" sx={{ mb: "1.5rem", fontSize: "0.8125rem" }}>
+        <strong>Limitación clave:</strong> Lineal + Splines modela tendencia pero no captura
+        estacionalidad compleja automáticamente. ForecastIQ incorpora dummies de mes para
+        capturar el ciclo estacional anual. Si la estacionalidad es semanal o más compleja,
+        Holt-Winters o LightGBM son mejores opciones.
+      </Alert>
+
+      <TryInForecastButton modelId="linear_splines" label="Probar Regresión Lineal + Splines en Forecast" />
     </Box>
   )
 }
