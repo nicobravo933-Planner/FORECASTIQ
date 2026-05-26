@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # Tier determina qué features ML están habilitados:
     #   "cloud"  → EC2 t3.micro: MA, Holt-Winters, SARIMA (modelos livianos)
     #   "local"  → PC del developer: + LightGBM, Optuna HPO, Nixtla batch
-    server_tier: str = "cloud"  # cloud | local
+    server_tier: str = "ec2"  # ec2 | local | cloud
     # Etiqueta de hardware para el badge del header (configurable por máquina)
     # EC2:   "t3.micro · 1 GB RAM · 1 vCPU"
     # Local: "16 GB · Ryzen 5 3600 · RTX 3060"
