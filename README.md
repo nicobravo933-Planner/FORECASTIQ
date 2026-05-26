@@ -97,13 +97,16 @@ Eventos → ¿Cómo impactan las promociones y feriados al forecast?
 
 ## Modelos disponibles
 
-| Modelo                    | Cuándo usarlo                                                   | Mínimo de datos |
-| ------------------------- | --------------------------------------------------------------- | --------------- |
-| **Moving Average**        | Baseline rápido, datos cortos o muy ruidosos                    | 8 obs           |
-| **Seasonal Naive**        | FVA benchmark — "¿el modelo es mejor que copiar el año pasado?" | 1 temporada     |
-| **Holt-Winters (triple)** | Tendencia + estacionalidad clara                                | 2 temporadas    |
-| **SARIMA**                | Tendencia sin estacionalidad fuerte, con CI riguroso            | 104 obs         |
-| **LightGBM + Optuna**     | Alta variabilidad, con features externas (eventos, precio)      | 104 obs         |
+| Modelo                    | Cuándo usarlo                                                   | Mínimo de datos  |
+| ------------------------- | --------------------------------------------------------------- | ---------------- |
+| **Moving Average**        | Baseline rápido, datos cortos o muy ruidosos                    | 8 obs            |
+| **Seasonal Naive**        | FVA benchmark — "¿el modelo es mejor que copiar el año pasado?" | 1 temporada      |
+| **SES**                   | Solo nivel, series muy cortas o muy ruidosas sin tendencia      | 8 obs            |
+| **Holt Simple**           | Nivel + tendencia, sin componente estacional                    | 16 obs           |
+| **Holt-Winters (triple)** | Tendencia + estacionalidad clara                                | 2 temporadas     |
+| **SARIMA**                | Tendencia sin estacionalidad fuerte, con CI riguroso            | 104 obs          |
+| **Regresión + Splines**   | Tendencias suaves, alta interpretabilidad                       | 24 obs           |
+| **LightGBM + Optuna**     | Alta variabilidad, features externas (eventos, precio)          | 104 obs \| local |
 
 > El detector automático (MAD + FFT + Seasonal Mann-Kendall) elige el modelo más adecuado para tus datos. Siempre podés ver el razonamiento detrás de la elección.
 
@@ -125,13 +128,13 @@ Eventos → ¿Cómo impactan las promociones y feriados al forecast?
 
 ```Plaintext
 Frontend    Next.js 14 + TypeScript + MUI v6      → Vercel
-Backend     FastAPI + Python 3.12 + UV             → AWS EC2 t3.micro
+Backend     FastAPI + Python 3.12 + UV             → AWS EC2 (t3.micro)
 Queue       Celery + Redis (Upstash)               → jobs ML asíncronos
 Database    Supabase (PostgreSQL + Storage)         → datos + auth + RLS
-Auth        Better Auth (Google + GitHub OAuth)     → sesiones por usuario
-LLM         OpenRouter (7 modelos gratuitos)        → chat IA streaming
+Auth        Better Auth (Google + GitHub OAuth + Guest) → sesiones por usuario
+LLM         OpenRouter (modelos gratuitos)          → chat IA streaming
 MLOps       MLflow (Dagshub) + Evidently AI         → tracking + drift
-CI/CD       GitHub Actions → Docker → EC2          → deploy automatizado
+CI/CD       GitHub Actions → Docker → SSH EC2    → deploy automatizado
 ```
 
 ---

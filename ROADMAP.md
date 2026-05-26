@@ -5,7 +5,7 @@
 
 ---
 
-## Estado — 25/05/2026
+## Estado — 26/05/2026
 
 **Todo el core está implementado y funcional.** Lo que sigue son mejoras de
 calidad, cobertura educativa y cierre de gaps vs el Streamlit de referencia.

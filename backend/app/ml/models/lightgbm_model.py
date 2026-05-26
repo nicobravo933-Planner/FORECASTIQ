@@ -135,8 +135,10 @@ class LightGBMModel(ForecastModel):
         y: np.ndarray = df["y"].to_numpy()
 
         # ── HPO: buscar cache antes de correr Optuna ──────────────────────────────────
+        # Prioridad: Supabase (cloud/ec2) → SQLite local (~/.forecastiq/hpo_cache.db)
         cached_params: dict[str, object] | None = None
         if self.dataset_id and not self.force_reoptimize:
+            # 1. Intentar cache Supabase
             try:
                 from app.services.supabase import get_hpo_cache
 
@@ -145,7 +147,19 @@ class LightGBMModel(ForecastModel):
                     cached_params = dict(cache["params"])
                     self.used_cache = True
             except Exception:
-                pass  # Si falla el cache, continuar con Optuna normal
+                pass  # Supabase no disponible → fallback a cache local
+
+            # 2. Fallback: cache local SQLite (útil en modo local sin Supabase)
+            if cached_params is None:
+                try:
+                    from app.services.hpo_local_cache import get_local_hpo_cache
+
+                    local = get_local_hpo_cache(self.dataset_id, self._freq)
+                    if local and local.get("params"):
+                        cached_params = dict(local["params"])
+                        self.used_cache = True
+                except Exception:
+                    pass
 
         if cached_params is not None:
             self._best_params = cached_params
@@ -154,6 +168,7 @@ class LightGBMModel(ForecastModel):
             self._best_params = self._optimize(x, y)
             # Guarda en cache para futuros forecasts del mismo dataset
             if self.dataset_id:
+                # Guardar en Supabase (cloud/ec2)
                 try:
                     from app.services.supabase import save_hpo_cache
 
@@ -166,6 +181,19 @@ class LightGBMModel(ForecastModel):
                     )
                 except Exception:
                     pass  # Cache es opcional, no rompe el forecast
+
+                # Guardar también en cache local (garantiza disponibilidad offline)
+                try:
+                    from app.services.hpo_local_cache import save_local_hpo_cache
+
+                    save_local_hpo_cache(
+                        dataset_id=self.dataset_id,
+                        freq=self._freq,
+                        params=dict(self._best_params),
+                        n_trials=self.n_trials,
+                    )
+                except Exception:
+                    pass
 
         # Entrena modelo de media con mejores params
         self._model_mean = self._train_lgb(x, y, self._best_params, objective="regression")

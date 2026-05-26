@@ -504,8 +504,8 @@ Cada push a cualquier branch → ci.yml:
 
 Merge a main → deploy.yml:
   1. Todos los checks de CI deben pasar
-  2. docker build + push a ghcr.io
-  3. SSH al EC2 → docker compose pull + up -d
+  2. docker build + push a ghcr.io (GitHub Container Registry)
+  3. SSH al EC2 (AWS t3.micro) → docker compose pull + up -d
   4. Vercel deploy automático (vía integración GitHub)
 
 CI debe estar verde en main siempre. Nunca mergear con CI rojo.
