@@ -83,7 +83,7 @@ const CLOUD_FALLBACK = capsFromTier("cloud")
 const SESSION_KEY = "fiq_capabilities"
 // Versión del schema — incrementar cuando cambia la estructura de ServerCapabilities
 // Esto invalida el cache viejo en sessionStorage automáticamente
-const SCHEMA_VERSION = "v4" // v4: agrega constraints (tier-based operation restrictions)
+const SCHEMA_VERSION = "v5" // v5: hardware_label always visible (invalida cache v4)
 
 export function useCapabilities() {
   const [caps, setCaps]       = useState<ServerCapabilities | null>(null)
