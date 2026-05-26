@@ -134,7 +134,7 @@ export default function EtlPage() {
   const nChanged     = tab === 0 ? (winsorize?.n_winsorized ?? 0) : (fillGaps?.n_imputed ?? 0)
 
   return (
-    <Box sx={{ maxWidth: "75rem", mx: "auto" }}>
+    <Box sx={{ width: "100%" }}>
 
       {/* ── Page header with DatasetSelector ── */}
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between",
@@ -225,7 +225,7 @@ export default function EtlPage() {
             <Tab label="Imputación de gaps"  sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.875rem" }} />
           </Tabs>
 
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "20rem 1fr" },
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "22rem 1fr" },
             gap: "1.25rem", alignItems: "stretch" }}>
             {tab === 0 ? (
               <WinsorizationPanel tier={tier} loading={loading && mode === "winsorize"}

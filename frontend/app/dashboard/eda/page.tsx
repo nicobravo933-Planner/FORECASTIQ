@@ -93,7 +93,7 @@ export default function EdaPage() {
   const canAnalyze = !!datasetId && !!dateCol && !!targetCol
 
   return (
-    <Box sx={{ maxWidth: "75rem", mx: "auto" }}>
+    <Box sx={{ width: "100%" }}>
 
       {/* ── Header ── */}
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between",
@@ -170,20 +170,44 @@ export default function EdaPage() {
       {/* ── Main content ── */}
       {canAnalyze && !loading && !error && summary && outliers && quality && models && (
         <>
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "22rem 1fr" },
-            gap: "1.25rem", mb: "1.25rem" }}>
-            <QualityScoreCard data={quality} />
-            <Box>
+          {/* ── Fila 1: Quality Score (izq) + Serie con outliers (der) ── */}
+          <Box sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", lg: "18rem 1fr" },
+            gap: "1.25rem",
+            mb: "1.25rem",
+          }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              <QualityScoreCard data={quality} />
+              <ModelsAvailablePanel data={models} />
+            </Box>
+
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              {summary.n_observations < 24 && (
+                <Alert severity="warning" sx={{ borderRadius: "0.75rem" }}>
+                  <strong>Historia insuficiente para Holt-Winters.</strong>{" "}
+                  Tu serie tiene {summary.n_observations} observaciones. Holt-Winters requiere al menos
+                  24. Solo Moving Average disponible.
+                </Alert>
+              )}
+              {summary.n_observations < 8 && (
+                <Alert severity="error" sx={{ borderRadius: "0.75rem" }}>
+                  <strong>Serie demasiado corta.</strong>{" "}
+                  Con {summary.n_observations} observaciones no es posible hacer un forecast confiable.
+                  Necesitás al menos 8 períodos.
+                </Alert>
+              )}
+
               {seriesLoading ? (
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
-                  height: "100%", minHeight: "16rem" }}>
+                  flex: 1, minHeight: "18rem" }}>
                   <CircularProgress size={28} />
                 </Box>
               ) : seriesData.length > 0 ? (
                 <OutlierChart summary={summary} outliers={outliers} series={seriesData} />
               ) : (
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
-                  height: "100%", minHeight: "16rem", bgcolor: "rgba(0,0,0,0.02)",
+                  flex: 1, minHeight: "18rem", bgcolor: "rgba(0,0,0,0.02)",
                   borderRadius: "0.75rem", border: "1px dashed", borderColor: "divider" }}>
                   <Typography sx={{ fontSize: "0.875rem", color: "text.disabled" }}>
                     No se pudo cargar la serie para el gráfico
@@ -193,30 +217,13 @@ export default function EdaPage() {
             </Box>
           </Box>
 
-          {summary.n_observations < 24 && (
-            <Alert severity="warning" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
-              <strong>Historia insuficiente para Holt-Winters.</strong>{" "}
-              Tu serie tiene {summary.n_observations} observaciones. Holt-Winters requiere al menos
-              24. Solo Moving Average disponible.
-            </Alert>
-          )}
-          {summary.n_observations < 8 && (
-            <Alert severity="error" sx={{ mb: "1.25rem", borderRadius: "0.75rem" }}>
-              <strong>Serie demasiado corta.</strong>{" "}
-              Con {summary.n_observations} observaciones no es posible hacer un forecast confiable.
-              Necesitás al menos 8 períodos.
-            </Alert>
-          )}
-
+          {/* ── Fila 2: Completitud (full-width) ── */}
           <Box sx={{ mb: "1.25rem" }}>
             <DataCompletenessBar data={summary} />
           </Box>
 
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 22rem" },
-            gap: "1.25rem" }}>
-            <SeriesSummaryTable data={summary} />
-            <ModelsAvailablePanel data={models} />
-          </Box>
+          {/* ── Fila 3: Tabla de estadísticas (ocupa el ancho restante) ── */}
+          <SeriesSummaryTable data={summary} />
         </>
       )}
     </Box>

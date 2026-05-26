@@ -36,6 +36,11 @@ from app.core.config import settings
 # Bucket de Supabase — solo para modo supabase
 _BUCKET = "datasets"
 
+# URL del Parquet demo en Cloudflare R2 (egress gratuito)
+# Los datasets demo tienen dataset_id con prefijo 'demo_<sku_id>'.
+# Se leen directo desde R2 — nunca pasan por Supabase Storage ni por el TTL.
+_DEMO_R2_URL = "https://pub-d0a335fad6124970951095c7dce170c3.r2.dev/ventas_25k_skus.parquet"
+
 
 # ── API pública ───────────────────────────────────────────────────────────────
 
@@ -43,6 +48,55 @@ _BUCKET = "datasets"
 def new_dataset_id() -> str:
     """Genera un dataset_id único (UUID v4)."""
     return str(uuid.uuid4())
+
+
+def load_dataset(dataset_id: str) -> pd.DataFrame:
+    """
+    Carga el DataFrame desde storage y lo retorna como pandas DataFrame.
+    Lanza FileNotFoundError si el dataset no existe.
+
+    Casos especiales:
+      dataset_id con prefijo 'demo_<sku_id>' → lee directo desde Cloudflare R2.
+      Esto evita el TTL de 24hs de Supabase Storage para los datasets demo.
+    """
+    if dataset_id.startswith("demo_"):
+        return _load_demo_from_r2(dataset_id)
+    if settings.storage_backend == "local":
+        parquet_bytes = _load_local(dataset_id)
+    else:
+        parquet_bytes = _load_supabase(dataset_id)
+    return pd.read_parquet(io.BytesIO(parquet_bytes))
+
+
+def _load_demo_from_r2(dataset_id: str) -> pd.DataFrame:
+    """
+    Lee la serie de un SKU demo directo desde Cloudflare R2 vía DuckDB httpfs.
+    dataset_id = 'demo_<sku_id>', ej. 'demo_SKU-00001'.
+    """
+    import duckdb
+
+    sku_id = dataset_id[len("demo_") :]
+    if not sku_id:
+        raise FileNotFoundError(f"Dataset demo inválido: '{dataset_id}'")
+
+    try:
+        con = duckdb.connect()
+        con.execute("INSTALL httpfs; LOAD httpfs;")
+        con.execute("SET enable_progress_bar = false;")
+        df: pd.DataFrame = con.execute(
+            f"SELECT fecha, ventas, precio, stock, canal "
+            f"FROM read_parquet(['{_DEMO_R2_URL}']) "
+            f"WHERE sku_id = ? ORDER BY fecha",
+            [sku_id],
+        ).df()
+        con.close()
+    except Exception as exc:
+        raise FileNotFoundError(f"No se pudo leer el SKU demo '{sku_id}' desde R2: {exc}") from exc
+
+    if df.empty:
+        raise FileNotFoundError(f"SKU demo '{sku_id}' no encontrado en el Parquet demo.")
+
+    return df
 
 
 def save_dataset(df: pd.DataFrame, dataset_id: str) -> None:
@@ -56,18 +110,6 @@ def save_dataset(df: pd.DataFrame, dataset_id: str) -> None:
         _save_local(parquet_bytes, dataset_id)
     else:
         _save_supabase(parquet_bytes, dataset_id)
-
-
-def load_dataset(dataset_id: str) -> pd.DataFrame:
-    """
-    Carga el DataFrame desde storage y lo retorna como pandas DataFrame.
-    Lanza FileNotFoundError si el dataset no existe.
-    """
-    if settings.storage_backend == "local":
-        parquet_bytes = _load_local(dataset_id)
-    else:
-        parquet_bytes = _load_supabase(dataset_id)
-    return pd.read_parquet(io.BytesIO(parquet_bytes))
 
 
 def delete_dataset_file(dataset_id: str) -> None:

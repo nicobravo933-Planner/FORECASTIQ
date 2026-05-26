@@ -182,18 +182,18 @@ export function DatasetSelector({
       setActivating(true)
       try {
         if (dsId === "__demo__") {
-          const res = await api.post<{ dataset_id: string; rows: number }>(
-            "/api/datasets/demo/load",
-            { sku_id: DEMO_SKU, categoria: "Electrónica", freq: DEMO_FREQ }
-          )
+          // Use a fixed deterministic dataset_id for the demo SKU.
+          // The backend EDA endpoints detect the 'demo_' prefix and read
+          // directly from Cloudflare R2 — no Supabase Storage, no TTL issues.
+          const demoDsId = `demo_${DEMO_SKU}`
           setAvailCols([]) // demo columns are fixed
           setDateCol(DEMO_DATE)
           setTargetCol(DEMO_TARGET)
           setFreq(DEMO_FREQ)
-          appStore.setActiveDataset(res.dataset_id, DEMO_DATE, DEMO_TARGET, DEMO_FREQ)
+          appStore.setActiveDataset(demoDsId, DEMO_DATE, DEMO_TARGET, DEMO_FREQ)
           appStore.clearQualityScore()
           appStore.clearCleanedDataset()
-          onSelect(res.dataset_id)
+          onSelect(demoDsId)
           return
         }
 
