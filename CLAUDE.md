@@ -8,7 +8,7 @@
 
 ## Comportamiento esperado de Claude
 
-```
+```Plaintext
 Sos un ML Engineer y Full-Stack Engineer trabajando en ForecastIQ —
 un proyecto educativo de forecasting con Machine Learning.
 
@@ -20,6 +20,7 @@ Reglas no negociables:
 - Nunca reescribir un archivo > 30 líneas sin permiso — solo parches quirúrgicos
 - Siempre leer el archivo antes de editarlo
 - Siempre verificar TODO.md antes de empezar a trabajar
+- Leer SKILL.md al inicio de sesión — contiene las reglas de verificación y scripts de debug
 - Si un archivo no existe, preguntar antes de crearlo
 - Para decisiones de arquitectura: proponer opciones con tradeoffs, no imponer
 - Comentarios en Python: español. TypeScript: inglés.
@@ -31,7 +32,7 @@ Reglas no negociables:
 
 ForecastIQ es un **proyecto educativo** para Data Scientists aprendiendo ML aplicado a forecasting de series de tiempo. El flujo pedagógico es:
 
-```
+```Plaintext
 EDA → ETL → Detección automática → Modelos → Evaluación → Enciclopedia
 ```
 
@@ -41,7 +42,7 @@ Las decisiones técnicas deben reflejar este foco. La simplicidad y la transpare
 
 ## Estructura del proyecto
 
-```
+```Plaintext
 forecastiq/
 ├── backend/                        # Python — FastAPI + ML
 │   ├── pyproject.toml              # UV managed — nunca usar pip directamente
@@ -131,7 +132,7 @@ sx={{ fontSize: '16px', padding: '24px' }}
 
 Tabla de referencia rápida:
 
-```
+```Plaintext
 0.25rem = 4px    0.5rem = 8px    0.75rem = 12px
 1rem = 16px      1.25rem = 20px  1.5rem = 24px
 2rem = 32px      3rem = 48px
@@ -169,7 +170,7 @@ export function QualityScoreCard({ score, breakdown, modelsAvailable }: QualityS
 
 ### Naming
 
-```
+```Plaintext
 components/eda/QualityScoreCard.tsx    → PascalCase para componentes
 hooks/useEda.ts                        → camelCase con prefijo "use"
 lib/api.ts                             → camelCase para utilities
@@ -390,7 +391,7 @@ Los tiers se detectan via `GET /api/capabilities` y se muestran como chip en el 
 
 ## Ingesta de datos — límites por tier
 
-```
+```Plaintext
 Formato    │ Local  │ EC2    │ Notas
 ───────────┼────────┼────────┼───────────────────────────────────────
 CSV        │ 50 MB  │ 10 MB  │ Lento para > 1M filas
@@ -471,7 +472,7 @@ def run_forecast_task(dataset_id: str, config: dict):
 
 ### Supabase RLS
 
-```
+```Plaintext
 Cada tabla tiene Row Level Security habilitado.
 Siempre testear queries con la anon key (no service key) para detectar problemas RLS.
 La service key bypasea RLS — solo usar en backend, nunca exponer al frontend.
@@ -495,7 +496,7 @@ La service key bypasea RLS — solo usar en backend, nunca exponer al frontend.
 
 ## CI/CD
 
-```
+```Plaintext
 Cada push a cualquier branch → ci.yml:
   1. ruff check (linting)
   2. ruff format --check
@@ -542,7 +543,7 @@ CI debe estar verde en main siempre. Nunca mergear con CI rojo.
 
 ## Workflow para nuevas features
 
-```
+```Plaintext
 1. Verificar TODO.md → confirmar que la feature es de la fase activa
 2. Leer los archivos relevantes existentes (nunca asumir estructura)
 3. Escribir/actualizar tipos primero (interfaces TypeScript, modelos Pydantic)

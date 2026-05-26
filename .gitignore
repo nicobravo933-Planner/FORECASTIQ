@@ -70,6 +70,13 @@ EC2_MANUAL_OPERACIONES.md
 # ─── Carpeta de referencia IA (local only) ────────────────────
 frontend/public/ai_muestra/
 
+# ─── Scripts de debug desechables (no commitear) ─────────────────────────────
+scripts/debug/*.py
+!scripts/debug/.gitkeep
+
+# ─── SKILL.md raíz — skill personal Claude Projects (temporal, no commitear) ──
+/SKILL.md
+
 # ─── Enciclopedia fuentes ──────────────────────────────────────────────────────
 ENCICLOPEDIA/
 FORECAST_DEPARTAMENTOS/
