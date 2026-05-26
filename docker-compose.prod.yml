@@ -4,15 +4,18 @@
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
 # Qué hace este override:
-#   - Deshabilita celery_worker y celery_beat en producción
-#   - El worker pesado (Nixtla, MLflow, Evidently, LightGBM) corre solo en local
+#   - Mueve celery_worker y celery_beat al profile "local"
+#   - Sin --profile local, esos servicios no levantan (Compose v2 correcto)
 #   - EC2 queda con: backend (FastAPI) + redis únicamente
+#
+# NOTA: deploy.replicas: 0 es sintaxis Swarm — ignorada por `docker compose`.
+# La forma correcta de deshabilitar servicios en Compose es via `profiles:`.
 
 services:
   celery_worker:
-    deploy:
-      replicas: 0
+    profiles:
+      - local
 
   celery_beat:
-    deploy:
-      replicas: 0
+    profiles:
+      - local

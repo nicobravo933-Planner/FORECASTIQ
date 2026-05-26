@@ -126,6 +126,11 @@ jobs:
             # Clean up old images
             docker image prune -f
 
-            # Verificar que el backend responde
-            sleep 8
+            # Verificar que el backend responde (retry hasta 30s)
+            sleep 15
+            for i in 1 2 3; do
+              curl -sf http://localhost:8000/health && break
+              echo "Health check attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
             curl -sf http://localhost:8000/health || exit 1

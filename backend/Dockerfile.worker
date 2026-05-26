@@ -24,6 +24,9 @@ COPY app/ ./app/
 RUN chown -R appuser:appuser /app
 USER appuser
 
+# Priorizar el .venv en el PATH — evita re-sync de uv run al arrancar
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Queue "default" — solo tareas estadísticas livianas
-CMD ["uv", "run", "celery", "-A", "app.services.celery_app", "worker", \
+CMD ["celery", "-A", "app.services.celery_app", "worker", \
      "--queues=default", "--loglevel=info", "--concurrency=2"]

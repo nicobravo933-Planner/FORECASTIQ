@@ -25,6 +25,10 @@ COPY app/ ./app/
 RUN chown -R appuser:appuser /app
 USER appuser
 
+# Priorizar el .venv en el PATH — así los CMD ejecutan directo sin uv run
+# Evita que `uv run` dispare un re-sync al arrancar (causaba delay 30-60s en EC2)
+ENV PATH="/app/.venv/bin:$PATH"
+
 EXPOSE 8000
 
-CMD ["sh", "-c", "uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
