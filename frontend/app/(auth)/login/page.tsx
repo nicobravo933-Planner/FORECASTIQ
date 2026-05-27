@@ -288,6 +288,22 @@ export default function LoginPage() {
           p: { xs: "1.75rem", sm: "2.25rem" },
         }}>
 
+          {/* Back to landing */}
+          <Box sx={{ mb: "1.5rem" }}>
+            <Box
+              component="a"
+              href="/landing.html"
+              sx={{
+                display: "inline-flex", alignItems: "center", gap: "0.375rem",
+                fontSize: "0.8125rem", color: "text.disabled", textDecoration: "none",
+                transition: "color 0.2s",
+                "&:hover": { color: "text.secondary" },
+              }}
+            >
+              ← Volver
+            </Box>
+          </Box>
+
           {/* Logo on mobile only */}
           <Box sx={{ display: { xs: "flex", md: "none" }, justifyContent: "center", mb: "1.75rem" }}>
             <Image
