@@ -41,7 +41,8 @@ import { useSession, signOut } from "@/lib/auth-client"
 import { useCapabilities } from "@/hooks/useCapabilities"
 import { appStore } from "@/lib/appStore"
 import { FREE_MODELS, type LlmModelId } from "@/lib/types"
-import { THEME_META, LS_THEME_KEY, type ThemeId } from "@/lib/themePresets"
+import { THEME_META, LS_THEME_KEY, type ThemeId, AUTH_THEME_META, LS_AUTH_THEME_KEY, type AuthThemeId } from "@/lib/themePresets"
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome"
 import PaletteIcon from "@mui/icons-material/Palette"
 import CheckIcon from "@mui/icons-material/Check"
 
@@ -93,16 +94,25 @@ export default function SettingsPage() {
 
   // ── Appearance ─────────────────────────────────────────────────────────────
   const [activeTheme, setActiveTheme] = useState<ThemeId>("navyPro")
+  const [activeAuthTheme, setActiveAuthTheme] = useState<AuthThemeId>("spaceAuth")
 
   useEffect(() => {
     const stored = localStorage.getItem(LS_THEME_KEY) as ThemeId | null
     if (stored) setActiveTheme(stored)
+    const storedAuth = localStorage.getItem(LS_AUTH_THEME_KEY) as AuthThemeId | null
+    if (storedAuth) setActiveAuthTheme(storedAuth)
   }, [])
 
   const handleThemeChange = (id: ThemeId) => {
     setActiveTheme(id)
     localStorage.setItem(LS_THEME_KEY, id)
     window.dispatchEvent(new CustomEvent("fiq:theme-change", { detail: id }))
+  }
+
+  const handleAuthThemeChange = (id: AuthThemeId) => {
+    setActiveAuthTheme(id)
+    localStorage.setItem(LS_AUTH_THEME_KEY, id)
+    window.dispatchEvent(new CustomEvent("fiq:auth-theme-change", { detail: id }))
   }
 
   // ── LLM prefs ───────────────────────────────────────────────────────────────
@@ -258,7 +268,7 @@ export default function SettingsPage() {
 
       {/* ── 1b. APARIENCIA ─────────────────────────────────────────────────── */}
       <SectionCard title="Apariencia" icon={<PaletteIcon sx={{ fontSize: "1.25rem" }} />}>
-        <Typography variant="body2" fontWeight={500}>Tema de color</Typography>
+        <Typography variant="body2" fontWeight={500}>Tema de color del dashboard</Typography>
         <Typography variant="caption" color="text.disabled">
           Cambia el color principal y el estilo visual de toda la aplicación.
         </Typography>
@@ -299,6 +309,58 @@ export default function SettingsPage() {
                   {isActive && (
                     <CheckIcon sx={{ fontSize: "0.875rem", color: "primary.main" }} />
                   )}
+                </Box>
+              </Box>
+            )
+          })}
+        </Box>
+
+        <Divider />
+
+        {/* Auth screen theme toggle */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+          <AutoAwesomeIcon sx={{ fontSize: "1rem", color: "secondary.main" }} />
+          <Typography variant="body2" fontWeight={500}>Tema pantalla de acceso</Typography>
+        </Box>
+        <Typography variant="caption" color="text.disabled" sx={{ mt: "-0.5rem" }}>
+          Apariencia de la pantalla de login y registro.
+        </Typography>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          {(Object.entries(AUTH_THEME_META) as [AuthThemeId, typeof AUTH_THEME_META[AuthThemeId]][]).map(([id, meta]) => {
+            const isActive = activeAuthTheme === id
+            return (
+              <Box
+                key={id}
+                onClick={() => handleAuthThemeChange(id)}
+                sx={{
+                  cursor: "pointer",
+                  borderRadius: "0.75rem",
+                  border: "2px solid",
+                  borderColor: isActive ? "secondary.main" : "divider",
+                  overflow: "hidden",
+                  transition: "border-color 0.15s, box-shadow 0.15s",
+                  boxShadow: isActive ? "0 0 0 0.2rem rgba(139,92,246,0.18)" : "none",
+                  "&:hover": { borderColor: "secondary.light" },
+                }}
+              >
+                <Box sx={{ display: "flex", height: "2.5rem" }}>
+                  {meta.preview.map((c, i) => (
+                    <Box key={i} sx={{ flex: 1, bgcolor: c }} />
+                  ))}
+                </Box>
+                <Box sx={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  px: "0.625rem", py: "0.4rem", bgcolor: "background.paper",
+                }}>
+                  <Box>
+                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "text.primary", lineHeight: 1.3 }}>
+                      {meta.label}
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.6rem", color: "text.disabled", lineHeight: 1.3 }}>
+                      {meta.description}
+                    </Typography>
+                  </Box>
+                  {isActive && <CheckIcon sx={{ fontSize: "0.875rem", color: "secondary.main", flexShrink: 0 }} />}
                 </Box>
               </Box>
             )

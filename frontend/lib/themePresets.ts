@@ -4,13 +4,23 @@ import { createTheme, type Theme } from "@mui/material/styles"
 // 4 variantes seleccionables desde /settings.
 // Cada una extiende la misma tipografía y componentes base.
 
-export type ThemeId = "navyPro" | "graphiteDark" | "blueMui" | "violetAI"
+export type ThemeId = "navyPro" | "graphiteDark" | "blueMui" | "violetAI" | "spaceAuth"
+
+export type AuthThemeId = "spaceAuth" | "authMinimal"
+
+export const AUTH_THEME_META: Record<AuthThemeId, { label: string; description: string; preview: string[] }> = {
+  spaceAuth:   { label: "Space Dark",   description: "Fondo espacial con partículas animadas", preview: ["#050b18", "#38bdf8", "#8b5cf6"] },
+  authMinimal: { label: "Minimal Light", description: "Fondo claro, sin animaciones",           preview: ["#f0f4f8", "#2563eb", "#ffffff"] },
+}
+
+export const LS_AUTH_THEME_KEY = "forecastiq:auth-theme"
 
 export const THEME_META: Record<ThemeId, { label: string; preview: string[]; appBarBg: string }> = {
   navyPro:      { label: "Navy Pro",      preview: ["#0f2044", "#3b82f6", "#f0f4f8"], appBarBg: "linear-gradient(135deg, #0f2044 0%, #1a3868 100%)" },
   graphiteDark: { label: "Graphite Dark", preview: ["#18181b", "#6366f1", "#09090b"], appBarBg: "#18181b" },
   blueMui:      { label: "Blue MUI",      preview: ["#1565C0", "#1976D2", "#f5f7fa"], appBarBg: "linear-gradient(135deg, #1565C0 0%, #1976D2 100%)" },
   violetAI:     { label: "Violet AI",     preview: ["#2d1b69", "#7c3aed", "#faf7ff"], appBarBg: "linear-gradient(135deg, #2d1b69 0%, #4c1d95 60%, #5b21b6 100%)" },
+  spaceAuth:    { label: "Space Auth",    preview: ["#050b18", "#38bdf8", "#8b5cf6"], appBarBg: "#050b18" },
 }
 
 export const LS_THEME_KEY = "forecastiq:theme"
@@ -228,6 +238,60 @@ function violetAI(): Theme {
   })
 }
 
+function spaceAuth(): Theme {
+  return createTheme({
+    palette: {
+      mode: "dark",
+      primary:    { main: "#38bdf8", light: "#7dd3fc", dark: "#0ea5e9", contrastText: "#020d1e" },
+      secondary:  { main: "#8b5cf6", light: "#a78bfa", dark: "#7c3aed", contrastText: "#ffffff" },
+      background: { default: "#050b18", paper: "rgba(255,255,255,0.04)" },
+      text:       { primary: "#f1f5f9", secondary: "#94a3b8", disabled: "#475569" },
+      divider:    "rgba(255,255,255,0.08)",
+      error:   { main: "#f87171" },
+      warning: { main: "#fbbf24" },
+      success: { main: "#10b981" },
+      info:    { main: "#38bdf8" },
+    },
+    typography,
+    shape: { borderRadius: 10 },
+    components: {
+      ...makeComponents("#38bdf8", "#0ea5e9", true),
+      MuiButton: {
+        defaultProps: { disableElevation: true },
+        styleOverrides: {
+          root: {
+            borderRadius: "0.625rem",
+            padding: "0.75rem 1.25rem",
+            fontWeight: 600,
+            fontSize: "0.9375rem",
+            transition: "all 0.15s ease",
+          },
+          outlinedPrimary: {
+            borderColor: "rgba(255,255,255,0.14)",
+            color: "#f1f5f9",
+            "&:hover": {
+              borderColor: "#38bdf8",
+              background: "rgba(56,189,248,0.07)",
+              transform: "translateY(-0.0625rem)",
+            },
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: "none",
+            background: "rgba(255,255,255,0.04)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          },
+        },
+      },
+    },
+  })
+}
+
 // ── Public factory ─────────────────────────────────────────────────────────────
 
 const FACTORIES: Record<ThemeId, () => Theme> = {
@@ -235,6 +299,7 @@ const FACTORIES: Record<ThemeId, () => Theme> = {
   graphiteDark,
   blueMui,
   violetAI,
+  spaceAuth,
 }
 
 export function buildTheme(id: ThemeId): Theme {

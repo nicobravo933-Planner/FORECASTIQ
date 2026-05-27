@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * ForecastConfigPanel — UX-3.
+ * ForecastConfigPanel — UX-3 (refactored layout 2-col).
  *
  * Config panel for the Forecast page. When a dataset_id is present:
  *   - DatasetPicker shows all available datasets by name (no UUID visible)
@@ -9,8 +9,8 @@
  *   - Shows Select dropdowns for date column and target column
  *   - Validates column types and shows inline warnings
  *
- * Model selector shows lock icon for models unavailable in cloud tier.
- * When no dataset_id is present, falls back to free-text TextFields.
+ * Layout: 2-col grids for columns, freq+model, horizon+test, train+cv.
+ * Tooltips are short and direct (no \n artifacts).
  */
 
 import Box from "@mui/material/Box"
@@ -57,20 +57,17 @@ export interface ForecastConfig {
   freq:           DataFreq
   horizon:        number
   modelOverride:  ModelName | "auto"
-  testPeriods:    number   // 0 = hold-out auto; N = hold-out manual
-  cvFolds:        number   // 0 = sin CV; 2–5 = TimeSeriesSplit k folds
-  // F2.3: training window — "auto" = full history; "custom" = user-picked date
+  testPeriods:    number
+  cvFolds:        number
   trainWindow:    "auto" | "1y" | "2y" | "3y" | "custom"
-  trainStartDate: string | null  // ISO date, only used when trainWindow = "custom"
+  trainStartDate: string | null
 }
 
 interface ForecastConfigPanelProps {
   config:    ForecastConfig
   onChange:  (patch: Partial<ForecastConfig>) => void
   disabled?: boolean
-  /** E5: model IDs desbloqueados por quality score. Si es null, no se filtra nada. */
   availableModelIds?: string[] | null
-  /** E6: callback cuando el usuario quiere ver el reporte de detección */
   onOpenDetectionReport?: () => void
 }
 
@@ -79,12 +76,12 @@ interface ForecastConfigPanelProps {
 const ALL_MODEL_OPTIONS: { value: ModelName | "auto"; label: string; requiresLocal: boolean }[] = [
   { value: "auto",            label: "Auto-detectar (recomendado)", requiresLocal: false },
   { value: "moving_average",  label: "Promedio Móvil",               requiresLocal: false },
-  { value: "ses",             label: "SES (Suavizamiento Simple)",  requiresLocal: false },
-  { value: "holt_simple",     label: "Holt Simple (Sin estacional)", requiresLocal: false },
-  { value: "holt_winters",    label: "Holt-Winters",                 requiresLocal: false },
-  { value: "sarima",          label: "SARIMA",                       requiresLocal: false },
-  { value: "linear_splines",  label: "Regresión Lineal + Splines",   requiresLocal: false },
-  { value: "lightgbm",        label: "LightGBM",                     requiresLocal: true  },
+  { value: "ses",             label: "SES (Suavizamiento Simple)",    requiresLocal: false },
+  { value: "holt_simple",     label: "Holt Simple (Sin estacional)",  requiresLocal: false },
+  { value: "holt_winters",    label: "Holt-Winters",                  requiresLocal: false },
+  { value: "sarima",          label: "SARIMA",                        requiresLocal: false },
+  { value: "linear_splines",  label: "Regresión Lineal + Splines",    requiresLocal: false },
+  { value: "lightgbm",        label: "LightGBM",                      requiresLocal: true  },
 ]
 
 const FREQ_OPTIONS: { value: DataFreq; label: string }[] = [
@@ -94,8 +91,6 @@ const FREQ_OPTIONS: { value: DataFreq; label: string }[] = [
   { value: "Q", label: "Trimestral" },
 ]
 
-// F1.2 — test period options change based on frequency.
-// Values represent "reserve last N periods for test".
 const TEST_PERIODS_OPTIONS: Record<DataFreq, number[]> = {
   D: [7, 30, 90],
   W: [4, 8, 13],
@@ -111,18 +106,16 @@ interface ColValidation { status: ColStatus; message: string }
 function validateDateCol(col: DatasetColumn | undefined): ColValidation {
   if (!col) return { status: "unknown", message: "" }
   if (col.dtype === "datetime") return { status: "ok",   message: "Columna de fecha válida" }
-  if (col.dtype === "numeric")  return { status: "warn", message: "Columna numérica. Verificá que sea una fecha reconocible." }
-  return                               { status: "warn", message: "Columna de tipo texto. Puede haber problemas al parsear fechas." }
+  if (col.dtype === "numeric")  return { status: "warn", message: "Columna numérica — verificá que sea una fecha." }
+  return                               { status: "warn", message: "Tipo texto — puede haber errores al parsear." }
 }
 
 function validateTargetCol(col: DatasetColumn | undefined): ColValidation {
   if (!col) return { status: "unknown", message: "" }
   if (col.dtype === "numeric")  return { status: "ok",   message: "Columna numérica válida" }
   if (col.dtype === "datetime") return { status: "warn", message: "Parece una fecha, no un valor objetivo." }
-  return                               { status: "warn", message: "El objetivo debe ser un número (ventas, unidades, etc.)." }
+  return                               { status: "warn", message: "El objetivo debe ser un número." }
 }
-
-// ── Status icon ───────────────────────────────────────────────────────────────
 
 function ColIcon({ validation }: { validation: ColValidation }) {
   if (validation.status === "ok")
@@ -131,8 +124,6 @@ function ColIcon({ validation }: { validation: ColValidation }) {
     return <Tooltip title={validation.message} placement="top"><WarningAmberIcon sx={{ fontSize: "1rem", color: "warning.main", flexShrink: 0 }} /></Tooltip>
   return null
 }
-
-// ── dtype chip ────────────────────────────────────────────────────────────────
 
 const DTYPE_COLORS: Record<string, "default" | "success" | "warning" | "error"> = {
   datetime: "success", numeric: "success", text: "warning", unknown: "default",
@@ -145,268 +136,208 @@ function DtypeChip({ dtype }: { dtype: string }) {
   )
 }
 
+// Shared toggle button style
+function toggleBtnSx(selected: boolean, color: "primary" | "secondary" = "primary") {
+  return {
+    px: "0.625rem", py: "0.25rem", fontSize: "0.75rem", textTransform: "none" as const,
+    borderRadius: "0.375rem", border: "1px solid",
+    borderColor: selected ? `${color}.main` : "divider",
+    bgcolor: selected ? `${color}.main` : "transparent",
+    color: selected ? `${color}.contrastText` : "text.secondary",
+    "&:hover": { bgcolor: selected ? `${color}.dark` : "action.hover" },
+    "&.Mui-disabled": { opacity: 0.4 },
+  }
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function ForecastConfigPanel({ config, onChange, disabled = false, availableModelIds = null, onOpenDetectionReport }: ForecastConfigPanelProps) {
+export function ForecastConfigPanel({
+  config, onChange, disabled = false, availableModelIds = null, onOpenDetectionReport
+}: ForecastConfigPanelProps) {
   const preview  = useColumnPreview(config.datasetId || null)
   const { caps } = useCapabilities()
   const isLocal  = caps.tier === "local"
   const isEc2    = caps.tier === "ec2"
   const router   = useRouter()
   const [detectedFreq, setDetectedFreq] = useState<FreqDetectionResult | null>(null)
-
-  // E6: run detect and cache the result in appStore
-  const [detecting, setDetecting] = useState(false)
-  const [detectError, setDetectError] = useState<string | null>(null)
-
-  // F1.2: local state for manual test period input
+  const [detecting, setDetecting]       = useState(false)
+  const [detectError, setDetectError]   = useState<string | null>(null)
   const [testManualMode, setTestManualMode] = useState(false)
   const [testManualVal, setTestManualVal]   = useState("")
-
-  // F1.4: link horizon <-> test periods when active
   const [linkHorizonTest, setLinkHorizonTest] = useState(false)
 
-  // F1.2: reset testPeriods when freq changes and current value is not in new options
   useEffect(() => {
-    if (testManualMode) return  // user is in manual mode, leave it alone
+    if (testManualMode) return
     const opts = TEST_PERIODS_OPTIONS[config.freq]
-    if (config.testPeriods !== 0 && !opts.includes(config.testPeriods)) {
-      onChange({ testPeriods: 0 })
-    }
+    if (config.testPeriods !== 0 && !opts.includes(config.testPeriods)) onChange({ testPeriods: 0 })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.freq])
 
   const handleDetect = async () => {
     if (!config.datasetId || !config.dateCol || !config.targetCol) return
-    setDetecting(true)
-    setDetectError(null)
+    setDetecting(true); setDetectError(null)
     try {
       const result = await api.post<Record<string, unknown>>(
         `/api/datasets/${config.datasetId}/detect`,
         { date_column: config.dateCol, target_column: config.targetCol, freq: config.freq }
       )
       appStore.setDetectionReport(result)
-      // Auto-apply model recommendation if user hasn't manually chosen one
-      if (result.model && config.modelOverride === "auto") {
-        onChange({ modelOverride: result.model as ModelName })
-      }
+      if (result.model && config.modelOverride === "auto") onChange({ modelOverride: result.model as ModelName })
       onOpenDetectionReport?.()
     } catch (err) {
       setDetectError(err instanceof Error ? err.message : "Error al analizar la serie")
-    } finally {
-      setDetecting(false)
-    }
+    } finally { setDetecting(false) }
   }
 
-  // Auto-select best columns when preview loads and fields are still empty
   useEffect(() => {
     if (preview.status !== "ready") return
-    const cols        = preview.columns
-    const needsDate   = !config.dateCol
-    const needsTarget = !config.targetCol
+    const cols = preview.columns
+    const needsDate = !config.dateCol; const needsTarget = !config.targetCol
     if (!needsDate && !needsTarget) return
-
     const firstDate   = cols.find((c) => c.dtype === "datetime")
     const autoDate    = needsDate ? (firstDate?.name ?? "") : config.dateCol
     const firstTarget = cols.find((c) => c.dtype === "numeric" && c.name !== autoDate)
     const autoTarget  = needsTarget ? (firstTarget?.name ?? "") : config.targetCol
-
     const patch: Partial<typeof config> = {}
-    if (needsDate   && autoDate)   patch.dateCol   = autoDate
+    if (needsDate && autoDate)     patch.dateCol   = autoDate
     if (needsTarget && autoTarget) patch.targetCol = autoTarget
     if (Object.keys(patch).length) onChange(patch)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview.status])
 
-  // Detect frequency from date column sample values
   useEffect(() => {
-    if (preview.status !== "ready" || !config.dateCol) {
-      setDetectedFreq(null)
-      return
-    }
+    if (preview.status !== "ready" || !config.dateCol) { setDetectedFreq(null); return }
     const dateColMeta = preview.columns.find((c) => c.name === config.dateCol)
-    if (!dateColMeta || dateColMeta.dtype !== "datetime") {
-      setDetectedFreq(null)
-      return
-    }
+    if (!dateColMeta || dateColMeta.dtype !== "datetime") { setDetectedFreq(null); return }
     const result = inferFreqFromSamples(dateColMeta.sample_values)
     setDetectedFreq(result)
-    // Auto-apply if the current freq is still the default "M" (untouched)
-    if (result && config.freq === "M") {
-      onChange({ freq: result.freq })
-    }
+    if (result && config.freq === "M") onChange({ freq: result.freq })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview.status, config.dateCol])
 
   const columns    = preview.status === "ready" ? preview.columns : []
   const hasColumns = columns.length > 0
-
   const dateColMeta   = columns.find((c) => c.name === config.dateCol)
   const targetColMeta = columns.find((c) => c.name === config.targetCol)
   const dateValidation   = validateDateCol(dateColMeta)
   const targetValidation = validateTargetCol(targetColMeta)
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
 
       <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
         Parámetros del forecast
       </Typography>
 
-      {/* Dataset picker — nombre legible, no UUID */}
+      {/* Dataset picker */}
       <DatasetPicker
         value={config.datasetId}
-        onChange={(ds) => {
-          onChange({
-            datasetId: ds.dataset_id,
-            dateCol:   ds.dateCol   ?? "",
-            targetCol: ds.targetCol ?? "",
-            freq:      (ds.freq as DataFreq | undefined) ?? config.freq,
-          })
-        }}
+        onChange={(ds) => onChange({
+          datasetId: ds.dataset_id,
+          dateCol:   ds.dateCol   ?? "",
+          targetCol: ds.targetCol ?? "",
+          freq:      (ds.freq as DataFreq | undefined) ?? config.freq,
+        })}
       />
 
-      {/* Row count hint cuando hay preview */}
       {config.datasetId && preview.status === "ready" && (
-        <Typography variant="caption" color="success.main" sx={{ mt: "-0.75rem" }}>
+        <Typography variant="caption" color="success.main" sx={{ mt: "-0.5rem" }}>
           {preview.totalRows.toLocaleString("es-AR")} filas · {columns.length} columnas detectadas
         </Typography>
       )}
       {config.datasetId && preview.status === "error" && (
-        <Typography variant="caption" color="error.main" sx={{ mt: "-0.75rem" }}>
-          {preview.message}
-        </Typography>
+        <Typography variant="caption" color="error.main" sx={{ mt: "-0.5rem" }}>{preview.message}</Typography>
       )}
 
-      {/* Column selectors */}
-      <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-
-        {/* Date column */}
-        {preview.status === "loading" ? (
-          <Skeleton variant="rounded" width="12rem" height="2.5rem" />
-        ) : hasColumns ? (
-          <FormControl size="small" sx={{ flex: "1 1 11rem" }} disabled={disabled}>
+      {/* ── Columnas en 2 col ── */}
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        {preview.status === "loading" ? <Skeleton variant="rounded" height="2.5rem" /> : hasColumns ? (
+          <FormControl size="small" fullWidth disabled={disabled}>
             <InputLabel>Columna fecha</InputLabel>
-            <Select value={config.dateCol} label="Columna fecha"
-              onChange={(e) => onChange({ dateCol: e.target.value })}>
+            <Select value={config.dateCol} label="Columna fecha" onChange={(e) => onChange({ dateCol: e.target.value })}>
               {columns.map((col) => (
                 <MenuItem key={col.name} value={col.name}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
-                    <span>{col.name}</span>
-                    <DtypeChip dtype={col.dtype} />
+                    <span>{col.name}</span><DtypeChip dtype={col.dtype} />
                   </Box>
                 </MenuItem>
               ))}
             </Select>
             {config.dateCol && (
               <FormHelperText sx={{ color: dateValidation.status === "ok" ? "success.main" : "warning.main", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                <ColIcon validation={dateValidation} />
-                {dateValidation.message}
+                <ColIcon validation={dateValidation} />{dateValidation.message}
               </FormHelperText>
             )}
           </FormControl>
         ) : (
           <TextField label="Columna fecha" size="small" value={config.dateCol}
-            onChange={(e) => onChange({ dateCol: e.target.value })}
-            placeholder="ej. fecha" disabled={disabled} sx={{ flex: "1 1 8rem" }} />
+            onChange={(e) => onChange({ dateCol: e.target.value })} placeholder="ej. fecha" disabled={disabled} />
         )}
 
-        {/* Target column */}
-        {preview.status === "loading" ? (
-          <Skeleton variant="rounded" width="14rem" height="2.5rem" />
-        ) : hasColumns ? (
-          <FormControl size="small" sx={{ flex: "1 1 13rem" }} disabled={disabled}>
+        {preview.status === "loading" ? <Skeleton variant="rounded" height="2.5rem" /> : hasColumns ? (
+          <FormControl size="small" fullWidth disabled={disabled}>
             <InputLabel>Columna objetivo</InputLabel>
-            <Select value={config.targetCol} label="Columna objetivo"
-              onChange={(e) => onChange({ targetCol: e.target.value })}>
+            <Select value={config.targetCol} label="Columna objetivo" onChange={(e) => onChange({ targetCol: e.target.value })}>
               {columns.map((col) => (
                 <MenuItem key={col.name} value={col.name}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
-                    <span>{col.name}</span>
-                    <DtypeChip dtype={col.dtype} />
+                    <span>{col.name}</span><DtypeChip dtype={col.dtype} />
                   </Box>
                 </MenuItem>
               ))}
             </Select>
             {config.targetCol && (
               <FormHelperText sx={{ color: targetValidation.status === "ok" ? "success.main" : "warning.main", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                <ColIcon validation={targetValidation} />
-                {targetValidation.message}
+                <ColIcon validation={targetValidation} />{targetValidation.message}
               </FormHelperText>
             )}
           </FormControl>
         ) : (
           <TextField label="Columna objetivo" size="small" value={config.targetCol}
-            onChange={(e) => onChange({ targetCol: e.target.value })}
-            placeholder="ej. ventas_unidades" disabled={disabled} sx={{ flex: "1 1 10rem" }} />
+            onChange={(e) => onChange({ targetCol: e.target.value })} placeholder="ej. ventas" disabled={disabled} />
         )}
       </Box>
 
-      {/* Same column warning */}
       {config.dateCol && config.targetCol && config.dateCol === config.targetCol && (
         <Alert severity="warning" sx={{ fontSize: "0.8125rem", py: "0.25rem" }}>
           La columna de fecha y la columna objetivo no pueden ser la misma.
         </Alert>
       )}
 
-      {/* E6: Analizar serie — visible cuando fecha y objetivo están seleccionados y son distintos */}
+      {/* Analizar serie */}
       {config.datasetId && config.dateCol && config.targetCol && config.dateCol !== config.targetCol && (
-        <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          <Tooltip
-            title="Corre el pipeline MAD → FFT → Mann-Kendall → CV y explica por qué se elige cada modelo"
-            placement="top"
-          >
+        <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <Tooltip title="Detecta estacionalidad, tendencia y recomienda modelo" placement="top">
             <span>
               <Chip
                 icon={detecting ? <CircularProgress size="0.875rem" /> : <SearchIcon sx={{ fontSize: "0.9rem !important" }} />}
                 label={detecting ? "Analizando..." : "Analizar serie"}
                 onClick={!disabled && !detecting ? handleDetect : undefined}
-                color="primary"
-                variant="outlined"
-                size="small"
-                sx={{
-                  cursor: disabled || detecting ? "default" : "pointer",
-                  fontSize: "0.75rem",
-                  opacity: disabled ? 0.5 : 1,
-                }}
+                color="primary" variant="outlined" size="small"
+                sx={{ cursor: disabled || detecting ? "default" : "pointer", fontSize: "0.75rem", opacity: disabled ? 0.5 : 1 }}
               />
             </span>
           </Tooltip>
-          {/* Si ya hay un reporte cacheado, mostrar link para reabrirlo */}
           {!detecting && onOpenDetectionReport && (
-            <Typography
-              variant="caption"
-              color="primary.main"
+            <Typography variant="caption" color="primary.main"
               sx={{ cursor: "pointer", textDecoration: "underline", fontSize: "0.75rem" }}
-              onClick={onOpenDetectionReport}
-            >
+              onClick={onOpenDetectionReport}>
               Ver último reporte
             </Typography>
           )}
-          {detectError && (
-            <Typography variant="caption" color="error.main" sx={{ fontSize: "0.75rem" }}>
-              {detectError}
-            </Typography>
-          )}
+          {detectError && <Typography variant="caption" color="error.main" sx={{ fontSize: "0.75rem" }}>{detectError}</Typography>}
         </Box>
       )}
 
-      {/* Freq + model */}
-      <Box sx={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+      {/* ── Frecuencia + Modelo en 2 col ── */}
+      <Box sx={{ display: "grid", gridTemplateColumns: "10rem 1fr", gap: "0.75rem", alignItems: "flex-start" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           <TextField select label="Frecuencia" size="small" value={config.freq}
-            onChange={(e) => onChange({ freq: e.target.value as DataFreq })}
-            disabled={disabled} sx={{ width: "10rem" }}>
-            {FREQ_OPTIONS.map((o) => (
-              <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-            ))}
+            onChange={(e) => onChange({ freq: e.target.value as DataFreq })} disabled={disabled}>
+            {FREQ_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
           </TextField>
-          {/* Freq detection badge */}
           {detectedFreq && (
-            <Tooltip
-              title={`Detectada a partir de los datos: intervalo mediano de ${detectedFreq.medianDays} día${detectedFreq.medianDays !== 1 ? "s" : ""}. Podés cambiarlo manualmente.`}
-              placement="bottom"
-            >
+            <Tooltip title={`Intervalo mediano: ${detectedFreq.medianDays}d detectado`} placement="bottom">
               <Box sx={{ display: "flex", alignItems: "center", gap: "0.25rem", cursor: "help" }}>
                 <AutoAwesomeIcon sx={{ fontSize: "0.75rem", color: detectedFreq.freq === config.freq ? "success.main" : "text.disabled" }} />
                 <Typography variant="caption" color={detectedFreq.freq === config.freq ? "success.main" : "text.disabled"} sx={{ fontSize: "0.6875rem" }}>
@@ -417,333 +348,179 @@ export function ForecastConfigPanel({ config, onChange, disabled = false, availa
           )}
         </Box>
 
-        {/* Model selector with tier-based lock */}
-        <FormControl size="small" sx={{ flex: "1 1 14rem", maxWidth: "18rem" }} disabled={disabled}>
+        <FormControl size="small" fullWidth disabled={disabled}>
           <InputLabel>Modelo</InputLabel>
           <Select value={config.modelOverride} label="Modelo"
             onChange={(e) => onChange({ modelOverride: e.target.value as ModelName | "auto" })}>
             {ALL_MODEL_OPTIONS.map((o) => {
               const lockedByTier    = o.requiresLocal && !isLocal
-              // E5: bloquear si quality score no lo habilita (solo si tenemos la lista)
-              const lockedByQuality = availableModelIds !== null
-                && o.value !== "auto"
-                && !availableModelIds.includes(o.value)
+              const lockedByQuality = availableModelIds !== null && o.value !== "auto" && !availableModelIds.includes(o.value)
               const locked = lockedByTier || lockedByQuality
-              const lockReason = lockedByTier
-                ? "Requiere backend local. No disponible en modo cloud."
-                : `Requiere mejor calidad de datos. Ve a EDA → ETL para desbloquearlo.`
+              const lockReason = lockedByTier ? "Requiere backend local" : "Requiere mejor calidad (EDA → ETL)"
               return (
                 <MenuItem key={o.value} value={o.value} disabled={locked} sx={{ opacity: locked ? 0.5 : 1 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
                     <span style={{ flex: 1 }}>{o.label}</span>
-                    {locked && (
-                      <Tooltip title={lockReason} placement="right">
-                        <LockIcon sx={{ fontSize: "0.875rem", color: "text.disabled" }} />
-                      </Tooltip>
-                    )}
+                    {locked && <Tooltip title={lockReason} placement="right"><LockIcon sx={{ fontSize: "0.875rem", color: "text.disabled" }} /></Tooltip>}
                   </Box>
                 </MenuItem>
               )
             })}
           </Select>
-          {!isLocal && (
-            <FormHelperText sx={{ fontSize: "0.6875rem" }}>
-              LightGBM requiere backend local
-            </FormHelperText>
-          )}
+          {!isLocal && <FormHelperText sx={{ fontSize: "0.6875rem" }}>LightGBM requiere backend local</FormHelperText>}
         </FormControl>
       </Box>
 
-      {/* Horizon — F4.1: chip ? links to Encyclopedia Ch.1 */}
-      <Box sx={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-        <Box sx={{ flex: 1 }}>
+      {/* ── Horizonte + Test en 2 col ── */}
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        {/* Horizonte */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Typography variant="body2" color="text.secondary" fontWeight={500}>Horizonte</Typography>
+            <Tooltip title="Períodos futuros. Máx: 1 ciclo estacional (12 mensual, 52 semanal)" placement="top">
+              <Chip label="?" size="small" variant="outlined"
+                onClick={() => router.push("/dashboard/encyclopedia?chapter=1")}
+                sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }} />
+            </Tooltip>
+          </Box>
           <HorizonSelector
-            value={config.horizon}
-            freq={config.freq}
-            onChange={(h) => {
-              onChange(linkHorizonTest ? { horizon: h, testPeriods: h } : { horizon: h })
-            }}
+            value={config.horizon} freq={config.freq}
+            onChange={(h) => onChange(linkHorizonTest ? { horizon: h, testPeriods: h } : { horizon: h })}
             disabled={disabled}
           />
-        </Box>
-        <Tooltip
-          title="Cu\u00e1ntos per\u00edodos futuros proyectar. Vandeput recomienda no superar 1 ciclo estacional completo: 12 per\u00edodos para datos mensuales, 52 para datos semanales."
-          placement="top"
-        >
-          <Chip
-            label="?"
-            size="small"
-            variant="outlined"
-            onClick={() => router.push("/dashboard/encyclopedia?chapter=1")}
-            sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer", mt: "0.375rem" }}
-          />
-        </Tooltip>
-      </Box>
-
-      {/* F1.4 — Link horizon ↔ test periods */}
-      <Box sx={{ display: "flex", alignItems: "center", mt: "-0.5rem" }}>
-        <Tooltip
-          title="Vandeput recomienda que el horizonte de proyección sea igual al período de evaluación"
-          placement="top"
-        >
           <FormControlLabel
             control={
-              <Switch
-                size="small"
-                checked={linkHorizonTest}
+              <Switch size="small" checked={linkHorizonTest}
                 onChange={(e) => {
                   setLinkHorizonTest(e.target.checked)
-                  if (e.target.checked) {
-                    // Sync test to current horizon immediately
-                    setTestManualMode(false)
-                    onChange({ testPeriods: config.horizon })
-                  }
+                  if (e.target.checked) { setTestManualMode(false); onChange({ testPeriods: config.horizon }) }
                 }}
                 disabled={disabled}
               />
             }
-            label={
-              <Typography variant="caption" color="text.secondary">
-                Horizonte = test (Vandeput)
-              </Typography>
-            }
+            label={<Typography variant="caption" color="text.secondary">= test (Vandeput)</Typography>}
+            sx={{ mt: "-0.25rem", ml: 0 }}
           />
-        </Tooltip>
-      </Box>
-
-      {/* Hold-out manual — F1.2: opciones adaptativas por frecuencia */}
-      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="body2" color="text.secondary" fontWeight={500}>
-            Períodos de evaluación (test)
-          </Typography>
-          {/* F4.1 + F4.4 — tooltip ampliado con recomendaci\u00f3n Vandeput */}
-          <Tooltip
-            title="Reserv\u00e1 los \u00faltimos N per\u00edodos como test. Vandeput recomienda al menos 1 ciclo estacional completo: 12 per\u00edodos (mensual), 52 semanas, 4 trimestres. Un test m\u00e1s corto subestima el error real en producci\u00f3n."
-            placement="top"
-          >
-            <Chip
-              label="?"
-              size="small"
-              variant="outlined"
-              onClick={() => router.push("/dashboard/encyclopedia?chapter=4")}
-              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }}
-            />
-          </Tooltip>
         </Box>
-        <Box sx={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          {/* Auto option always first */}
-          <ToggleButton
-            value={0}
-            selected={config.testPeriods === 0 && !testManualMode}
-            onChange={() => { if (!disabled) { setTestManualMode(false); onChange({ testPeriods: 0 }) } }}
-            size="small"
-            sx={{
-              px: "0.75rem", py: "0.25rem", fontSize: "0.75rem", textTransform: "none",
-              borderRadius: "0.375rem", border: "1px solid",
-              borderColor: config.testPeriods === 0 && !testManualMode ? "primary.main" : "divider",
-              bgcolor: config.testPeriods === 0 && !testManualMode ? "primary.main" : "transparent",
-              color: config.testPeriods === 0 && !testManualMode ? "primary.contrastText" : "text.secondary",
-              "&:hover": { bgcolor: config.testPeriods === 0 && !testManualMode ? "primary.dark" : "action.hover" },
-            }}
-          >
-            Auto (20%)
-          </ToggleButton>
 
-          {/* Adaptive quick options per frequency */}
-          {TEST_PERIODS_OPTIONS[config.freq].map((v) => (
-            <ToggleButton
-              key={v}
-              value={v}
-              selected={config.testPeriods === v && !testManualMode}
-              onChange={() => { if (!disabled) { setTestManualMode(false); onChange({ testPeriods: v }) } }}
-              size="small"
-              sx={{
-                px: "0.75rem", py: "0.25rem", fontSize: "0.75rem", textTransform: "none",
-                borderRadius: "0.375rem", border: "1px solid",
-                borderColor: config.testPeriods === v && !testManualMode ? "primary.main" : "divider",
-                bgcolor: config.testPeriods === v && !testManualMode ? "primary.main" : "transparent",
-                color: config.testPeriods === v && !testManualMode ? "primary.contrastText" : "text.secondary",
-                "&:hover": { bgcolor: config.testPeriods === v && !testManualMode ? "primary.dark" : "action.hover" },
-              }}
-            >
-              {`Últ. ${v}`}
-            </ToggleButton>
-          ))}
-
-          {/* Manual input toggle */}
-          <ToggleButton
-            value="manual"
-            selected={testManualMode}
-            onChange={() => { if (!disabled) setTestManualMode((m) => !m) }}
-            size="small"
-            sx={{
-              px: "0.75rem", py: "0.25rem", fontSize: "0.75rem", textTransform: "none",
-              borderRadius: "0.375rem", border: "1px solid",
-              borderColor: testManualMode ? "primary.main" : "divider",
-              bgcolor: testManualMode ? "primary.main" : "transparent",
-              color: testManualMode ? "primary.contrastText" : "text.secondary",
-              "&:hover": { bgcolor: testManualMode ? "primary.dark" : "action.hover" },
-            }}
-          >
-            Manual
-          </ToggleButton>
-
-          {/* Manual number input */}
+        {/* Períodos test */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Typography variant="body2" color="text.secondary" fontWeight={500}>Períodos test</Typography>
+            <Tooltip title="Últimos N períodos para evaluar el modelo. Mínimo: 1 ciclo estacional" placement="top">
+              <Chip label="?" size="small" variant="outlined"
+                onClick={() => router.push("/dashboard/encyclopedia?chapter=4")}
+                sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }} />
+            </Tooltip>
+          </Box>
+          <Box sx={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
+            <ToggleButton value={0} selected={config.testPeriods === 0 && !testManualMode}
+              onChange={() => { if (!disabled) { setTestManualMode(false); onChange({ testPeriods: 0 }) } }}
+              size="small" sx={toggleBtnSx(config.testPeriods === 0 && !testManualMode)}>Auto</ToggleButton>
+            {TEST_PERIODS_OPTIONS[config.freq].map((v) => (
+              <ToggleButton key={v} value={v} selected={config.testPeriods === v && !testManualMode}
+                onChange={() => { if (!disabled) { setTestManualMode(false); onChange({ testPeriods: v }) } }}
+                size="small" sx={toggleBtnSx(config.testPeriods === v && !testManualMode)}>Últ.{v}</ToggleButton>
+            ))}
+            <ToggleButton value="manual" selected={testManualMode}
+              onChange={() => { if (!disabled) setTestManualMode((m) => !m) }}
+              size="small" sx={toggleBtnSx(testManualMode)}>N</ToggleButton>
+          </Box>
           {testManualMode && (
-            <TextField
-              size="small"
-              type="number"
-              label="períodos"
-              value={testManualVal}
+            <TextField size="small" type="number" label="períodos" value={testManualVal}
               onChange={(e) => {
-                const raw = e.target.value
-                setTestManualVal(raw)
-                const n = parseInt(raw, 10)
-                if (!isNaN(n) && n >= 1) onChange({ testPeriods: n })
+                const raw = e.target.value; setTestManualVal(raw)
+                const n = parseInt(raw, 10); if (!isNaN(n) && n >= 1) onChange({ testPeriods: n })
               }}
-              disabled={disabled}
-              inputProps={{ min: 1 }}
-              sx={{ width: "6rem" }}
-            />
+              disabled={disabled} inputProps={{ min: 1 }} sx={{ width: "6rem" }} />
+          )}
+          {config.testPeriods > 0 && (
+            <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.6rem" }}>
+              Entrenamiento · Test · Proyección
+            </Typography>
           )}
         </Box>
-        {config.testPeriods > 0 && (
-          <Typography variant="caption" color="text.disabled">
-            El gráfico mostrará las zonas: Entrenamiento · Test · Proyección
-          </Typography>
-        )}
       </Box>
 
-      {/* F2.3 — Training window selector */}
-      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="body2" color="text.secondary" fontWeight={500}>
-            Ventana de entrenamiento
-          </Typography>
-          <Tooltip
-            title="Limita la historia que usa el modelo. 'Auto' = toda la historia disponible. Útil cuando la demanda cambió estructuralmente (ej: pandemia) y la historia vieja 'contamina' el modelo."
-            placement="top"
-          >
-            <Chip label="?" size="small" variant="outlined"
-              onClick={() => router.push("/dashboard/encyclopedia?chapter=2")}
-              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }} />
-          </Tooltip>
-        </Box>
-        <TextField
-          select
-          size="small"
-          label="Ventana"
-          value={config.trainWindow ?? "auto"}
-          onChange={(e) => {
-            const val = e.target.value as ForecastConfig["trainWindow"]
-            onChange({ trainWindow: val, trainStartDate: val !== "custom" ? null : config.trainStartDate })
-          }}
-          disabled={disabled}
-          sx={{ width: "12rem" }}
-        >
-          <MenuItem value="auto">Auto (toda la historia)</MenuItem>
-          <MenuItem value="1y">Últimos 1 año</MenuItem>
-          <MenuItem value="2y">Últimos 2 años</MenuItem>
-          <MenuItem value="3y">Últimos 3 años</MenuItem>
-          <MenuItem value="custom">Desde fecha…</MenuItem>
-        </TextField>
-        {/* DatePicker: only shown in "custom" mode */}
-        {config.trainWindow === "custom" && (
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              label="Fecha de inicio del train"
-              value={config.trainStartDate ? new Date(config.trainStartDate) : null}
-              onChange={(date) => {
-                if (!date) { onChange({ trainStartDate: null }); return }
-                const iso = (date as Date).toISOString().split("T")[0]
-                onChange({ trainStartDate: iso })
-              }}
-              disabled={disabled}
-              slotProps={{ textField: { size: "small", sx: { width: "12rem" } } }}
-            />
-          </LocalizationProvider>
-        )}
-      </Box>
-
-      {/* Rolling CV */}
-      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="body2" color="text.secondary" fontWeight={500}>
-            Cross-validation (folds)
-          </Typography>
-          <Tooltip
-            title="Rolling window CV con TimeSeriesSplit. Entrena K modelos en ventanas sucesivas y promedia el WAPE ± desvío. Más robusto que un solo hold-out. Requiere serie más larga."
-            placement="top"
-          >
-            <Chip
-              label="?"
-              size="small"
-              variant="outlined"
-              onClick={() => router.push("/dashboard/encyclopedia?chapter=10")}
-              sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }}
-            />
-          </Tooltip>
+      {/* ── Ventana train + CV en 2 col ── */}
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        {/* Ventana de entrenamiento */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Typography variant="body2" color="text.secondary" fontWeight={500}>Ventana train</Typography>
+            <Tooltip title="Limita la historia usada. Útil si hubo cambio estructural (pandemia, fusión, etc.)" placement="top">
+              <Chip label="?" size="small" variant="outlined"
+                onClick={() => router.push("/dashboard/encyclopedia?chapter=2")}
+                sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }} />
+            </Tooltip>
+          </Box>
+          <TextField select size="small" label="Ventana"
+            value={config.trainWindow ?? "auto"}
+            onChange={(e) => {
+              const val = e.target.value as ForecastConfig["trainWindow"]
+              onChange({ trainWindow: val, trainStartDate: val !== "custom" ? null : config.trainStartDate })
+            }}
+            disabled={disabled}>
+            <MenuItem value="auto">Auto (toda)</MenuItem>
+            <MenuItem value="1y">Último año</MenuItem>
+            <MenuItem value="2y">2 años</MenuItem>
+            <MenuItem value="3y">3 años</MenuItem>
+            <MenuItem value="custom">Desde fecha…</MenuItem>
+          </TextField>
+          {config.trainWindow === "custom" && (
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label="Inicio del train"
+                value={config.trainStartDate ? new Date(config.trainStartDate) : null}
+                onChange={(date) => {
+                  if (!date) { onChange({ trainStartDate: null }); return }
+                  onChange({ trainStartDate: (date as Date).toISOString().split("T")[0] })
+                }}
+                disabled={disabled}
+                slotProps={{ textField: { size: "small" } }}
+              />
+            </LocalizationProvider>
+          )}
         </Box>
 
-        {/* Aviso cuando SARIMA + EC2: CV bloqueado en el servidor */}
-        {isEc2 && config.modelOverride === "sarima" && config.cvFolds > 0 && (
-          <Typography variant="caption" color="warning.main" sx={{ fontSize: "0.6875rem" }}>
-            ⚠️ CV con SARIMA se cancela en EC2 (memoria insuficiente). Usá modo local para esta operación.
-          </Typography>
-        )}
-
-        <Box sx={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          {[0, 2, 3, 5].map((v) => {
-            // En EC2, K>0 con SARIMA se bloquea en el servidor — mostramos el botón
-            // como deshabilitado para que el usuario lo entienda antes de correr.
-            const blockedBySarima = v > 0 && isEc2 && config.modelOverride === "sarima"
-            return (
-              <Tooltip
-                key={v}
-                title={
-                  blockedBySarima
-                    ? "Rolling CV con SARIMA requiere modo local (EC2 tiene memoria insuficiente para múltiples fits de SARIMA)"
-                    : ""
-                }
-                placement="top"
-                disableHoverListener={!blockedBySarima}
-              >
-                <span>
-                  <ToggleButton
-                    value={v}
-                    selected={config.cvFolds === v}
-                    onChange={() => !disabled && !blockedBySarima && onChange({ cvFolds: v })}
-                    size="small"
-                    disabled={blockedBySarima}
-                    sx={{
-                      px: "0.75rem",
-                      py: "0.25rem",
-                      fontSize: "0.75rem",
-                      textTransform: "none",
-                      borderRadius: "0.375rem",
-                      border: "1px solid",
-                      borderColor: config.cvFolds === v ? "secondary.main" : "divider",
-                      bgcolor: config.cvFolds === v ? "secondary.main" : "transparent",
-                      color: config.cvFolds === v ? "secondary.contrastText" : "text.secondary",
-                      "&:hover": { bgcolor: config.cvFolds === v ? "secondary.dark" : "action.hover" },
-                      "&.Mui-disabled": { opacity: 0.4 },
-                    }}
-                  >
-                    {v === 0 ? "Sin CV" : `K=${v}`}
-                    {blockedBySarima && <LockIcon sx={{ fontSize: "0.625rem", ml: "0.25rem" }} />}
-                  </ToggleButton>
-                </span>
-              </Tooltip>
-            )
-          })}
+        {/* Cross-validation */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Typography variant="body2" color="text.secondary" fontWeight={500}>Cross-validation</Typography>
+            <Tooltip title="Rolling CV con K folds. Más robusto que un solo hold-out. Requiere más observaciones." placement="top">
+              <Chip label="?" size="small" variant="outlined"
+                onClick={() => router.push("/dashboard/encyclopedia?chapter=10")}
+                sx={{ height: "1.25rem", width: "1.25rem", fontSize: "0.625rem", cursor: "pointer" }} />
+            </Tooltip>
+          </Box>
+          {isEc2 && config.modelOverride === "sarima" && config.cvFolds > 0 && (
+            <Typography variant="caption" color="warning.main" sx={{ fontSize: "0.6875rem" }}>
+              ⚠️ CV con SARIMA bloqueado en EC2 (memoria insuficiente).
+            </Typography>
+          )}
+          <Box sx={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
+            {[0, 2, 3, 5].map((v) => {
+              const blocked = v > 0 && isEc2 && config.modelOverride === "sarima"
+              return (
+                <Tooltip key={v} title={blocked ? "CV con SARIMA requiere modo local" : ""} placement="top" disableHoverListener={!blocked}>
+                  <span>
+                    <ToggleButton value={v} selected={config.cvFolds === v}
+                      onChange={() => !disabled && !blocked && onChange({ cvFolds: v })}
+                      size="small" disabled={blocked} sx={toggleBtnSx(config.cvFolds === v, "secondary")}>
+                      {v === 0 ? "Sin CV" : `K=${v}`}
+                      {blocked && <LockIcon sx={{ fontSize: "0.625rem", ml: "0.25rem" }} />}
+                    </ToggleButton>
+                  </span>
+                </Tooltip>
+              )
+            })}
+          </Box>
+          {config.cvFolds > 0 && (
+            <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.6rem" }}>
+              {config.cvFolds} folds · mín {config.cvFolds * config.horizon + 4} obs.
+            </Typography>
+          )}
         </Box>
-        {config.cvFolds > 0 && (
-          <Typography variant="caption" color="text.disabled">
-            {config.cvFolds} folds · cada test = {config.horizon} período{config.horizon !== 1 ? "s" : ""}
-            {" "}· mín. {config.cvFolds * config.horizon + 4} obs. requeridas
-          </Typography>
-        )}
       </Box>
     </Box>
   )

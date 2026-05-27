@@ -32,6 +32,7 @@ import AddIcon from "@mui/icons-material/Add"
 import ManageSearchIcon from "@mui/icons-material/ManageSearch"
 import { api } from "@/lib/api"
 import { getSessionIds } from "@/lib/sessionDatasets"
+import { appStore } from "@/lib/appStore"
 import { DemoSkuSearchDialog, type LoadedSku } from "@/components/forecast/DemoSkuSearchDialog"
 import type { DatasetListItem } from "@/lib/types"
 
@@ -67,6 +68,9 @@ function sourceLabel(source: PickerDataset["source"]) {
   return "DB"
 }
 
+// UUID regex — module-level constant (stable reference, not a hook dependency)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
@@ -77,6 +81,9 @@ export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
   const loadDatasets = useCallback(async () => {
     setLoading(true)
     const result: PickerDataset[] = []
+    // Fallback name: the original filename stored when user first uploaded
+    const storedFilename = appStore.getDatasetFilename()
+    const activeId = appStore.getActiveDatasetId()
 
     // 1. CSVs y datasets demo desde la API (incluye session_ids anónimos)
     try {
@@ -90,13 +97,23 @@ export function DatasetPicker({ value, onChange }: DatasetPickerProps) {
         const isDemo = ds.filename.startsWith("demo_")
         // Extraer SKU-id del nombre "demo_SKU-XXXXX"
         const skuId = isDemo ? ds.filename.replace("demo_", "") : null
+        // If filename looks like a UUID (ETL-generated datasets), use the stored
+        // original filename as a more readable label
+        const isUuidFilename = UUID_RE.test(ds.filename)
+        const readableLabel = isDemo
+          ? (skuId ?? ds.filename)
+          : isUuidFilename
+            ? (ds.dataset_id === activeId && storedFilename ? storedFilename : ds.filename)
+            : ds.filename
+        // Sublabel: add ETL badge when filename is a UUID (derived dataset)
+        const sublabel = ds.rows
+          ? `${ds.rows.toLocaleString("es-AR")} filas · ${ds.columns?.length ?? "?"} columnas${isUuidFilename ? " · ETL" : ""}`
+          : ds.filename
 
         result.push({
           dataset_id: ds.dataset_id,
-          label:      isDemo ? (skuId ?? ds.filename) : ds.filename,
-          sublabel:   ds.rows
-            ? `${ds.rows.toLocaleString("es-AR")} filas · ${ds.columns?.length ?? "?"} columnas`
-            : ds.filename,
+          label:      readableLabel,
+          sublabel,
           source:     isDemo ? "demo" : "csv",
           ...(isDemo
             ? { dateCol: "fecha", targetCol: "ventas", freq: "D" }

@@ -20,6 +20,8 @@ import { useRouter } from "next/navigation"
 import Box from "@mui/material/Box"
 import Chip from "@mui/material/Chip"
 import Tooltip from "@mui/material/Tooltip"
+import Button from "@mui/material/Button"
+import BuildIcon from "@mui/icons-material/Build"
 import CheckCircleIcon from "@mui/icons-material/CheckCircle"
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos"
 import { appStore } from "@/lib/appStore"
@@ -47,11 +49,14 @@ interface PipelineBarProps {
     | "/dashboard/multi-serie"
   /** When true, removes the bottom margin (useful when embedded inside a card). */
   noMargin?: boolean
+  /** Show "Mejorar en ETL" CTA button on the right (only makes sense in Flow A views). */
+  showEtlCta?: boolean
 }
 
-export function PipelineBar({ activeStep, noMargin }: PipelineBarProps) {
+export function PipelineBar({ activeStep, noMargin, showEtlCta }: PipelineBarProps) {
   const router = useRouter()
   const [steps, setSteps] = useState<PipelineStep[]>([])
+  const [isFlowA, setIsFlowA] = useState(false)
 
   useEffect(() => {
     const datasetId  = appStore.getActiveDatasetId()
@@ -72,6 +77,7 @@ export function PipelineBar({ activeStep, noMargin }: PipelineBarProps) {
     }
 
     if (entityCol && hasDataset) {
+      setIsFlowA(false)
       // Flow B: multi-entity
       setSteps([
         {
@@ -94,6 +100,7 @@ export function PipelineBar({ activeStep, noMargin }: PipelineBarProps) {
         },
       ])
     } else {
+      setIsFlowA(true)
       // Flow A: single series
       setSteps([
         {
@@ -143,7 +150,9 @@ export function PipelineBar({ activeStep, noMargin }: PipelineBarProps) {
         boxShadow:      "0 1px 3px rgba(0,0,0,0.06)",
       }}
     >
-      {steps.map((step, idx) => (
+      {/* Steps */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: "0.375rem", flex: 1, flexWrap: "wrap" }}>
+        {steps.map((step, idx) => (
         <Box key={step.href} sx={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
           {/* Step chip */}
           <Tooltip title={step.tooltip ?? ""} arrow>
@@ -178,7 +187,36 @@ export function PipelineBar({ activeStep, noMargin }: PipelineBarProps) {
             <ArrowForwardIosIcon sx={{ fontSize: "0.625rem", color: "text.disabled" }} />
           )}
         </Box>
-      ))}
+        ))}
+      </Box>
+
+      {/* ETL CTA — only in Flow A, not on ETL page itself */}
+      {showEtlCta && isFlowA && activeStep !== "/dashboard/etl" && (
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<BuildIcon sx={{ fontSize: "0.875rem !important" }} />}
+          onClick={() => router.push("/dashboard/etl")}
+          sx={{
+            ml: "auto",
+            fontSize: "0.6875rem",
+            fontWeight: 600,
+            textTransform: "none",
+            borderRadius: "1.5rem",
+            px: "0.75rem",
+            py: "0.25rem",
+            borderColor: "divider",
+            color: "text.secondary",
+            "&:hover": {
+              borderColor: "primary.main",
+              color: "primary.main",
+              bgcolor: "transparent",
+            },
+          }}
+        >
+          Mejorar calidad en ETL
+        </Button>
+      )}
     </Box>
   )
 }

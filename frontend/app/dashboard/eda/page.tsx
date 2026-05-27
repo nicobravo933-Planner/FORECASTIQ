@@ -24,8 +24,6 @@ import { useEda } from "@/hooks/useEda"
 import { QualityScoreCard } from "@/components/eda/QualityScoreCard"
 import { SeriesSummaryTable } from "@/components/eda/SeriesSummaryTable"
 import { OutlierChart } from "@/components/eda/OutlierChart"
-import { ModelsAvailablePanel } from "@/components/eda/ModelsAvailablePanel"
-import { DataCompletenessBar } from "@/components/eda/DataCompletenessBar"
 import { DatasetSelector } from "@/components/common/DatasetSelector"
 import { PipelineBar } from "@/components/common/PipelineBar"
 
@@ -123,7 +121,7 @@ export default function EdaPage() {
       </Box>
 
       {/* ── Pipeline progress bar ── */}
-      <PipelineBar activeStep="/dashboard/eda" />
+      <PipelineBar activeStep="/dashboard/eda" showEtlCta />
 
       {/* ── Empty state: no dataset ── */}
       {!datasetId && (
@@ -170,18 +168,21 @@ export default function EdaPage() {
       {/* ── Main content ── */}
       {canAnalyze && !loading && !error && summary && outliers && quality && models && (
         <>
-          {/* ── Fila 1: Quality Score (izq) + Serie con outliers (der) ── */}
+          {/* ── Fila 1: Quality Score + Serie + Modelos ──
+               Grid 3-col: [18rem quality] [1fr chart] [15rem models]
+               alignItems stretch = misma altura en las 3 columnas */}
           <Box sx={{
             display: "grid",
             gridTemplateColumns: { xs: "1fr", lg: "18rem 1fr" },
             gap: "1.25rem",
             mb: "1.25rem",
+            alignItems: "stretch",
           }}>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <QualityScoreCard data={quality} />
-              <ModelsAvailablePanel data={models} />
-            </Box>
 
+            {/* Col 1: Quality Score */}
+            <QualityScoreCard data={quality} />
+
+            {/* Col 2: Serie con outliers */}
             <Box sx={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
               {summary.n_observations < 24 && (
                 <Alert severity="warning" sx={{ borderRadius: "0.75rem" }}>
@@ -197,7 +198,6 @@ export default function EdaPage() {
                   Necesitás al menos 8 períodos.
                 </Alert>
               )}
-
               {seriesLoading ? (
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center",
                   flex: 1, minHeight: "18rem" }}>
@@ -215,14 +215,10 @@ export default function EdaPage() {
                 </Box>
               )}
             </Box>
+
           </Box>
 
-          {/* ── Fila 2: Completitud (full-width) ── */}
-          <Box sx={{ mb: "1.25rem" }}>
-            <DataCompletenessBar data={summary} />
-          </Box>
-
-          {/* ── Fila 3: Tabla de estadísticas (ocupa el ancho restante) ── */}
+          {/* ── Fila 2: Tabla de estadísticas + completitud inline */}
           <SeriesSummaryTable data={summary} />
         </>
       )}
