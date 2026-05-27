@@ -1,32 +1,16 @@
 import { redirect } from "next/navigation"
-import { headers } from "next/headers"
-import { auth } from "@/lib/auth"
-import LandingPage from "@/components/landing/LandingPage"
 
 /**
- * Root route — landing gate.
+ * Root route — always redirects to the static landing page.
  *
- * Strategy: render the landing as a real Next.js page instead of
- * redirect("/landing.html"). The file-based redirect was unreliable
- * on Vercel (App Router doesn't guarantee .html static serving order).
+ * landing.html lives in /public and is served directly by Vercel/Next.js.
+ * It is the single source of truth for the landing — no React component needed.
  *
- * - Authenticated user  → /dashboard/home  (server-side, fast)
- * - Unauthenticated     → render LandingPage component
+ * The "Abrir app" button in landing.html points to /login, which handles
+ * the auth flow and redirects to /dashboard/home after sign-in.
  *
- * getSession is wrapped in try/catch so a misconfigured auth env
- * never prevents the landing from showing.
+ * F5 / hard refresh always comes back here → always sees the landing.
  */
-export default async function RootPage() {
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-    if (session?.user) {
-      redirect("/dashboard/home")
-    }
-  } catch {
-    // Auth misconfigured or unavailable — show landing anyway
-  }
-
-  return <LandingPage />
+export default function RootPage() {
+  redirect("/landing.html")
 }

@@ -242,32 +242,28 @@
 
     .chart-body { padding: 24px 20px 14px; }
 
-    /* SVG chart animations */
-    .line-actual {
-      stroke-dasharray: 1200;
-      stroke-dashoffset: 1200;
-      animation: drawLine 2s cubic-bezier(0.6,0,0.3,1) 0.5s forwards;
-    }
-    .line-forecast {
-      stroke-dasharray: 900;
-      stroke-dashoffset: 900;
-      animation: drawLine 1.3s cubic-bezier(0.6,0,0.3,1) 2.1s forwards;
-    }
-    .ci-band {
-      opacity: 0;
-      animation: fadeIn 0.7s ease 2.8s forwards;
-    }
-    .chart-dots {
-      opacity: 0;
-      animation: fadeIn 0.5s ease 2.2s forwards;
-    }
-    .chart-labels {
-      opacity: 0;
-      animation: fadeIn 0.6s ease 3.0s forwards;
-    }
+    /* SVG chart — JS controlled */
+    .ci-band, .chart-dots, .chart-labels { opacity: 0; }
 
-    @keyframes drawLine { to { stroke-dashoffset: 0; } }
-    @keyframes fadeIn   { to { opacity: 1; } }
+    /* Typewriter cursor — bloque ancho */
+    .tw-cursor {
+      display: inline-block;
+      width: 11px;
+      height: 0.85em;
+      background: rgba(56,189,248,0.75);
+      margin-left: 4px;
+      vertical-align: middle;
+      border-radius: 2px;
+      animation: cursorBlink 0.65s ease-in-out infinite;
+    }
+    @keyframes cursorBlink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0px);    }
+      50%       { transform: translateY(-14px);  }
+    }
 
     /* ── Proof bar ── */
     .proof-bar {
@@ -505,7 +501,7 @@
 <!-- ── Nav ── -->
 <nav id="navbar">
   <div class="nav-logo">
-    <img src="logo_rectangular.png" alt="ForecastIQ" />
+    <span style="font-size:17px;font-weight:800;letter-spacing:-0.035em;font-family:'Space Grotesk',sans-serif;background:linear-gradient(110deg,#38bdf8 0%,#8b5cf6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">ForecastIQ</span>
   </div>
   <div class="nav-links">
     <a href="#features" class="nav-link">Features</a>
@@ -524,15 +520,14 @@
 <section class="hero">
   <div class="glow-top"></div>
 
+  <img src="logo.png" alt="ForecastIQ" style="width:264px;height:264px;margin-bottom:22px;animation:logoFloat 4s ease-in-out infinite;" />
+
   <div class="hero-badge">
     <span class="pulse-dot" style="background:var(--green)"></span>
-    Proyecto en producción · EC2 + Vercel
+    Proyecto en producción · AWS EC2 + Vercel
   </div>
 
-  <h1 class="hero-title">
-    Forecasting de series temporales<br>
-    con <span class="grad">selección automática de modelos</span>
-  </h1>
+  <h1 class="hero-title" id="heroTitle"></h1>
 
   <p class="hero-sub">
     Subís tu CSV. Evaluamos MA, Holt-Winters, SARIMA y LightGBM.
@@ -541,7 +536,7 @@
 
   <div class="hero-cta">
     <a href="/login" class="btn-primary">
-      Abrir la app
+    Abrir la app
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
     <a href="https://github.com/nicobravo933-Planner/FORECASTIQ" target="_blank" class="btn-ghost">
@@ -562,6 +557,14 @@
     </div>
     <div class="chart-body">
       <svg viewBox="0 0 840 195" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;overflow:visible">
+        <defs>
+          <clipPath id="clipActual">
+            <rect id="crA" x="40" y="0" width="0" height="200"/>
+          </clipPath>
+          <clipPath id="clipForecast">
+            <rect id="crF" x="540" y="0" width="0" height="200"/>
+          </clipPath>
+        </defs>
         <!-- Grid lines -->
         <line x1="44" y1="18"  x2="820" y2="18"  stroke="rgba(255,255,255,0.045)" stroke-width="1"/>
         <line x1="44" y1="55"  x2="820" y2="55"  stroke="rgba(255,255,255,0.045)" stroke-width="1"/>
@@ -584,16 +587,18 @@
           fill="rgba(139,92,246,0.13)"/>
 
         <!-- Actual line -->
-        <path class="line-actual"
+        <path id="pathActual" class="line-actual"
           d="M50,152 C85,145 125,160 170,142 C210,128 240,138 285,124
              C325,113 360,130 410,118 C452,108 490,100 525,108 C535,111 540,111 545,112"
-          fill="none" stroke="#38bdf8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          fill="none" stroke="#38bdf8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"
+          clip-path="url(#clipActual)"/>
 
         <!-- Forecast line -->
-        <path class="line-forecast"
+        <path id="pathForecast" class="line-forecast"
           d="M545,112 L635,82 L720,65 L800,48 L820,40"
           fill="none" stroke="#8b5cf6" stroke-width="2.4"
-          stroke-dasharray="8,5" stroke-linecap="round" stroke-linejoin="round"/>
+          stroke-linecap="round" stroke-linejoin="round"
+          clip-path="url(#clipForecast)"/>
 
         <!-- Handoff divider -->
         <line x1="545" y1="12" x2="545" y2="178"
@@ -661,7 +666,7 @@
   <div class="proof-item"><div class="proof-dot" style="background:#10b981"></div>LightGBM · statsmodels</div>
   <div class="proof-item"><div class="proof-dot" style="background:#f1f5f9"></div>Next.js 14 · TypeScript</div>
   <div class="proof-item"><div class="proof-dot" style="background:#8b5cf6"></div>PostgreSQL · RLS by user</div>
-  <div class="proof-item"><div class="proof-dot" style="background:#38bdf8"></div>EC2 · Vercel</div>
+  <div class="proof-item"><div class="proof-dot" style="background:#38bdf8"></div>AWS EC2 · Vercel</div>
 </div>
 
 <!-- ── Features ── -->
@@ -674,7 +679,13 @@
     <div class="features-grid">
 
       <div class="feature-card reveal">
-        <div class="feature-icon-wrap" style="background:rgba(56,189,248,0.1)">🎯</div>
+        <div class="feature-icon-wrap" style="background:rgba(56,189,248,0.1)">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#38bdf8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+            <rect x="9" y="9" width="6" height="6"/>
+            <path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M20 9h3M1 15h3M20 15h3"/>
+          </svg>
+        </div>
         <div class="feature-name">Selección automática de modelo</div>
         <p class="feature-desc">
           Un score de calidad evalúa el dataset (0–100). Score &lt; 40 → solo Moving Average. Score ≥ 75 → LightGBM disponible, incluyendo features de calendario como variables exógenas.
@@ -683,7 +694,15 @@
       </div>
 
       <div class="feature-card reveal">
-        <div class="feature-icon-wrap" style="background:rgba(245,158,11,0.1)">📅</div>
+        <div class="feature-icon-wrap" style="background:rgba(245,158,11,0.1)">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f59e0b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <path d="m9 16 2 2 4-4"/>
+          </svg>
+        </div>
         <div class="feature-name">Eventos como features exógenas</div>
         <p class="feature-desc">
           Feriados nacionales y eventos comerciales argentinos (Hot Sale, Cyber Monday, Día del Padre) se inyectan como variables exógenas en LightGBM. El modelo aprende el impacto real de cada evento en tus ventas.
@@ -692,7 +711,13 @@
       </div>
 
       <div class="feature-card reveal">
-        <div class="feature-icon-wrap" style="background:rgba(139,92,246,0.1)">💬</div>
+        <div class="feature-icon-wrap" style="background:rgba(139,92,246,0.1)">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#8b5cf6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 8V4H8"/>
+            <rect width="16" height="12" x="4" y="8" rx="2"/>
+            <path d="M2 14h2M20 14h2M15 13v2M9 13v2"/>
+          </svg>
+        </div>
         <div class="feature-name">Chat IA sobre tus datos</div>
         <p class="feature-desc">
           El LLM recibe el contexto del último forecast como system prompt: métricas, modelo elegido, columnas detectadas, horizonte. Preguntás en lenguaje natural y responde sobre tu serie temporal específica.
@@ -701,7 +726,14 @@
       </div>
 
       <div class="feature-card reveal">
-        <div class="feature-icon-wrap" style="background:rgba(16,185,129,0.1)">📊</div>
+        <div class="feature-icon-wrap" style="background:rgba(16,185,129,0.1)">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#10b981" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+            <line x1="2" y1="20" x2="22" y2="20"/>
+          </svg>
+        </div>
         <div class="feature-name">Métricas de evaluación correctas</div>
         <p class="feature-desc">
           Reportamos WAPE (Weighted Absolute Percentage Error) y Forecast Value Added respecto al benchmark naïve. Intervalos de confianza al 90% por bootstrap o distribución del error histórico.
@@ -723,7 +755,13 @@
 
       <div class="step-card reveal">
         <div class="step-num">PASO 01</div>
-        <span class="step-icon">📁</span>
+        <span class="step-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </span>
         <div class="step-name">Subís tu CSV</div>
         <p class="step-desc">
           Cargás tu serie temporal. El sistema detecta automáticamente las columnas de fecha y valor, evalúa la calidad del dataset y genera estadísticas descriptivas.
@@ -732,7 +770,14 @@
 
       <div class="step-card reveal">
         <div class="step-num">PASO 02</div>
-        <span class="step-icon">⚙️</span>
+        <span class="step-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#8b5cf6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="18" r="3"/>
+            <circle cx="6" cy="6" r="3"/>
+            <path d="M13 6h3a2 2 0 0 1 2 2v7"/>
+            <line x1="6" y1="9" x2="6" y2="21"/>
+          </svg>
+        </span>
         <div class="step-name">ETL + selección de modelo</div>
         <p class="step-desc">
           Winsorización de outliers, imputación de valores faltantes y detección de periodicidad. El score de calidad determina qué modelos ML están disponibles para tu dataset.
@@ -741,7 +786,12 @@
 
       <div class="step-card reveal">
         <div class="step-num">PASO 03</div>
-        <span class="step-icon">📈</span>
+        <span class="step-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#10b981" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+            <polyline points="16 7 22 7 22 13"/>
+          </svg>
+        </span>
         <div class="step-name">Forecast + métricas</div>
         <p class="step-desc">
           Obtenés el forecast con WAPE, FVA e intervalos de confianza al 90%. El resultado queda guardado en tu historial para comparar runs futuros.
@@ -755,7 +805,10 @@
 <!-- ── Footer ── -->
 <div class="footer-wrap reveal">
   <footer>
-    <img src="logo_rectangular.png" alt="ForecastIQ" />
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:800;letter-spacing:-0.035em;font-family:'Space Grotesk',sans-serif;background:linear-gradient(110deg,#38bdf8 0%,#8b5cf6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">ForecastIQ</div>
+      <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--dim);letter-spacing:0.13em;margin-top:5px;">ML · FORECAST · AI</div>
+    </div>
 
     <div class="footer-links">
       <a href="https://github.com/nicobravo933-Planner/FORECASTIQ" target="_blank">GitHub</a>
@@ -764,7 +817,7 @@
     </div>
 
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-      <span class="footer-meta">Nicolás Bravo · 2026</span>
+      <span class="footer-meta">Nicolás A. Bravo · 2026 · Data Scientist</span>
       <a href="/login" class="btn-primary" style="font-size:13px;padding:8px 18px;">
         Entrar a la app →
       </a>
@@ -852,6 +905,210 @@
   }, { threshold: 0.1 });
 
   document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+})();
+
+// ── Typewriter + Chart animation ─────────────────────────────────────────────
+(function () {
+  const SPEED = 68;
+
+  function easeInOut(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
+  function easeOut(t)   { return 1 - Math.pow(1 - t, 3); }
+
+  function animRect(id, from, to, duration, ease, done) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - start) / duration);
+      el.setAttribute('width', from + (to - from) * ease(t));
+      if (t < 1) requestAnimationFrame(tick);
+      else if (done) done();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function fadeEl(sel, ms) {
+    const el = typeof sel === 'string' ? document.querySelector(sel) : sel;
+    if (!el) return;
+    el.style.transition = `opacity ${ms}ms ease`;
+    el.style.opacity = '1';
+  }
+
+  // ── Chart sequence ──────────────────────────────────────────────────────
+  function resetChart() {
+    const crA = document.getElementById('crA');
+    const crF = document.getElementById('crF');
+    const pfx = document.getElementById('pathForecast');
+    if (crA) crA.setAttribute('width', 0);
+    if (crF) crF.setAttribute('width', 0);
+    if (pfx) pfx.removeAttribute('stroke-dasharray');
+    ['.chart-dots', '.ci-band', '.chart-labels'].forEach(s => {
+      const el = document.querySelector(s);
+      if (el) { el.style.transition = 'none'; el.style.opacity = '0'; }
+    });
+  }
+
+  function animateChart() {
+    const pfx = document.getElementById('pathForecast');
+    // 1) Historical line grows left → right (2s)
+    animRect('crA', 0, 515, 2000, easeInOut, () => {
+      // 2) Dots appear
+      fadeEl('.chart-dots', 350);
+      // 3) Forecast line grows (after short pause)
+      setTimeout(() => {
+        animRect('crF', 0, 290, 1100, easeOut, () => {
+          // Add dashed style once drawn
+          if (pfx) pfx.setAttribute('stroke-dasharray', '8,5');
+          // 4) CI band + labels
+          setTimeout(() => fadeEl('.ci-band',    500), 100);
+          setTimeout(() => fadeEl('.chart-labels', 600), 450);
+          // 5) Loop — reiniciar después de 5s pausa
+          setTimeout(() => { resetChart(); setTimeout(animateChart, 150); }, 5000);
+        });
+      }, 280);
+    });
+  }
+
+  // ── Typewriter ───────────────────────────────────────────────────────────
+  const titleEl = document.getElementById('heroTitle');
+  if (!titleEl) { animateChart(); return; }
+
+  // Build DOM nodes upfront
+  const cursor   = document.createElement('span');
+  cursor.className = 'tw-cursor';
+
+  const node1    = document.createTextNode('');
+  const nodeCon  = document.createTextNode('');
+  const gradSpan = document.createElement('span');
+  gradSpan.className = 'grad';
+  const nodeGrad = document.createTextNode('');
+  gradSpan.appendChild(nodeGrad);
+
+  titleEl.appendChild(node1);
+  titleEl.appendChild(cursor);
+
+  const L1 = 'Forecasting de series temporales';
+  const L2A = 'con\u00a0';
+  const L2B = 'selecci\u00f3n autom\u00e1tica de modelos';
+
+  let phase = 0, idx = 0, br;
+
+  function step() {
+    if (phase === 0) {
+      if (idx < L1.length) {
+        node1.textContent += L1[idx++];
+        setTimeout(step, SPEED);
+      } else {
+        br = document.createElement('br');
+        titleEl.insertBefore(br,      cursor);
+        titleEl.insertBefore(nodeCon, cursor);
+        phase = 1; idx = 0;
+        setTimeout(step, SPEED * 3);
+      }
+    } else if (phase === 1) {
+      if (idx < L2A.length) {
+        nodeCon.textContent += L2A[idx++];
+        setTimeout(step, SPEED);
+      } else {
+        titleEl.insertBefore(gradSpan, cursor);
+        phase = 2; idx = 0;
+        setTimeout(step, SPEED);
+      }
+    } else {
+      if (idx < L2B.length) {
+        nodeGrad.textContent += L2B[idx++];
+        setTimeout(step, SPEED);
+      } else {
+        // Typing done — blink cursor 3x then remove
+        setTimeout(() => {
+          cursor.style.transition = 'opacity 0.4s';
+          cursor.style.opacity = '0';
+          setTimeout(() => cursor.remove(), 450);
+        }, 900);
+      }
+    }
+  }
+
+  // Start both simultaneously
+  setTimeout(step, 300);
+  setTimeout(animateChart, 500);
+})();
+
+// ── Shooting stars ───────────────────────────────────────────────────────────
+(function () {
+  const cv = document.createElement('canvas');
+  cv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:99;';
+  document.body.appendChild(cv);
+  const ctx = cv.getContext('2d');
+
+  let W, H;
+  function resize() { W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize, { passive: true });
+
+  const ANGLE = Math.PI * 0.72;
+  const COS = Math.cos(ANGLE), SIN = Math.sin(ANGLE);
+  const stars = [];
+
+  function spawn() {
+    const speed  = 500 + Math.random() * 400;
+    const length = 90  + Math.random() * 140;
+    const x = Math.random() < 0.55
+      ? W * 0.1 + Math.random() * W * 1.2
+      : W + 30;
+    const y = Math.random() < 0.55 ? -30 : Math.random() * H * 0.5;
+    const dist = Math.sqrt(W * W + H * H) + length;
+    stars.push({ x, y, vx: COS * speed, vy: SIN * speed,
+                 length, maxLife: dist / speed, life: 0 });
+  }
+
+  let last = 0, nextIn = 1800 + Math.random() * 2500;
+
+  function frame(ts) {
+    const dt = Math.min((ts - last) / 1000, 0.05);
+    last = ts;
+    ctx.clearRect(0, 0, W, H);
+
+    nextIn -= dt * 1000;
+    if (nextIn <= 0) { spawn(); nextIn = 1600 + Math.random() * 3200; }
+
+    for (let i = stars.length - 1; i >= 0; i--) {
+      const s = stars[i];
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.life += dt;
+
+      const t   = s.life / s.maxLife;
+      const opa = t < 0.08 ? t / 0.08 : t > 0.75 ? (1 - t) / 0.25 : 1;
+
+      const tx = s.x - COS * s.length;
+      const ty = s.y - SIN * s.length;
+      const g  = ctx.createLinearGradient(tx, ty, s.x, s.y);
+      g.addColorStop(0,   'rgba(255,255,255,0)');
+      g.addColorStop(0.6, 'rgba(180,220,255,' + (opa * 0.35).toFixed(3) + ')');
+      g.addColorStop(1,   'rgba(255,255,255,' + opa.toFixed(3) + ')');
+
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(s.x, s.y);
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 4);
+      glow.addColorStop(0, 'rgba(255,255,255,' + opa.toFixed(3) + ')');
+      glow.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = glow;
+      ctx.fill();
+
+      if (s.life > s.maxLife) stars.splice(i, 1);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
 })();
 
 // ── Nav scroll tint ──────────────────────────────────────────────────────────

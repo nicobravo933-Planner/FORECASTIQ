@@ -154,7 +154,7 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     await signOut()
-    router.push("/login")
+    router.push("/")
   }
 
   const handleClearChat = () => {
@@ -240,29 +240,36 @@ export default function SettingsPage() {
           {user ? (
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography fontWeight={600} sx={{ fontSize: "1rem", color: "text.primary" }}>
-                {user.name ?? "—"}
+                {(user as { isAnonymous?: boolean }).isAnonymous
+                  ? "Invitado"
+                  : (user.name ?? "—")
+                }
               </Typography>
-              <Typography variant="body2" color="text.secondary">{user.email}</Typography>
-              {provider && (
+              {!(user as { isAnonymous?: boolean }).isAnonymous && (
+                <Typography variant="body2" color="text.secondary">{user.email}</Typography>
+              )}
+              {(user as { isAnonymous?: boolean }).isAnonymous ? (
+                <Chip label="Sesión temporal · sin cuenta" size="small"
+                  sx={{ mt: "0.375rem", fontSize: "0.6875rem", height: "1.375rem" }} />
+              ) : provider ? (
                 <Chip label={`OAuth · ${provider}`} size="small"
                   sx={{ mt: "0.375rem", fontSize: "0.6875rem", height: "1.375rem" }} />
-              )}
+              ) : null}
             </Box>
           ) : (
             <Typography variant="body2" color="text.secondary">No hay sesión activa.</Typography>
           )}
 
-          {user && (
-            <Tooltip title="Cerrar sesión">
+          <Tooltip title={user ? "Cerrar sesión" : "Sin sesión activa"}>
               <Button
                 variant="outlined" color="error" size="small" startIcon={<LogoutIcon />}
-                onClick={handleLogout}
+                onClick={user ? handleLogout : undefined}
+                disabled={!user}
                 sx={{ textTransform: "none", borderRadius: "0.5rem", flexShrink: 0 }}
               >
                 Salir
               </Button>
             </Tooltip>
-          )}
         </Box>
       </SectionCard>
 

@@ -36,8 +36,8 @@ export const auth = betterAuth({
 	},
 
 	redirects: {
-		afterSignIn: "/dashboard/dataset",
-		afterSignOut: "/login",
+		afterSignIn: "/dashboard/home",
+		afterSignOut: "/",
 	},
 
 	plugins: [
